@@ -1,0 +1,9 @@
+fastapi==0.115.0
+uvicorn==0.30.0
+python-multipart==0.0.32
+pydub==0.25.1
+librosa==0.11.0
+ffmpeg-python==0.2.0
+imageio-ffmpeg==0.6.0
+soundfile==0.14.0
+numpy==2.0.0
