@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Audio Trim — AI-Powered Audio Editor",
+  title: "Audelle — AI-Powered Audio Editor",
   description:
     "Upload audio, describe what you want, and let AI handle the rest. Source separation, trimming, stem export, and more — all through natural language.",
 };

@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from server.routes.upload import router as upload_router
 
 app = FastAPI(
-    title="Audio Trim API",
+    title="Audelle API",
     description="AI-powered audio editing via natural language prompts",
     version="0.1.0",
 )

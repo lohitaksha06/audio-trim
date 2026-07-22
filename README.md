@@ -1,4 +1,4 @@
-# Audio Trim — AI-Powered Audio Editor
+# Audelle — AI-Powered Audio Editor
 
 An intelligent audio editor where **everything is possible by prompting**. The AI understands audio at a deep level — instruments, structure, mood, and speaker intent — and executes edits from natural language. No drag handles, no waveform scrubbing (except manual mode fallback).
 

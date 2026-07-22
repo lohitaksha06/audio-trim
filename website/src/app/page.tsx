@@ -6,18 +6,18 @@ export default function Home() {
   return (
     <>
       {/* Hero Section */}
-      <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4">
+      <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 sm:px-8">
         <div className="absolute inset-0 bg-gradient-to-b from-black via-black/95 to-black" />
         <AudioWave />
 
-        <div className="relative z-10 flex max-w-4xl flex-col items-center text-center">
-          <div className="animate-fade-in-up mb-6">
-            <span className="inline-block rounded-full border border-neon-blue/30 bg-neon-blue/10 px-4 py-1.5 text-xs font-medium tracking-wider text-neon-blue uppercase">
+        <div className="relative z-10 flex max-w-5xl flex-col items-center text-center">
+          <div className="animate-fade-in-up mb-6 sm:mb-8">
+            <span className="inline-block rounded-full border border-neon-blue/30 bg-neon-blue/10 px-5 py-2 text-xs sm:text-sm font-medium tracking-wider text-neon-blue uppercase">
               AI-Powered Audio Editor
             </span>
           </div>
 
-          <h1 className="animate-fade-in-up animate-delay-1 mb-6 text-5xl font-bold tracking-tight text-white sm:text-6xl lg:text-7xl">
+          <h1 className="animate-fade-in-up animate-delay-1 mb-6 sm:mb-8 text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tight text-white leading-tight">
             Describe what you want.
             <br />
             <span className="bg-gradient-to-r from-neon-blue via-neon-purple-light to-neon-purple bg-clip-text text-transparent">
@@ -25,10 +25,10 @@ export default function Home() {
             </span>
           </h1>
 
-          <p className="animate-fade-in-up animate-delay-2 mb-10 max-w-2xl text-lg leading-relaxed text-white/60">
+          <p className="animate-fade-in-up animate-delay-2 mb-10 sm:mb-12 max-w-3xl text-lg sm:text-xl lg:text-2xl leading-relaxed text-white/60">
             Upload audio or video. The AI analyzes every element — instruments,
             vocals, beats, structure. Then just type what you want:
-            <span className="block mt-2 italic text-white/40">
+            <span className="block mt-3 italic text-white/40 text-base sm:text-lg">
               &ldquo;Remove the kick drum from 2:30 to 3:45&rdquo;
               &nbsp;&bull;&nbsp;
               &ldquo;Make this section sound darker&rdquo;
@@ -40,15 +40,15 @@ export default function Home() {
           <div className="animate-fade-in-up animate-delay-3 flex flex-col items-center gap-4 sm:flex-row">
             <Link
               href="/prompt"
-              className="animate-pulse-glow inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple px-8 py-4 text-base font-semibold text-black transition-all duration-300 hover:scale-105 hover:from-neon-blue/90 hover:to-neon-purple/90"
+              className="animate-pulse-glow inline-flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple px-8 sm:px-10 py-4 sm:py-5 text-base sm:text-lg font-semibold text-black transition-all duration-300 hover:scale-105 hover:from-neon-blue/90 hover:to-neon-purple/90"
             >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
               Start Editing
             </Link>
-            <button className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-8 py-4 text-base font-medium text-white/80 transition-all duration-300 hover:border-white/40 hover:text-white">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <button className="inline-flex items-center gap-2.5 rounded-xl border border-white/20 px-8 sm:px-10 py-4 sm:py-5 text-base sm:text-lg font-medium text-white/80 transition-all duration-300 hover:border-white/40 hover:text-white">
+              <svg className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -59,8 +59,8 @@ export default function Home() {
 
         <div className="animate-fade-in-up animate-delay-4 absolute bottom-8 z-10">
           <div className="flex animate-bounce flex-col items-center gap-1 text-white/30">
-            <span className="text-xs">Scroll</span>
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <span className="text-xs sm:text-sm">Scroll</span>
+            <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
             </svg>
           </div>
@@ -68,16 +68,16 @@ export default function Home() {
       </section>
 
       {/* How It Works */}
-      <section className="relative border-t border-white/5 px-4 py-24">
+      <section className="relative border-t border-white/5 px-4 sm:px-8 py-20 sm:py-28">
         <div className="mx-auto max-w-6xl">
-          <h2 className="mb-4 text-center text-3xl font-bold text-white sm:text-4xl">
+          <h2 className="mb-4 text-center text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
             How it works
           </h2>
-          <p className="mb-16 text-center text-white/40">
+          <p className="mb-12 sm:mb-16 text-center text-base sm:text-lg text-white/40">
             Three steps to go from raw audio to finished edit.
           </p>
 
-          <div className="grid gap-8 md:grid-cols-3">
+          <div className="grid gap-6 sm:gap-8 md:grid-cols-3">
             {[
               {
                 step: "01",
@@ -95,12 +95,12 @@ export default function Home() {
                 desc: "Download your edit as MP3, WAV, FLAC, or stems. Or export XML for Premiere / DaVinci / Final Cut.",
               },
             ].map((item) => (
-              <div key={item.step} className="group relative rounded-2xl border border-white/5 bg-white/[0.02] p-8 transition-all duration-300 hover:border-neon-purple/20 hover:bg-white/[0.05]">
-                <span className="mb-4 block text-5xl font-bold text-white/10 transition-colors duration-300 group-hover:text-neon-purple/30">
+              <div key={item.step} className="group relative rounded-2xl border border-white/5 bg-white/[0.02] p-6 sm:p-8 transition-all duration-300 hover:border-neon-purple/20 hover:bg-white/[0.05]">
+                <span className="mb-4 block text-5xl sm:text-6xl font-bold text-white/10 transition-colors duration-300 group-hover:text-neon-purple/30">
                   {item.step}
                 </span>
-                <h3 className="mb-3 text-xl font-semibold text-white">{item.title}</h3>
-                <p className="leading-relaxed text-white/50">{item.desc}</p>
+                <h3 className="mb-3 text-xl sm:text-2xl font-semibold text-white">{item.title}</h3>
+                <p className="text-sm sm:text-base leading-relaxed text-white/50">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -108,16 +108,16 @@ export default function Home() {
       </section>
 
       {/* Features Grid */}
-      <section className="relative border-t border-white/5 px-4 py-24">
+      <section className="relative border-t border-white/5 px-4 sm:px-8 py-20 sm:py-28">
         <div className="mx-auto max-w-6xl">
-          <h2 className="mb-4 text-center text-3xl font-bold text-white sm:text-4xl">
+          <h2 className="mb-4 text-center text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
             What you can do
           </h2>
-          <p className="mb-16 text-center text-white/40">
+          <p className="mb-12 sm:mb-16 text-center text-base sm:text-lg text-white/40">
             Everything is possible through natural language.
           </p>
 
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-5 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <FeatureCard
               icon="🎵"
               title="Source Separation"
@@ -153,20 +153,20 @@ export default function Home() {
       </section>
 
       {/* CTA */}
-      <section className="relative border-t border-white/5 px-4 py-24">
+      <section className="relative border-t border-white/5 px-4 sm:px-8 py-20 sm:py-28">
         <div className="mx-auto max-w-3xl text-center">
-          <h2 className="mb-6 text-3xl font-bold text-white sm:text-4xl">
+          <h2 className="mb-6 text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
             Ready to try it?
           </h2>
-          <p className="mb-10 text-lg text-white/40">
+          <p className="mb-10 text-lg sm:text-xl text-white/40">
             No accounts. No sign-up. Just upload and start editing.
           </p>
           <Link
             href="/prompt"
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple px-10 py-4 text-lg font-semibold text-black transition-all duration-300 hover:scale-105"
+            className="inline-flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple px-8 sm:px-10 py-4 sm:py-5 text-lg sm:text-xl font-semibold text-black transition-all duration-300 hover:scale-105"
           >
             Go to Editor
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
           </Link>
