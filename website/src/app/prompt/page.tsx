@@ -4,7 +4,7 @@ import { useState } from "react";
 import Nav from "@/components/Nav";
 import Sidebar from "@/components/Sidebar";
 import FileUpload from "@/components/FileUpload";
-import { uploadFile, type UploadResponse } from "@/services/api";
+import { uploadFile, processAudio, type UploadResponse } from "@/services/api";
 
 type PageState = "idle" | "uploading" | "analyzed" | "processing" | "completed" | "error";
 
@@ -15,9 +15,6 @@ export default function PromptPage() {
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [history, setHistory] = useState<{ role: string; text: string }[]>([]);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-
-  const isVideo = (f: File) => f.type.startsWith("video/");
 
   const handleFileSelected = async (f: File) => {
     setFile(f);
@@ -34,18 +31,37 @@ export default function PromptPage() {
     }
   };
 
-  const handleProcess = () => {
+  const handleProcess = async () => {
     if (!prompt.trim()) return;
+    if (!uploadResult) {
+      setHistory((prev) => [...prev, { role: "ai", text: "Please upload a file first before processing." }]);
+      return;
+    }
     setHistory((prev) => [...prev, { role: "user", text: prompt }]);
+    const currentPrompt = prompt;
+    setPrompt("");
     setState("processing");
-    setTimeout(() => {
-      setHistory((prev) => [...prev, { role: "ai", text: `Done! Applied: "${prompt}" to your audio.` }]);
+    try {
+      const result = await processAudio(uploadResult.audio_path, currentPrompt);
+      const msg = `Done! Intent: ${result.intent}. Applied: "${currentPrompt}"`;
+      setHistory((prev) => [...prev, { role: "ai", text: msg }]);
       setState("completed");
-    }, 2000);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Processing failed";
+      setHistory((prev) => [...prev, { role: "ai", text: `Error: ${msg}` }]);
+      setState("analyzed");
+    }
   };
 
-  const handlePromptSelect = (p: string) => {
-    setPrompt(p);
+  const handlePromptSelect = (p: string) => setPrompt(p);
+
+  const reset = () => {
+    setState("idle");
+    setFile(null);
+    setPrompt("");
+    setUploadResult(null);
+    setErrorMsg("");
+    setHistory([]);
   };
 
   const formatSize = (bytes: number) => {
@@ -57,15 +73,6 @@ export default function PromptPage() {
     const m = Math.floor(sec / 60);
     const s = Math.floor(sec % 60);
     return `${m}:${s.toString().padStart(2, "0")}`;
-  };
-
-  const reset = () => {
-    setState("idle");
-    setFile(null);
-    setPrompt("");
-    setUploadResult(null);
-    setErrorMsg("");
-    setHistory([]);
   };
 
   const analysis = uploadResult?.analysis;
@@ -80,223 +87,149 @@ export default function PromptPage() {
     : [];
 
   return (
-    <div className="flex h-screen flex-col bg-black overflow-hidden">
+    <div className="flex h-screen flex-col bg-black">
       <Nav />
 
       <div className="flex flex-1 mt-14 sm:mt-16 overflow-hidden">
-        {/* Sidebar */}
-        <div className={`${sidebarOpen ? "block" : "hidden"} md:block`}>
-          <Sidebar onPromptSelect={handlePromptSelect} />
-        </div>
+        <Sidebar onPromptSelect={handlePromptSelect} />
 
-        {/* Sidebar toggle */}
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="hidden md:flex fixed left-0 top-20 z-40 items-center justify-center w-6 h-12 bg-white/5 border border-white/10 border-l-0 rounded-r-lg hover:bg-white/10 transition-colors"
-          style={{ left: sidebarOpen ? "320px" : "0" }}
-        >
-          <svg
-            className={`h-4 w-4 text-white/40 transition-transform ${sidebarOpen ? "rotate-180" : ""}`}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-
-        {/* Main Content */}
-        <main className="flex-1 overflow-y-auto">
-          {/* IDLE */}
-          {state === "idle" && (
-            <div className="flex flex-col items-center justify-center h-full px-4 sm:px-8">
-              <div className="w-full max-w-2xl">
-                <div className="mb-8 text-center">
-                  <h1 className="mb-3 text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
-                    Edit with AI
-                  </h1>
-                  <p className="text-base sm:text-lg text-white/40">
-                    Upload audio or video and describe what you want to do.
-                  </p>
-                </div>
-                <FileUpload onFileSelected={handleFileSelected} />
-
-                {/* Quick suggestions */}
-                <div className="mt-8 text-center">
-                  <p className="mb-3 text-sm text-white/30">Try saying:</p>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    {[
-                      "Remove the vocals",
-                      "Trim from 1:00 to 2:30",
-                      "Make this sound darker",
-                      "Extract just the drums",
-                    ].map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => { setPrompt(s); handlePromptSelect(s); }}
-                        className="rounded-full border border-white/10 px-3 py-1.5 text-xs sm:text-sm text-white/40 transition-colors hover:border-neon-blue/30 hover:text-neon-blue/70"
-                      >
-                        {s}
-                      </button>
-                    ))}
+        <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+          {/* Content area */}
+          <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+            {!file ? (
+              /* IDLE - Upload */
+              <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-8">
+                <div className="w-full max-w-2xl">
+                  <div className="mb-8 text-center">
+                    <h1 className="mb-3 text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
+                      Edit with AI
+                    </h1>
+                    <p className="text-base sm:text-lg text-white/40">
+                      Upload audio or video and describe what you want to do.
+                    </p>
                   </div>
-                </div>
-              </div>
-            </div>
-          )}
+                  <FileUpload onFileSelected={handleFileSelected} />
 
-          {/* UPLOADING */}
-          {state === "uploading" && (
-            <div className="flex flex-col items-center justify-center h-full">
-              <div className="mb-6 h-12 w-12 animate-spin rounded-full border-2 border-neon-blue border-t-transparent" />
-              <p className="text-lg text-white/60">Analyzing your file...</p>
-              <p className="mt-1 text-sm text-white/30">Detecting instruments, structure, and energy</p>
-            </div>
-          )}
-
-          {/* ANALYZED / PROCESSING / COMPLETED */}
-          {(state === "analyzed" || state === "processing" || state === "completed") && file && (
-            <div className="h-full flex flex-col">
-              {/* File bar */}
-              <div className="flex items-center gap-4 border-b border-white/5 px-4 sm:px-6 py-3 sm:py-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-neon-blue/20 to-neon-purple/20">
-                  <span className="text-xl">{uploadResult?.is_video ? "🎬" : "🎵"}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="truncate text-base sm:text-lg font-medium text-white">{file.name}</p>
-                  <p className="text-xs sm:text-sm text-white/40">
-                    {uploadResult?.is_video ? "Video (audio extracted)" : "Audio"} · {formatSize(file.size)}
-                  </p>
-                </div>
-                {state === "completed" && (
-                  <span className="rounded-full bg-green-500/10 px-3 py-1 text-xs sm:text-sm font-medium text-green-400">
-                    Done
-                  </span>
-                )}
-                <button
-                  onClick={reset}
-                  className="rounded-lg border border-white/10 px-3 py-1.5 text-xs sm:text-sm text-white/40 transition-colors hover:border-white/20 hover:text-white/70"
-                >
-                  New file
-                </button>
-              </div>
-
-              {/* Analysis + Prompt split */}
-              <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-                {/* Left: Analysis */}
-                <div className="lg:w-1/3 border-r border-white/5 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-5">
-                  <h3 className="text-xs sm:text-sm font-semibold text-white/50 uppercase tracking-wider">Analysis</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {details.map((d) => (
-                      <div key={d.label} className="rounded-lg border border-white/5 bg-white/[0.02] p-2.5 sm:p-3">
-                        <span className="block text-[10px] sm:text-xs text-white/30">{d.label}</span>
-                        <span className="text-sm sm:text-base font-medium text-white">{d.value}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
-                    <h4 className="mb-2 text-xs sm:text-sm font-semibold text-white/50 uppercase tracking-wider">Detected</h4>
-                    <div className="flex flex-wrap gap-1.5">
-                      {["🎤 Vocals", "🥁 Drums", "🎸 Bass", "🎹 Keys", "🎸 Guitar", "🎛️ Synth"].map((el) => (
-                        <span key={el} className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs sm:text-sm text-white/60">
-                          {el}
-                        </span>
+                  <div className="mt-8 text-center">
+                    <p className="mb-3 text-sm text-white/30">Try saying:</p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {["Remove the vocals", "Trim from 1:00 to 2:30", "Make this sound darker", "Extract just the drums"].map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => handlePromptSelect(s)}
+                          className="rounded-full border border-white/10 px-3 py-1.5 text-xs sm:text-sm text-white/40 transition-colors hover:border-neon-blue/30 hover:text-neon-blue/70"
+                        >
+                          {s}
+                        </button>
                       ))}
                     </div>
-                    <p className="mt-2 text-[10px] sm:text-xs text-white/30 italic">
-                      Click a feature in the sidebar to auto-fill a prompt.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Right: Prompt + Chat */}
-                <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
-                  {/* Chat history */}
-                  <div className="flex-1 overflow-y-auto space-y-3 mb-4">
-                    {history.length === 0 && (
-                      <div className="flex flex-col items-center justify-center h-full text-center">
-                        <p className="text-base sm:text-lg text-white/30 mb-2">What do you want to do?</p>
-                        <p className="text-xs sm:text-sm text-white/20">Use the sidebar or type a prompt below</p>
-                      </div>
-                    )}
-                    {history.map((h, i) => (
-                      <div
-                        key={i}
-                        className={`flex ${h.role === "user" ? "justify-end" : "justify-start"}`}
-                      >
-                        <div
-                          className={`max-w-[80%] rounded-xl px-4 py-2.5 text-sm sm:text-base ${
-                            h.role === "user"
-                              ? "bg-gradient-to-r from-neon-blue/20 to-neon-purple/20 text-white/90"
-                              : "bg-white/5 text-white/60"
-                          }`}
-                        >
-                          {h.text}
-                        </div>
-                      </div>
-                    ))}
-                    {state === "processing" && (
-                      <div className="flex justify-start">
-                        <div className="flex items-center gap-2 rounded-xl bg-neon-blue/10 px-4 py-2.5 text-sm sm:text-base text-neon-blue">
-                          <div className="h-3 w-3 animate-spin rounded-full border border-neon-blue border-t-transparent" />
-                          Processing...
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Prompt input */}
-                  <div className="shrink-0 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:p-4">
-                    <div className="flex gap-3">
-                      <input
-                        type="text"
-                        value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
-                        placeholder='e.g. "Remove the kick drum" or "Make this sound darker"'
-                        className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm sm:text-base text-white placeholder-white/20 outline-none transition-colors focus:border-neon-blue/50 focus:ring-1 focus:ring-neon-blue/20"
-                        disabled={state === "processing"}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            handleProcess();
-                          }
-                        }}
-                      />
-                      <button
-                        onClick={handleProcess}
-                        disabled={!prompt.trim() || state === "processing"}
-                        className="shrink-0 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple px-5 sm:px-6 py-3 text-sm sm:text-base font-semibold text-black transition-all duration-300 hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        {state === "processing" ? "..." : "Process"}
-                      </button>
-                    </div>
-                    <p className="mt-2 text-[10px] sm:text-xs text-white/20">
-                      Press Enter to send · All features are available in the sidebar →
-                    </p>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            ) : (
+              /* File loaded */
+              <>
+                {/* Top bar */}
+                <div className="shrink-0 flex items-center gap-3 border-b border-white/5 px-4 sm:px-6 py-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-neon-blue/20 to-neon-purple/20">
+                    <svg className="h-4 w-4 text-neon-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate text-sm font-medium text-white">{file.name}</p>
+                    <p className="text-xs text-white/40">
+                      {uploadResult?.is_video ? "Video" : "Audio"} · {formatSize(file.size)}
+                      {analysis && <> · {formatDuration(analysis.duration_seconds)}</>}
+                    </p>
+                  </div>
+                  {state === "completed" && (
+                    <span className="rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-medium text-green-400">Done</span>
+                  )}
+                  <button onClick={reset} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/40 hover:border-white/20 hover:text-white/70 transition-colors">
+                    New file
+                  </button>
+                </div>
 
-          {/* ERROR */}
-          {state === "error" && (
-            <div className="flex flex-col items-center justify-center h-full">
-              <span className="mb-4 text-5xl">⚠️</span>
-              <p className="mb-2 text-xl font-medium text-white">Something went wrong</p>
-              <p className="mb-6 max-w-md text-center text-sm sm:text-base text-white/40">
-                {errorMsg || "Please try again with a different file."}
-              </p>
+                {/* Middle: Analysis + Chat */}
+                <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
+                  {/* Left: Analysis */}
+                  <div className="lg:w-80 shrink-0 border-r border-white/5 overflow-y-auto p-4 space-y-4">
+                    <h3 className="text-xs font-semibold text-white/50 uppercase tracking-wider">Analysis</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {details.map((d) => (
+                        <div key={d.label} className="rounded-lg border border-white/5 bg-white/[0.02] p-2.5">
+                          <span className="block text-[10px] text-white/30">{d.label}</span>
+                          <span className="text-sm font-medium text-white">{d.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                      <h4 className="mb-2 text-xs font-semibold text-white/50 uppercase tracking-wider">Detected</h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {["Vocals", "Drums", "Bass", "Keys", "Guitar", "Synth"].map((el) => (
+                          <span key={el} className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-white/50">{el}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: Chat */}
+                  <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                      {history.length === 0 && (
+                        <div className="flex flex-col items-center justify-center h-full text-center">
+                          <p className="text-base text-white/30 mb-2">What do you want to do?</p>
+                          <p className="text-xs text-white/20">Type a prompt below</p>
+                        </div>
+                      )}
+                      {history.map((h, i) => (
+                        <div key={i} className={`flex ${h.role === "user" ? "justify-end" : "justify-start"}`}>
+                          <div className={`max-w-[80%] rounded-xl px-4 py-2.5 text-sm ${h.role === "user" ? "bg-gradient-to-r from-neon-blue/20 to-neon-purple/20 text-white/90" : "bg-white/5 text-white/60"}`}>
+                            {h.text}
+                          </div>
+                        </div>
+                      ))}
+                      {state === "processing" && (
+                        <div className="flex justify-start">
+                          <div className="flex items-center gap-2 rounded-xl bg-neon-blue/10 px-4 py-2.5 text-sm text-neon-blue">
+                            <div className="h-3 w-3 animate-spin rounded-full border border-neon-blue border-t-transparent" />
+                            Processing...
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* ALWAYS VISIBLE Prompt Input at bottom */}
+          <div className="shrink-0 border-t border-white/5 p-3 sm:p-4 bg-black/80 backdrop-blur-sm">
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder='e.g. "Remove the kick drum" or "Make this sound darker"'
+                className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 text-sm sm:text-base text-white placeholder-white/20 outline-none transition-all focus:border-neon-blue/50 focus:ring-2 focus:ring-neon-blue/20 focus:bg-white/[0.04]"
+                disabled={state === "processing"}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleProcess(); } }}
+                autoFocus
+              />
               <button
-                onClick={reset}
-                className="rounded-xl bg-white/10 px-6 py-3 text-base font-medium text-white transition-colors hover:bg-white/20"
+                onClick={handleProcess}
+                disabled={!prompt.trim() || state === "processing"}
+                className="shrink-0 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple px-6 py-3.5 text-sm sm:text-base font-semibold text-black transition-all duration-300 hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Try again
+                {state === "processing" ? "..." : "Process"}
               </button>
             </div>
-          )}
+            <p className="mt-2 text-[11px] text-white/20">
+              {file ? "Press Enter to send" : "Upload a file first, then describe what you want"}
+            </p>
+          </div>
         </main>
       </div>
     </div>

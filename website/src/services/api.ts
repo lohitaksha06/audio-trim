@@ -17,6 +17,13 @@ export interface UploadResponse {
   analysis: AnalysisResult;
 }
 
+export interface ProcessResponse {
+  output_path: string;
+  intent: string;
+  params: Record<string, unknown>;
+  raw_prompt: string;
+}
+
 export async function uploadFile(file: File): Promise<UploadResponse> {
   const form = new FormData();
   form.append("file", file);
@@ -29,6 +36,21 @@ export async function uploadFile(file: File): Promise<UploadResponse> {
   if (!res.ok) {
     const err = await res.text();
     throw new Error(err || "Upload failed");
+  }
+
+  return res.json();
+}
+
+export async function processAudio(audioPath: string, prompt: string): Promise<ProcessResponse> {
+  const res = await fetch(`${API_BASE}/api/process`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ audio_path: audioPath, prompt }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err || "Processing failed");
   }
 
   return res.json();
