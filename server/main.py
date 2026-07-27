@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from server.routes.upload import router as upload_router
 from server.routes.process import router as process_router
+from server.routes.ml import router as ml_router
 
 app = FastAPI(
     title="Audelle API",
@@ -20,6 +21,7 @@ app.add_middleware(
 
 app.include_router(upload_router)
 app.include_router(process_router)
+app.include_router(ml_router)
 
 
 @app.get("/api/health")

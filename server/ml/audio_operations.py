@@ -1,43 +1,86 @@
+import json
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import soundfile as sf
 import librosa
 
 from server.ml.prompt_engine import PromptPlan, Intent
+from server.ml.source_separation.separator import SourceSeparator
+from server.services.converter import convert_file
 
 
-def execute_plan(audio_path: str, plan: PromptPlan) -> str:
+def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
     y, sr = librosa.load(audio_path, sr=None, mono=False)
     if y.ndim == 1:
         y = y[np.newaxis, :]
 
+    output_path = None
+    stems = None
+    metadata = {}
+
     if plan.intent == Intent.TRIM:
         y = _trim(y, sr, plan.params)
+        output_path = _save_wav(y, sr)
     elif plan.intent == Intent.REMOVE:
         y = _remove_section(y, sr, plan.params)
+        output_path = _save_wav(y, sr)
     elif plan.intent == Intent.FADE:
         y = _fade(y, sr, plan.params)
+        output_path = _save_wav(y, sr)
     elif plan.intent == Intent.NORMALIZE:
         y = _normalize(y)
+        output_path = _save_wav(y, sr)
     elif plan.intent == Intent.REMOVE_SILENCE:
         y = _remove_silence(y, sr)
+        output_path = _save_wav(y, sr)
     elif plan.intent == Intent.SPEED:
         y = _speed_change(y, sr, plan.params)
+        output_path = _save_wav(y, sr)
     elif plan.intent == Intent.REVERB:
         y = _add_reverb(y, sr)
+        output_path = _save_wav(y, sr)
     elif plan.intent == Intent.MOOD:
         y = _mood_adjust(y, sr, plan.params)
-    elif plan.intent == Intent.SEPARATE:
-        pass
-    elif plan.intent == Intent.CONVERT:
-        pass
-    elif plan.intent == Intent.ISOLATE:
-        pass
+        output_path = _save_wav(y, sr)
     elif plan.intent == Intent.REMOVE_FILLERS:
         y = _remove_silence(y, sr, threshold_db=15)
+        output_path = _save_wav(y, sr)
+    elif plan.intent == Intent.SEPARATE:
+        separator = SourceSeparator()
+        stems = separator.separate(audio_path)
+        metadata["stems"] = stems
+    elif plan.intent == Intent.ISOLATE:
+        separator = SourceSeparator()
+        target = plan.params.get("instrument", "vocals")
+        stem_path = separator.isolate(audio_path, target)
+        if stem_path:
+            output_path = stem_path
+            metadata["isolated_stem"] = target
+        else:
+            stems = separator.separate(audio_path)
+            metadata["stems"] = stems
+            metadata["note"] = f"Stem '{target}' not found; returning all stems"
+    elif plan.intent == Intent.CONVERT:
+        target_format = plan.params.get("format", "mp3")
+        output_path = convert_file(audio_path, target_format)
+        metadata["format"] = target_format
 
+    result: dict[str, Any] = {"intent": plan.intent.value, "params": plan.params}
+
+    if output_path:
+        result["output_path"] = output_path
+    if stems:
+        result["stems"] = stems
+    if metadata:
+        result["metadata"] = metadata
+
+    return result
+
+
+def _save_wav(y: np.ndarray, sr: int) -> str:
     output_path = tempfile.mktemp(suffix=".wav")
     sf.write(output_path, y.T if y.shape[0] > 1 else y[0], sr)
     return output_path

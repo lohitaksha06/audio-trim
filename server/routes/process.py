@@ -13,22 +13,26 @@ class ProcessRequest(BaseModel):
 
 
 class ProcessResponse(BaseModel):
-    output_path: str
+    output_path: str | None = None
+    stems: dict[str, str] | None = None
     intent: str
     params: dict
     raw_prompt: str
+    metadata: dict | None = None
 
 
 @router.post("/process", response_model=ProcessResponse)
 async def process_audio(req: ProcessRequest):
     try:
         plan = plan_from_prompt(req.prompt)
-        output_path = execute_plan(req.audio_path, plan)
+        result = execute_plan(req.audio_path, plan)
         return ProcessResponse(
-            output_path=output_path,
-            intent=plan.intent.value,
-            params=plan.params,
+            output_path=result.get("output_path"),
+            stems=result.get("stems"),
+            intent=result["intent"],
+            params=result["params"],
             raw_prompt=plan.raw_prompt,
+            metadata=result.get("metadata"),
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Processing failed: {e}")
