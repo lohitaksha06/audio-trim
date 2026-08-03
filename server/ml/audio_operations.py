@@ -25,8 +25,14 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
         y = _trim(y, sr, plan.params)
         output_path = _save_wav(y, sr)
     elif plan.intent == Intent.REMOVE:
-        y = _remove_section(y, sr, plan.params)
-        output_path = _save_wav(y, sr)
+        instrument = plan.params.get("instrument")
+        if instrument:
+            y = _remove_stem(audio_path, instrument, y, sr)
+            output_path = _save_wav(y, sr)
+            metadata["removed_stem"] = instrument
+        else:
+            y = _remove_section(y, sr, plan.params)
+            output_path = _save_wav(y, sr)
     elif plan.intent == Intent.FADE:
         y = _fade(y, sr, plan.params)
         output_path = _save_wav(y, sr)
@@ -92,6 +98,18 @@ def _trim(y: np.ndarray, sr: int, params: dict) -> np.ndarray:
     start_sample = int(start * sr)
     end_sample = int(end * sr)
     return y[:, start_sample:end_sample]
+
+
+def _remove_stem(audio_path: str, instrument: str, y: np.ndarray, sr: int) -> np.ndarray:
+    separator = SourceSeparator()
+    stem_path = separator.isolate(audio_path, instrument)
+    if not stem_path:
+        return y
+    y_stem, _ = librosa.load(stem_path, sr=sr, mono=False)
+    if y_stem.ndim == 1:
+        y_stem = y_stem[np.newaxis, :]
+    n = min(y.shape[1], y_stem.shape[1])
+    return np.clip(y[:, :n] - y_stem[:, :n], -1, 1)
 
 
 def _remove_section(y: np.ndarray, sr: int, params: dict) -> np.ndarray:
@@ -160,7 +178,7 @@ def _mood_adjust(y: np.ndarray, sr: int, params: dict) -> np.ndarray:
         low_boost[freqs > 4000] = 0.7
         S = librosa.stft(y[0])
         S = S * low_boost[:, np.newaxis]
-        y[0] = librosa.istft(S)
+        y[0] = librosa.istft(S, length=y.shape[1])
     elif mood == "bright":
         freqs = librosa.fft_frequencies(sr=sr)
         high_boost = np.ones(len(freqs))
@@ -168,7 +186,7 @@ def _mood_adjust(y: np.ndarray, sr: int, params: dict) -> np.ndarray:
         high_boost[freqs < 200] = 0.8
         S = librosa.stft(y[0])
         S = S * high_boost[:, np.newaxis]
-        y[0] = librosa.istft(S)
+        y[0] = librosa.istft(S, length=y.shape[1])
     elif mood == "energetic":
         y = _normalize(y) * 1.1
         y = np.clip(y, -1, 1)

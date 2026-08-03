@@ -74,14 +74,19 @@ def extract_instrument(prompt: str) -> str | None:
     return None
 
 
+_FILLER_PATTERN = re.compile(r"(?<![a-z])(um+|uh+|ah+|er+)s?(?![a-z])")
+
+
 def classify_intent(prompt: str) -> Intent:
     lower = prompt.lower()
 
     if any(w in lower for w in ["trim", "cut", "crop", " shorten"]):
         return Intent.TRIM
     if any(w in lower for w in ["remove", "delete", "drop", "get rid of", "cut out"]):
-        if any(w in lower for w in ["um", "ah", "filler", "pause", "silence", "silent"]):
-            return Intent.REMOVE_FILLERS if "filler" in lower or "um" in lower or "ah" in lower else Intent.REMOVE_SILENCE
+        has_filler = "filler" in lower or _FILLER_PATTERN.search(lower)
+        has_silence = any(w in lower for w in ["silence", "silent", "pause", "gap", "quiet part"])
+        if has_filler or has_silence:
+            return Intent.REMOVE_FILLERS if has_filler else Intent.REMOVE_SILENCE
         return Intent.REMOVE
     if any(w in lower for w in ["separate", "split", "stems", "stem"]):
         return Intent.SEPARATE
@@ -95,7 +100,9 @@ def classify_intent(prompt: str) -> Intent:
         return Intent.NORMALIZE
     if any(w in lower for w in ["darker", "brighter", "energetic", "calm", "mood", "feel", "tone"]):
         return Intent.MOOD
-    if any(w in lower for w in ["speed", "faster", "slower", "tempo", "ramp"]):
+    if any(w in lower for w in ["speed", "tempo", "ramp"]) or re.search(
+        r"\b(fast|faster|slow|slower|speed ?up|speed ?down)\b", lower
+    ):
         return Intent.SPEED
     if any(w in lower for w in ["reverb", "echo", "delay", "space"]):
         return Intent.REVERB
@@ -159,10 +166,21 @@ def plan_from_prompt(prompt: str) -> PromptPlan:
 
     if intent == Intent.SPEED:
         lower = prompt.lower()
-        if "fast" in lower:
-            params["speed_factor"] = 1.5
-        elif "slow" in lower:
-            params["speed_factor"] = 0.75
+        factor = 1.0
+        m = re.search(r"(\d+(?:\.\d+)?)\s*(?:x|times)\s*(?:as\s*)?(fast|faster|slow|slower)", lower)
+        if m:
+            num = float(m.group(1))
+            factor = num if m.group(2).startswith("fast") else 1 / num
+        elif re.search(r"\b(twice|double|2x|2x fast)\b", lower):
+            factor = 2.0
+        elif re.search(r"\b(half|slow|slower|slow ?down|speed ?down)\b", lower):
+            factor = 0.75
+        elif re.search(r"\b(fast|faster|speed ?up)\b", lower):
+            factor = 1.5
+        elif re.search(r"\bspeed\b", lower):
+            factor = 1.5
+        if factor != 1.0:
+            params["speed_factor"] = factor
 
     if intent == Intent.REVERB:
         params["reverb_amount"] = 0.5
