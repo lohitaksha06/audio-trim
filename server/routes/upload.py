@@ -4,13 +4,11 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
+import server.services.storage as storage
 from server.services.audio_processor import analyze_audio
 from server.services.video_extractor import extract_audio
 
 router = APIRouter(prefix="/api", tags=["upload"])
-
-UPLOAD_DIR = Path(tempfile.gettempdir()) / "audio-trim-uploads"
-UPLOAD_DIR.mkdir(exist_ok=True)
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"}
 AUDIO_EXTENSIONS = {".mp3", ".wav", ".flac", ".aac", ".m4a", ".ogg"}
@@ -26,16 +24,16 @@ async def upload_file(file: UploadFile = File(...)):
             detail=f"Unsupported file type: {ext}. Supported: {AUDIO_EXTENSIONS | VIDEO_EXTENSIONS}",
         )
 
-    temp_path = UPLOAD_DIR / f"{os.urandom(8).hex()}{ext}"
     content = await file.read()
-    temp_path.write_bytes(content)
+    storage_key = storage.save_upload(file.filename or "file", content)
+    audio_path = storage.resolve(storage_key)
 
     is_video = ext in VIDEO_EXTENSIONS
-    audio_path = str(temp_path)
-
     if is_video:
         try:
-            audio_path = extract_audio(temp_path)
+            extracted = extract_audio(audio_path)
+            audio_key = storage.store_local_file(extracted, ext=".wav")
+            audio_path = storage.resolve(audio_key)
         except Exception as e:
             raise HTTPException(
                 status_code=500,
@@ -54,6 +52,7 @@ async def upload_file(file: UploadFile = File(...)):
         "filename": file.filename,
         "size_bytes": len(content),
         "is_video": is_video,
+        "storage_key": storage_key,
         "audio_path": audio_path,
         "analysis": analysis,
     }

@@ -124,11 +124,11 @@ audio-trim/
 | Prompting engine | `prompt_llm.py` LLM-first with deterministic regex fallback (see `server/ml/prompt_engine.py`) |
 | Audio inpainting | `inpainter.py` — seamless crossfade fill for removed/replaced ranges (paint intent) |
 
-### Phase 2 — Server API & Processing Pipeline
-- Async job queue for long-running ML tasks
-- File upload / storage (S3 / local)
-- Audio manipulation backend (pydub, librosa, ffmpeg)
-- Export pipeline (various formats, stems ZIP, XML for NLEs)
+### Phase 2 — Server API & Processing Pipeline ✅ (implemented in `server/services/`)
+- Async job queue — `jobs.py` thread-pool; `POST /api/jobs/{process,separate,transcribe,understand,diarize,inpaint}` + `GET /api/jobs/{id}`
+- File upload / storage — `storage.py` local (default) + optional S3; uploads return a storage key
+- Audio manipulation backend — pydub, librosa, ffmpeg (`audio_operations.py`, `converter.py`, `video_extractor.py`)
+- Export pipeline — `exporter.py`: stems ZIP, FCPXML (Final Cut), CMX3600 EDL (Premiere/DaVinci); served via `GET /api/export/download?path=`
 
 ### Phase 3 — Website (Next.js)
 - Upload audio (drag & drop, file picker, URL)
