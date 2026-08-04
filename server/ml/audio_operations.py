@@ -9,6 +9,7 @@ import librosa
 
 from server.ml.prompt_engine import PromptPlan, Intent
 from server.ml.source_separation.separator import SourceSeparator
+from server.ml.inpainting.inpainter import inpaint
 from server.services.converter import convert_file
 
 
@@ -33,6 +34,14 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
         else:
             y = _remove_section(y, sr, plan.params)
             output_path = _save_wav(y, sr)
+    elif plan.intent == Intent.PAINT:
+        start = plan.params.get("start", 0.0)
+        end = plan.params.get("end")
+        if end is None:
+            end = min(start + 0.5, y.shape[1] / sr)
+        res = inpaint(audio_path, start, end)
+        output_path = res["output_path"]
+        metadata["inpainted"] = {"removed_start": res["removed_start"], "removed_end": res["removed_end"]}
     elif plan.intent == Intent.FADE:
         y = _fade(y, sr, plan.params)
         output_path = _save_wav(y, sr)

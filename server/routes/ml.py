@@ -3,6 +3,14 @@ from pydantic import BaseModel
 
 from server.ml.transcription.transcriber import Transcriber
 from server.ml.source_separation.separator import SourceSeparator
+from server.ml.audio_understanding import (
+    classify_instruments,
+    detect_structure,
+    compute_mood_curve,
+    describe_mood,
+)
+from server.ml.diarization import diarize
+from server.ml.inpainting import inpaint
 
 router = APIRouter(prefix="/api/ml", tags=["ml"])
 
@@ -71,3 +79,47 @@ async def separate_audio(req: SeparateRequest):
 async def list_sources():
     separator = get_separator()
     return {"sources": separator.sources}
+
+
+class AudioPathRequest(BaseModel):
+    audio_path: str
+
+
+@router.post("/understand")
+async def understand_audio(req: AudioPathRequest):
+    """Instrument classification, song structure, mood description + energy curve."""
+    try:
+        instruments = classify_instruments(req.audio_path)
+        structure = detect_structure(req.audio_path)
+        mood = describe_mood(req.audio_path)
+        curve = compute_mood_curve(req.audio_path)
+        return {
+            "instruments": instruments,
+            "structure": structure,
+            "mood": mood,
+            "energy_curve": curve,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Understanding failed: {e}")
+
+
+@router.post("/diarize")
+async def diarize_audio(req: AudioPathRequest):
+    try:
+        return diarize(req.audio_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Diarization failed: {e}")
+
+
+class InpaintRequest(BaseModel):
+    audio_path: str
+    start: float
+    end: float
+
+
+@router.post("/inpaint")
+async def inpaint_audio(req: InpaintRequest):
+    try:
+        return inpaint(req.audio_path, req.start, req.end)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Inpainting failed: {e}")

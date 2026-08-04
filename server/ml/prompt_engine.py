@@ -1,3 +1,4 @@
+import os
 import re
 from dataclasses import dataclass, field
 from enum import Enum
@@ -6,6 +7,7 @@ from enum import Enum
 class Intent(str, Enum):
     TRIM = "trim"
     REMOVE = "remove"
+    PAINT = "paint"
     SEPARATE = "separate"
     CONVERT = "convert"
     ISOLATE = "isolate"
@@ -82,6 +84,8 @@ def classify_intent(prompt: str) -> Intent:
 
     if any(w in lower for w in ["trim", "cut", "crop", " shorten"]):
         return Intent.TRIM
+    if any(w in lower for w in ["inpaint", "fill smoothly", "seamless", "paint over", "fill the gap", "clean up the", "remove the cough", "fix that"]):
+        return Intent.PAINT
     if any(w in lower for w in ["remove", "delete", "drop", "get rid of", "cut out"]):
         has_filler = "filler" in lower or _FILLER_PATTERN.search(lower)
         has_silence = any(w in lower for w in ["silence", "silent", "pause", "gap", "quiet part"])
@@ -128,7 +132,7 @@ def extract_duration_seconds(prompt: str) -> float | None:
     return None
 
 
-def plan_from_prompt(prompt: str) -> PromptPlan:
+def regex_plan_from_prompt(prompt: str) -> PromptPlan:
     intent = classify_intent(prompt)
     start, end = extract_time_range(prompt)
     instrument = extract_instrument(prompt)
@@ -186,3 +190,19 @@ def plan_from_prompt(prompt: str) -> PromptPlan:
         params["reverb_amount"] = 0.5
 
     return PromptPlan(intent=intent, params=params, raw_prompt=prompt)
+
+
+def plan_from_prompt(prompt: str) -> PromptPlan:
+    """LLM-first prompt parsing with a deterministic regex fallback.
+
+    When the environment enables it (``USE_LLM=1``), a configured LLM parses
+    the prompt into a structured plan. Otherwise (or on failure) the regex
+    engine is used so the pipeline keeps working offline.
+    """
+    if os.environ.get("USE_LLM") == "1":
+        from server.ml.llm.prompt_llm import llm_plan_from_prompt
+
+        plan = llm_plan_from_prompt(prompt)
+        if plan is not None:
+            return plan
+    return regex_plan_from_prompt(prompt)

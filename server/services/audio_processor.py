@@ -9,6 +9,7 @@ def analyze_audio(audio_path: str | Path) -> dict:
     y, sr = librosa.load(str(audio_path), sr=None, mono=True)
 
     tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
+    tempo = float(np.atleast_1d(tempo)[0])
     chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
     key_indices = np.sum(chroma, axis=1)
     keys = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]

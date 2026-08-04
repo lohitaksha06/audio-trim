@@ -112,14 +112,17 @@ audio-trim/
 
 ## Work Plan
 
-### Phase 1 — ML Backbone (Server)
+### Phase 1 — ML Backbone (Server) ✅ (implemented in `server/ml/`)
 | Task | Details |
 |------|---------|
 | Source separation | Demucs / Hybrid Demucs — isolate vocals, drums, bass, other |
-| Audio understanding | Instrument classification, song structure, mood/energy curve, key/BPM |
-| Transcription + diarization | Whisper + PyAnnote — word-level timestamps, speaker labels |
-| Prompting engine | LLM (fine-tuned) + audio-grounding model — parse "remove X from Y" → audio operations |
-| Audio inpainting | Replace/remove sounds with seamless fills |
+| Instrument classification | Feature-based detector — library includes a heuristic `instrument_classifier.py`; swappable for a pretrained model (musicnn/YamNet) |
+| Song structure | `song_structure.py` — intro/verse/chorus/bridge/outro via beat-synced chroma+MFCC recurrence |
+| Mood/energy curve | `mood_curve.py` — energy/tension/brightness/loudness over time + summary mood |
+| Transcription | Whisper (openai/whisper-tiny) — word-level transcript |
+| Speaker diarization | `diarization.py` — VAD + MFCC clustering; pyannote-ready (needs HF token) |
+| Prompting engine | `prompt_llm.py` LLM-first with deterministic regex fallback (see `server/ml/prompt_engine.py`) |
+| Audio inpainting | `inpainter.py` — seamless crossfade fill for removed/replaced ranges (paint intent) |
 
 ### Phase 2 — Server API & Processing Pipeline
 - Async job queue for long-running ML tasks
