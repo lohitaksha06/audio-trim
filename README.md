@@ -130,13 +130,13 @@ audio-trim/
 - Audio manipulation backend — pydub, librosa, ffmpeg (`audio_operations.py`, `converter.py`, `video_extractor.py`)
 - Export pipeline — `exporter.py`: stems ZIP, FCPXML (Final Cut), CMX3600 EDL (Premiere/DaVinci); served via `GET /api/export/download?path=`
 
-### Phase 3 — Website (Next.js)
-- Upload audio (drag & drop, file picker, URL)
-- Prompt input (text box, suggested prompts, voice input)
-- Audio analysis results display (instruments, structure, transcript)
-- Preview player with waveform + stems overlay
-- Manual mode editor (fallback)
-- Export / share
+### Phase 3 — Website (Next.js) ✅ (implemented)
+- Upload audio (drag & drop, file picker, URL import)
+- Prompt input (text box, suggested prompts, voice input via Web Speech API)
+- AI analysis results display — real `/api/ml/understand` data: instruments, song structure, mood
+- Preview player with waveform + playhead (`AudioPreview.tsx`, HTML5 audio + energy-curve canvas)
+- Manual mode editor — basic fallback with play/set-start/set-end/trim (`ManualEditor.tsx`)
+- Export / share — download processed result + stems ZIP (via `/api/export/zip`)
 
 ### Phase 4 — Mobile App (React Native / Expo)
 - Same flow as web, optimized for touch
