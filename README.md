@@ -117,6 +117,7 @@ audio-trim/
 |------|---------|
 | Source separation | Demucs / Hybrid Demucs — isolate vocals, drums, bass, other |
 | Instrument classification | Feature-based detector — library includes a heuristic `instrument_classifier.py`; swappable for a pretrained model (musicnn/YamNet) |
+| Genre classification | Lightweight random-forest classifier trained on a small GTZAN subset (`scripts/train_genre_classifier.py`, artifact at `server/ml/models/genre_classifier.joblib`) — predicts genre + genre-specific suggested edits in `understand` responses |
 | Song structure | `song_structure.py` — intro/verse/chorus/bridge/outro via beat-synced chroma+MFCC recurrence |
 | Mood/energy curve | `mood_curve.py` — energy/tension/brightness/loudness over time + summary mood |
 | Transcription | Whisper (openai/whisper-tiny) — word-level transcript |

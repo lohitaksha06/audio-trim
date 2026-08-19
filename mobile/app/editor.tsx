@@ -16,7 +16,9 @@ import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import {
   AnalysisResult,
   ProcessResponse,
+  GenreInfo,
   uploadFile,
+  understandAudio,
   submitJob,
   getJob,
   downloadUrl,
@@ -43,6 +45,7 @@ export default function Editor() {
   const [prompt, setPrompt] = useState("");
   const [state, setState] = useState<"idle" | "uploading" | "analyzed" | "processing" | "queued" | "completed">("idle");
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [genre, setGenre] = useState<GenreInfo | null>(null);
   const [chat, setChat] = useState<ChatMsg[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [queueCount, setQueueCount] = useState(0);
@@ -111,6 +114,9 @@ export default function Editor() {
       setAudioPath(data.audio_path);
       setAnalysis(data.analysis);
       setState("analyzed");
+      understandAudio(data.audio_path)
+        .then((u) => setGenre(u.genre ?? null))
+        .catch(() => setGenre(null));
     } catch (e) {
       const message = e instanceof Error ? e.message : "Failed to upload file";
       Alert.alert("Upload failed", message);
@@ -320,6 +326,7 @@ export default function Editor() {
               {analysis && (
                 <Text style={styles.fileMeta}>
                   {formatDuration(analysis.duration_seconds)} · {analysis.bpm.toFixed(0)} BPM · {analysis.key}
+                  {genre?.genre ? ` · ${genre.genre}` : ""}
                 </Text>
               )}
             </View>
@@ -374,6 +381,16 @@ export default function Editor() {
               ))}
             </ScrollView>
           )}
+
+          {genre?.suggested_actions?.length ? (
+            <ScrollView horizontal style={styles.itemsBar} showsHorizontalScrollIndicator={false}>
+              {genre.suggested_actions.slice(0, 4).map((item) => (
+                <TouchableOpacity key={item} style={styles.itemChip} onPress={() => setPrompt(item)}>
+                  <Text style={styles.itemChipText}>{item}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : null}
 
           <ScrollView style={styles.historyBar} horizontal showsHorizontalScrollIndicator={false}>
             {history.length > 0 && (

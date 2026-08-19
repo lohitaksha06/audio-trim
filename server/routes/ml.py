@@ -8,6 +8,7 @@ from server.ml.audio_understanding import (
     detect_structure,
     compute_mood_curve,
     describe_mood,
+    predict_genre,
 )
 from server.ml.diarization import diarize
 from server.ml.inpainting import inpaint
@@ -93,11 +94,13 @@ async def understand_audio(req: AudioPathRequest):
         structure = detect_structure(req.audio_path)
         mood = describe_mood(req.audio_path)
         curve = compute_mood_curve(req.audio_path)
+        genre = predict_genre(req.audio_path)
         return {
             "instruments": instruments,
             "structure": structure,
             "mood": mood,
             "energy_curve": curve,
+            "genre": genre,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Understanding failed: {e}")

@@ -39,6 +39,12 @@ export interface StructureSection {
   label: string;
 }
 
+export interface GenreInfo {
+  genre: string;
+  confidence: number;
+  suggested_actions: string[];
+}
+
 export interface UnderstandResponse {
   instruments: {
     instruments: InstrumentResult[];
@@ -59,6 +65,7 @@ export interface UnderstandResponse {
     description: string;
     duration_seconds: number;
   };
+  genre?: GenreInfo | null;
 }
 
 export interface JobResponse {

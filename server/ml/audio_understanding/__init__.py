@@ -4,10 +4,18 @@ from server.ml.audio_understanding.mood_curve import (
     compute_mood_curve,
     describe_mood,
 )
+from server.ml.audio_understanding.genre_classifier import (
+    predict_genre,
+    genre_tuning_actions,
+    model_available,
+)
 
 __all__ = [
     "classify_instruments",
     "detect_structure",
     "compute_mood_curve",
     "describe_mood",
+    "predict_genre",
+    "genre_tuning_actions",
+    "model_available",
 ]

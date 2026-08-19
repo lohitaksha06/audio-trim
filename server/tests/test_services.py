@@ -3,9 +3,12 @@
 import tempfile
 import zipfile
 
+import pytest
+
 import server.services.storage as storage
 from server.services.exporter import export_edl, export_fcpxml, export_zip
 from server.services.jobs import job_manager
+import server.services.projects as projects_store
 
 
 class TestStorage:
@@ -61,3 +64,35 @@ class TestJobs:
 
     def test_missing_job(self):
         assert job_manager.get("does-not-exist") is None
+
+
+class TestProjects:
+    @pytest.fixture(autouse=True)
+    def _isolated_dir(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(projects_store, "PROJECTS_DIR", tmp_path)
+
+    def test_create_and_get(self):
+        p = projects_store.create_project(
+            {"name": "Demo", "audio_path": "uploads/abc.wav", "analysis": {"bpm": 120}}
+        )
+        got = projects_store.get_project(p["id"])
+        assert got["name"] == "Demo"
+        assert got["analysis"]["bpm"] == 120
+
+    def test_append_history(self):
+        p = projects_store.create_project({"name": "H"})
+        projects_store.update_project(p["id"], {"history": [{"prompt": "a"}], "append_history": True})
+        projects_store.update_project(p["id"], {"history": [{"prompt": "b"}], "append_history": True})
+        got = projects_store.get_project(p["id"])
+        assert [e["prompt"] for e in got["history"]] == ["a", "b"]
+
+    def test_list_and_delete(self):
+        p = projects_store.create_project({"name": "X", "filename": "f.wav"})
+        lst = projects_store.list_projects()
+        assert any(x["id"] == p["id"] for x in lst)
+        assert projects_store.delete_project(p["id"]) is True
+        assert all(x["id"] != p["id"] for x in projects_store.list_projects())
+
+    def test_missing(self):
+        with pytest.raises(KeyError):
+            projects_store.get_project("aaaaaaaaaaaaaaaa")

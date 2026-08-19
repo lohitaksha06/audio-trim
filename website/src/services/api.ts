@@ -58,6 +58,12 @@ export interface CurvePoint {
   loudness: number;
 }
 
+export interface GenreInfo {
+  genre: string;
+  confidence: number;
+  suggested_actions: string[];
+}
+
 export interface UnderstandResponse {
   instruments: {
     instruments: InstrumentResult[];
@@ -84,6 +90,7 @@ export interface UnderstandResponse {
     hop_seconds: number;
     duration_seconds: number;
   };
+  genre?: GenreInfo | null;
 }
 
 export interface JobResponse {

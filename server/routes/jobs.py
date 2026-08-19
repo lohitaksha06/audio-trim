@@ -12,6 +12,7 @@ from server.ml.audio_understanding import (
     detect_structure,
     compute_mood_curve,
     describe_mood,
+    predict_genre,
 )
 from server.ml.diarization import diarize
 from server.ml.inpainting import inpaint
@@ -26,6 +27,7 @@ def _understand_job(audio_path):
         "structure": detect_structure(audio_path),
         "mood": describe_mood(audio_path),
         "energy_curve": compute_mood_curve(audio_path),
+        "genre": predict_genre(audio_path),
     }
 
 

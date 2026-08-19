@@ -204,6 +204,7 @@ export default function PromptPage() {
   const inst = understand?.instruments;
   const sections = understand?.structure?.sections ?? [];
   const mood = understand?.mood;
+  const genre = understand?.genre;
 
   const details = analysis
     ? [
@@ -353,6 +354,28 @@ export default function PromptPage() {
                               ))}
                             </div>
                             <p className="mt-2 text-[11px] text-white/30">{inst.texture}</p>
+                          </div>
+                        )}
+
+                        {genre?.genre && (
+                          <div className="rounded-xl border border-neon-blue/20 bg-neon-blue/[0.04] p-3">
+                            <h4 className="mb-2 text-xs font-semibold text-neon-blue/70 uppercase tracking-wider">Genre</h4>
+                            <p className="text-sm font-medium text-white capitalize">
+                              {genre.genre} <span className="text-xs text-white/30">· {(genre.confidence * 100).toFixed(0)}%</span>
+                            </p>
+                            {genre.suggested_actions?.length > 0 && (
+                              <div className="mt-2 space-y-1">
+                                {(genre.suggested_actions ?? []).slice(0, 3).map((a) => (
+                                  <button
+                                    key={a}
+                                    onClick={() => handlePromptSelect(a)}
+                                    className="block w-full rounded-lg bg-white/5 px-2 py-1 text-left text-[11px] text-neon-blue/80 hover:bg-neon-blue/10 transition-colors"
+                                  >
+                                    {a}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
 
