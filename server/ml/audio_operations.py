@@ -82,6 +82,11 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
         target_format = plan.params.get("format", "mp3")
         output_path = convert_file(audio_path, target_format)
         metadata["format"] = target_format
+    elif plan.intent == Intent.ADD_INSTRUMENT:
+        target = plan.params.get("instrument", "other")
+        y = _add_instrument(y, sr, target)
+        output_path = _save_wav(y, sr)
+        metadata["added_instrument"] = target
 
     result: dict[str, Any] = {"intent": plan.intent.value, "params": plan.params}
 
@@ -199,4 +204,55 @@ def _mood_adjust(y: np.ndarray, sr: int, params: dict) -> np.ndarray:
     elif mood == "energetic":
         y = _normalize(y) * 1.1
         y = np.clip(y, -1, 1)
+    return y
+
+
+def _add_instrument(y: np.ndarray, sr: int, instrument: str) -> np.ndarray:
+    """Synthesize a simple instrument layer and mix it in.
+
+    This is a heuristic placeholder — not a generative model — but it gives
+    audible feedback for 'add bass / synth / drums' prompts and keeps the
+    pipeline end-to-end testable. Replace with MusicGen/Riffusion later.
+    """
+    n = y.shape[1]
+    t = np.arange(n) / sr
+    # detect a rough tempo for rhythmic instruments: use 120 BPM if unknown
+    # so drums land on the beat and are audible in tests
+    gen = np.zeros(n, dtype=np.float32)
+
+    if instrument == "bass":
+        # low sine + octave, half-note pulse
+        f0 = 55.0  # A1
+        pulse = 0.5 * (1 + np.sin(2 * np.pi * 1.0 * t))  # 1 Hz sway
+        gen = 0.35 * np.sin(2 * np.pi * f0 * t) * pulse + 0.15 * np.sin(2 * np.pi * f0 * 2 * t) * pulse
+    elif instrument == "drums":
+        # click every 0.5s (120 BPM) as a short decaying burst
+        interval = int(0.5 * sr)
+        for start in range(0, n, interval):
+            end = min(start + int(0.04 * sr), n)
+            click_t = np.arange(end - start) / sr
+            burst = np.exp(-click_t * 80) * np.sin(2 * np.pi * 80 * click_t)
+            # add a hi frequency tick
+            burst += 0.5 * np.exp(-click_t * 120) * np.sin(2 * np.pi * 3000 * click_t) * (click_t < 0.01)
+            gen[start:end] += burst * 0.6
+    elif instrument == "guitar":
+        # arpeggiated 440Hz + harmonics
+        f0 = 110.0
+        gen = 0.2 * np.sin(2 * np.pi * f0 * t) + 0.1 * np.sin(2 * np.pi * f0 * 2 * t) + 0.06 * np.sin(2 * np.pi * f0 * 3 * t)
+        gen *= 0.5 * (1 + 0.5 * np.sin(2 * np.pi * 2 * t))
+    elif instrument in ("keys", "other"):
+        # warm pad: C3 major chord (C4, E4, G4) with slow attack
+        freqs = [261.63, 329.63, 391.99] if instrument == "keys" else [220.0, 277.18, 329.63]
+        for f in freqs:
+            gen += 0.12 * np.sin(2 * np.pi * f * t)
+        gen *= np.minimum(1.0, t * 2)  # fade in
+        # gentle tremolo
+        gen *= 1 + 0.1 * np.sin(2 * np.pi * 0.8 * t)
+    else:
+        # fallback pad
+        gen = 0.15 * np.sin(2 * np.pi * 220.0 * t) + 0.08 * np.sin(2 * np.pi * 330.0 * t)
+
+    # mix into each channel, keep headroom
+    for ch in range(y.shape[0]):
+        y[ch] = np.clip(y[ch] * 0.85 + gen * 0.35, -1, 1)
     return y

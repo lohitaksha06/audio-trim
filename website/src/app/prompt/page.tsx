@@ -34,8 +34,15 @@ export default function PromptPage() {
   const [exporting, setExporting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [history, setHistory] = useState<{ role: string; text: string }[]>([]);
+  const [promptHistory, setPromptHistory] = useState<string[]>([]);
+  useEffect(() => {
+    try { const v = localStorage.getItem("audelle:promptHistory"); if (v) setPromptHistory(JSON.parse(v)); } catch {}
+  }, []);
 
   useEffect(() => () => { if (objectUrl) URL.revokeObjectURL(objectUrl); }, [objectUrl]);
+  useEffect(() => {
+    try { localStorage.setItem("audelle:promptHistory", JSON.stringify(promptHistory.slice(-30))); } catch {}
+  }, [promptHistory]);
 
   const handleFileSelected = useCallback(async (f: File) => {
     setFile(f);
@@ -97,12 +104,18 @@ export default function PromptPage() {
       return;
     }
     setHistory((prev) => [...prev, { role: "user", text: prompt }]);
+    setPromptHistory((prev) => [prompt, ...prev.filter((p) => p !== prompt)].slice(0, 30));
     const currentPrompt = prompt;
     setPrompt("");
     setState("processing");
     try {
       const result = await processAudio(uploadResult.audio_path, currentPrompt);
       setLastResult(result);
+      if (result.intent === "unknown") {
+        setHistory((prev) => [...prev, { role: "ai", text: `I didn't understand "${currentPrompt}". Try: "Trim from 0:05 to 0:10" or "Remove the drums"` }]);
+        setState("analyzed");
+        return;
+      }
       const msg = `Done! Applied: "${currentPrompt}"`;
       setHistory((prev) => [...prev, { role: "ai", text: msg }]);
       setState("completed");
@@ -261,7 +274,7 @@ export default function PromptPage() {
                   <div className="mt-8 text-center">
                     <p className="mb-3 text-sm text-white/30">Try saying:</p>
                     <div className="flex flex-wrap justify-center gap-2">
-                      {["Remove the vocals", "Trim from 1:00 to 2:30", "Make this sound darker", "Extract just the drums"].map((s) => (
+                      {["Remove the vocals", "Trim from 1:00 to 2:30", "Make this sound darker", "Extract just the drums", "Add a bass line", "Add synth pad"].map((s) => (
                         <button
                           key={s}
                           onClick={() => handlePromptSelect(s)}
@@ -430,6 +443,19 @@ export default function PromptPage() {
                     )}
 
                     {errorMsg && state !== "idle" && <p className="text-xs text-red-400">{errorMsg}</p>}
+                    {promptHistory.length > 0 && (
+                      <div className="rounded-xl border border-white/5 bg-white/[0.01] p-2">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] text-white/30 uppercase tracking-wider">Recent prompts</span>
+                          <button onClick={() => { setPromptHistory([]); localStorage.removeItem("audelle:promptHistory"); }} className="text-[10px] text-white/20 hover:text-white/40">Clear</button>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {promptHistory.slice(0, 8).map((ph) => (
+                            <button key={ph} onClick={() => setPrompt(ph)} className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-white/50 hover:border-neon-blue/30 hover:text-neon-blue truncate max-w-[150px]">{ph}</button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex-1 flex flex-col overflow-hidden min-w-0">

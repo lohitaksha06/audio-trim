@@ -18,6 +18,7 @@ class Intent(str, Enum):
     MOOD = "mood"
     SPEED = "speed"
     REVERB = "reverb"
+    ADD_INSTRUMENT = "add_instrument"
     UNKNOWN = "unknown"
 
 
@@ -82,6 +83,12 @@ _FILLER_PATTERN = re.compile(r"(?<![a-z])(um+|uh+|ah+|er+)s?(?![a-z])")
 def classify_intent(prompt: str) -> Intent:
     lower = prompt.lower()
 
+    if any(w in lower for w in ["add ", "generate", "create", "insert", "layer", "synthesize"]):
+        # "add bass / synth / drums" must be checked before remove/isolate
+        if extract_instrument(prompt):
+            return Intent.ADD_INSTRUMENT
+        if any(k in lower for k in ["bass", "drum", "synth", "guitar", "piano", "keys", "pad", "strings"]):
+            return Intent.ADD_INSTRUMENT
     if any(w in lower for w in ["trim", "cut", "crop", " shorten"]):
         return Intent.TRIM
     if any(w in lower for w in ["inpaint", "fill smoothly", "seamless", "paint over", "fill the gap", "clean up the", "remove the cough", "fix that"]):
@@ -188,6 +195,21 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
 
     if intent == Intent.REVERB:
         params["reverb_amount"] = 0.5
+
+    if intent == Intent.ADD_INSTRUMENT:
+        # ensure we have an instrument even if keyword was "synth" mapped to keys
+        if not params.get("instrument"):
+            lower = prompt.lower()
+            if "synth" in lower or "pad" in lower:
+                params["instrument"] = "keys"
+            elif "bass" in lower:
+                params["instrument"] = "bass"
+            elif "drum" in lower:
+                params["instrument"] = "drums"
+            elif "guitar" in lower:
+                params["instrument"] = "guitar"
+            else:
+                params["instrument"] = "other"
 
     return PromptPlan(intent=intent, params=params, raw_prompt=prompt)
 

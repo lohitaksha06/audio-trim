@@ -4,7 +4,9 @@ import { useState, ReactNode } from "react";
 import Nav from "@/components/Nav";
 import Sidebar from "@/components/Sidebar";
 import FileUpload from "@/components/FileUpload";
-import { uploadFile, processAudio, type UploadResponse } from "@/services/api";
+import AudioPreview from "@/components/AudioPreview";
+import { uploadFile, processAudio, understandAudio, exportZip, downloadUrl, type UploadResponse, type UnderstandResponse, type ProcessResponse } from "@/services/api";
+import { FeaturePromptContext } from "./FeaturePromptContext";
 
 interface FeatureLayoutProps {
   children: ReactNode;
@@ -18,16 +20,39 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
   const [prompt, setPrompt] = useState("");
   const [state, setState] = useState<"idle" | "uploading" | "analyzed" | "processing" | "completed">("idle");
   const [history, setHistory] = useState<{ role: string; text: string }[]>([]);
+  const [understand, setUnderstand] = useState<UnderstandResponse | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [lastResult, setLastResult] = useState<ProcessResponse | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const handleFileSelected = async (f: File) => {
     setFile(f);
     setState("uploading");
+    setErrorMsg("");
+    setUnderstand(null);
+    setLastResult(null);
     try {
       const result = await uploadFile(f);
       setUploadResult(result);
       setState("analyzed");
-    } catch {
+    } catch (e: unknown) {
+      setErrorMsg(e instanceof Error ? e.message : "Upload failed");
       setState("idle");
+    }
+  };
+
+  const handleAnalyze = async () => {
+    if (!uploadResult) return;
+    setAnalyzing(true);
+    setErrorMsg("");
+    try {
+      const res = await understandAudio(uploadResult.audio_path);
+      setUnderstand(res);
+    } catch (e: unknown) {
+      setErrorMsg(e instanceof Error ? e.message : "Analysis failed");
+    } finally {
+      setAnalyzing(false);
     }
   };
 
@@ -41,26 +66,56 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
     const currentPrompt = prompt;
     setPrompt("");
     setState("processing");
+    setErrorMsg("");
     try {
       const result = await processAudio(uploadResult.audio_path, currentPrompt);
+      setLastResult(result);
+      if (result.intent === "unknown") {
+        setHistory((prev) => [...prev, { role: "ai", text: `I didn't understand "${currentPrompt}". Try: "Trim from 0:05 to 0:10" or "Remove the drums"` }]);
+        setState("analyzed");
+        return;
+      }
       const msg = `Done! Intent: ${result.intent}. Applied: "${currentPrompt}"`;
       setHistory((prev) => [...prev, { role: "ai", text: msg }]);
       setState("completed");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Processing failed";
       setHistory((prev) => [...prev, { role: "ai", text: `Error: ${msg}` }]);
+      setErrorMsg(msg);
       setState("analyzed");
     }
   };
 
   const handlePromptSelect = (p: string) => setPrompt(p);
 
+  const handleExportZip = async () => {
+    const stemsKeys = lastResult?.stems_keys;
+    if (!stemsKeys || Object.keys(stemsKeys).length === 0) return;
+    setExporting(true);
+    try {
+      const zip = await exportZip(Object.values(stemsKeys));
+      window.open(downloadUrl(zip.key), "_blank", "noopener");
+    } catch {
+      setErrorMsg("ZIP export failed");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleDownload = (key?: string | null) => {
+    if (!key) return;
+    window.open(downloadUrl(key), "_blank", "noopener");
+  };
+
   const reset = () => {
     setState("idle");
     setFile(null);
     setPrompt("");
     setUploadResult(null);
+    setUnderstand(null);
+    setLastResult(null);
     setHistory([]);
+    setErrorMsg("");
   };
 
   const formatSize = (bytes: number) => {
@@ -75,8 +130,12 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
   };
 
   const analysis = uploadResult?.analysis;
+  const inst = understand?.instruments;
+  const sections = understand?.structure?.sections ?? [];
+  const hasResult = !!lastResult;
 
   return (
+    <FeaturePromptContext.Provider value={{ setPrompt: handlePromptSelect }}>
     <div className="flex h-screen flex-col bg-black">
       <Nav />
 
@@ -126,9 +185,42 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
                 <div className="w-full max-w-xl">
                   <FileUpload onFileSelected={handleFileSelected} />
                 </div>
+                {errorMsg && <p className="mt-3 text-xs text-red-400">{errorMsg}</p>}
               </div>
             ) : (
-              <div>{children}</div>
+              <>
+                {/* Analysis panel (shared) */}
+                <div className="mb-4 grid gap-3">
+                  <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 grid grid-cols-3 gap-2">
+                    <div className="rounded-lg border border-white/5 bg-black/40 p-2 text-center"><div className="text-[10px] text-white/30">Duration</div><div className="text-sm text-white">{analysis ? formatDuration(analysis.duration_seconds) : "—"}</div></div>
+                    <div className="rounded-lg border border-white/5 bg-black/40 p-2 text-center"><div className="text-[10px] text-white/30">BPM</div><div className="text-sm text-white">{analysis?.bpm?.toFixed(0) ?? "—"}</div></div>
+                    <div className="rounded-lg border border-white/5 bg-black/40 p-2 text-center"><div className="text-[10px] text-white/30">Key</div><div className="text-sm text-white">{analysis?.key ?? "—"}</div></div>
+                  </div>
+                  {!understand ? (
+                    <button onClick={handleAnalyze} disabled={analyzing} className="w-full rounded-xl bg-neon-blue/15 px-4 py-2.5 text-sm font-medium text-neon-blue hover:bg-neon-blue/25 transition-colors disabled:opacity-50">
+                      {analyzing ? "Analyzing..." : "Run AI Analysis"}
+                    </button>
+                  ) : (
+                    <div className="grid gap-2">
+                      {inst && <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3"><div className="text-[11px] text-white/40 uppercase tracking-wider mb-1">Instruments</div><div className="flex flex-wrap gap-1.5">{inst.instruments.map((el) => <span key={el.instrument} className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-white/50">{el.instrument} · {(el.confidence*100).toFixed(0)}%</span>)}</div></div>}
+                      {sections.length>0 && <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3"><div className="text-[11px] text-white/40 uppercase tracking-wider mb-1">Structure</div>{sections.map((s,i)=><div key={i} className="flex justify-between text-xs"><span className="text-white/60 capitalize">{s.label}</span><span className="text-white/30">{formatDuration(s.start)}–{formatDuration(s.end)}</span></div>)}</div>}
+                    </div>
+                  )}
+                  {hasResult && lastResult?.download_key && (
+                    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                      <AudioPreview src={downloadUrl(lastResult.download_key)} height={48} />
+                      <div className="mt-2 flex gap-2">
+                        <button onClick={()=>handleDownload(lastResult.download_key)} className="flex-1 rounded-lg bg-neon-blue/15 px-3 py-2 text-xs font-medium text-neon-blue hover:bg-neon-blue/25 transition-colors">Download result</button>
+                        {lastResult.stems_keys && Object.keys(lastResult.stems_keys).length>0 && (
+                          <button onClick={handleExportZip} disabled={exporting} className="flex-1 rounded-lg bg-neon-purple/15 px-3 py-2 text-xs font-medium text-neon-purple hover:bg-neon-purple/25 disabled:opacity-50 transition-colors">{exporting?"Zipping...":`Stems ZIP (${Object.keys(lastResult.stems_keys).length})`}</button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {errorMsg && <p className="text-xs text-red-400">{errorMsg}</p>}
+                </div>
+                <div>{children}</div>
+              </>
             )}
 
             {/* Chat history */}
@@ -181,5 +273,6 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
         </main>
       </div>
     </div>
+    </FeaturePromptContext.Provider>
   );
 }

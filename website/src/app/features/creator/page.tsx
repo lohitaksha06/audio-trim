@@ -1,8 +1,10 @@
 "use client";
 
 import FeatureLayout from "../FeatureLayout";
+import { useFeaturePrompt } from "../FeaturePromptContext";
 
 export default function CreatorPage() {
+  const promptCtx = useFeaturePrompt();
   return (
     <FeatureLayout title="Content Creator" subtitle="Optimize for TikTok, Reels, Shorts, and social platforms">
       <div className="space-y-5">
@@ -17,7 +19,7 @@ export default function CreatorPage() {
               { label: "Landscape", ratio: "16:9", duration: "Custom" },
               { label: "Square", ratio: "1:1", duration: "Custom" },
             ].map((preset) => (
-              <button key={preset.label} className="rounded-xl border border-white/5 bg-white/[0.02] p-3 text-left hover:border-neon-blue/20 hover:bg-neon-blue/5 transition-all">
+              <button key={preset.label} onClick={() => promptCtx?.setPrompt(`Create a ${preset.duration} ${preset.ratio} version for ${preset.label}`)} className="rounded-xl border border-white/5 bg-white/[0.02] p-3 text-left hover:border-neon-blue/20 hover:bg-neon-blue/5 transition-all">
                 <span className="text-sm text-white/70 block">{preset.label}</span>
                 <span className="text-xs text-white/30">{preset.ratio} · {preset.duration}</span>
               </button>
@@ -58,6 +60,7 @@ export default function CreatorPage() {
             ].map((action) => (
               <button
                 key={action.label}
+                onClick={() => promptCtx?.setPrompt(action.prompt)}
                 className="w-full text-left rounded-xl border border-white/5 bg-white/[0.02] p-3 text-sm text-white/60 hover:border-neon-blue/20 hover:text-neon-blue/80 hover:bg-neon-blue/5 transition-all"
               >
                 {action.label}

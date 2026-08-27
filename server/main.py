@@ -7,6 +7,7 @@ from server.routes.ml import router as ml_router
 from server.routes.jobs import router as jobs_router
 from server.routes.export import router as export_router
 from server.routes.projects import router as projects_router
+from server.routes.lab import router as lab_router
 
 app = FastAPI(
     title="Audelle API",
@@ -28,6 +29,7 @@ app.include_router(ml_router)
 app.include_router(jobs_router)
 app.include_router(export_router)
 app.include_router(projects_router)
+app.include_router(lab_router)
 
 
 @app.get("/api/health")

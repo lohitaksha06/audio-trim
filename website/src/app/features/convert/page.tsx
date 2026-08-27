@@ -1,6 +1,7 @@
 "use client";
 
 import FeatureLayout from "../FeatureLayout";
+import { useFeaturePrompt } from "../FeaturePromptContext";
 
 const FORMATS = [
   { ext: "WAV", desc: "Lossless, large file size", icon: "W" },
@@ -11,6 +12,7 @@ const FORMATS = [
 ];
 
 export default function ConvertPage() {
+  const promptCtx = useFeaturePrompt();
   return (
     <FeatureLayout title="Format Conversion" subtitle="Convert between audio formats with quality control">
       <div className="space-y-5">
@@ -20,6 +22,7 @@ export default function ConvertPage() {
             {FORMATS.map((fmt) => (
               <button
                 key={fmt.ext}
+                onClick={() => promptCtx?.setPrompt(`Convert this file to ${fmt.ext.toLowerCase()} format`)}
                 className="w-full flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-left hover:border-neon-blue/20 hover:bg-neon-blue/5 transition-all group"
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/5 text-sm font-bold text-white/50 group-hover:bg-neon-blue/15 group-hover:text-neon-blue transition-colors">
@@ -69,6 +72,7 @@ export default function ConvertPage() {
             ].map((action) => (
               <button
                 key={action.label}
+                onClick={() => promptCtx?.setPrompt(action.prompt)}
                 className="w-full text-left rounded-xl border border-white/5 bg-white/[0.02] p-3 text-sm text-white/60 hover:border-neon-blue/20 hover:text-neon-blue/80 hover:bg-neon-blue/5 transition-all"
               >
                 {action.label}

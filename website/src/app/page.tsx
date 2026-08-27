@@ -47,6 +47,12 @@ export default function Home() {
               </svg>
               Start Editing
             </Link>
+            <Link
+              href="/lab"
+              className="inline-flex items-center gap-2.5 rounded-xl border border-white/20 px-8 sm:px-10 py-4 sm:py-5 text-base sm:text-lg font-medium text-white/80 transition-all duration-300 hover:border-neon-blue/40 hover:text-white"
+            >
+              Open Lab
+            </Link>
             <button className="inline-flex items-center gap-2.5 rounded-xl border border-white/20 px-8 sm:px-10 py-4 sm:py-5 text-base sm:text-lg font-medium text-white/80 transition-all duration-300 hover:border-white/40 hover:text-white">
               <svg className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />

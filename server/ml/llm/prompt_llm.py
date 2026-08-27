@@ -41,6 +41,7 @@ SYSTEM_PROMPT = (
     "- mood -> params:{mood} in {dark, bright, energetic, calm}\n"
     "- speed -> params:{speed_factor}\n"
     "- reverb -> params:{reverb_amount}\n"
+    "- add_instrument -> params:{instrument} in {vocals/drums/bass/guitar/keys/other}\n"
     "- unknown -> params:{}\n"
     "Convert all timestamps ('2:30', '90s', 'at 0:45') to seconds floats. "
     "Only include params that apply."

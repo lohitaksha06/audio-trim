@@ -1,8 +1,10 @@
 "use client";
 
 import FeatureLayout from "../FeatureLayout";
+import { useFeaturePrompt } from "../FeaturePromptContext";
 
 export default function EditingPage() {
+  const promptCtx = useFeaturePrompt();
   return (
     <FeatureLayout title="Smart Editing" subtitle="Trim, cut, and rearrange sections with natural language">
       <div className="space-y-5">
@@ -37,6 +39,7 @@ export default function EditingPage() {
             ].map((action) => (
               <button
                 key={action.label}
+                onClick={() => promptCtx?.setPrompt(action.prompt)}
                 className="w-full text-left rounded-xl border border-white/5 bg-white/[0.02] p-3 text-sm text-white/60 hover:border-neon-blue/20 hover:text-neon-blue/80 hover:bg-neon-blue/5 transition-all"
               >
                 {action.label}

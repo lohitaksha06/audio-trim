@@ -1,8 +1,10 @@
 "use client";
 
 import FeatureLayout from "../FeatureLayout";
+import { useFeaturePrompt } from "../FeaturePromptContext";
 
 export default function FilmPage() {
+  const promptCtx = useFeaturePrompt();
   return (
     <FeatureLayout title="Film & Video" subtitle="Clean dialogue, match room tone, separate stems for post-production">
       <div className="space-y-5">
@@ -39,6 +41,7 @@ export default function FilmPage() {
             ].map((action) => (
               <button
                 key={action.label}
+                onClick={() => promptCtx?.setPrompt(action.prompt)}
                 className="w-full text-left rounded-xl border border-white/5 bg-white/[0.02] p-3 text-sm text-white/60 hover:border-neon-blue/20 hover:text-neon-blue/80 hover:bg-neon-blue/5 transition-all"
               >
                 {action.label}
