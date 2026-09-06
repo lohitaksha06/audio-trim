@@ -38,6 +38,7 @@ export default function LabPage() {
   const [aiSuggest, setAiSuggest] = useState<{ preset: any; reason: string } | null>(null);
   const [suggesting, setSuggesting] = useState(false);
   const [liveAi, setLiveAi] = useState(false);
+  const [evalMetrics, setEvalMetrics] = useState<any>(null);
 
   // audio preview (WebAudio for instant, zero-server-cost)
   const audioElRef = useRef<HTMLAudioElement>(null);
@@ -72,6 +73,7 @@ export default function LabPage() {
   }, [objectUrl]);
 
   useEffect(() => () => { if (objectUrl) URL.revokeObjectURL(objectUrl); }, [objectUrl]);
+  useEffect(() => { fetch(`${API_BASE}/api/eval/metrics`).then(r => r.ok ? r.json() : null).then(setEvalMetrics).catch(()=>{}); }, []);
 
   // suggest
   const handleSuggest = async () => {
@@ -374,6 +376,17 @@ export default function LabPage() {
                     <li>Heavy stem separation stays lazy — Lab never loads Demucs unless you ask.</li>
                   </ul>
                 </div>
+
+                {evalMetrics && (
+                  <div className="rounded-2xl border border-neon-blue/15 bg-neon-blue/[0.04] p-4 sm:p-5">
+                    <h3 className="text-xs font-semibold tracking-widest text-neon-blue/70 uppercase mb-2">Model Metrics (live)</h3>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between"><span className="text-white/40">Prompt NLU accuracy</span><span className="font-mono text-white">{(evalMetrics.prompt_bench.accuracy*100).toFixed(1)}% · {evalMetrics.prompt_bench.correct}/{evalMetrics.prompt_bench.total}</span></div>
+                      <div className="flex justify-between"><span className="text-white/40">Genre model</span><span className="font-mono text-white">{evalMetrics.genre.available ? `${evalMetrics.genre.model_type} · ${evalMetrics.genre.classes?.length ?? 0} classes` : "not trained"}</span></div>
+                      <div className="text-[11px] text-white/30">Bench: 36 paraphrases across 15 intents · <code className="text-white/50">/api/eval/metrics</code> · <code className="text-white/50">docs/models/genre_classifier_card.md</code></div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </>

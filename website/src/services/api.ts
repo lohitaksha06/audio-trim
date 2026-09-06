@@ -227,6 +227,17 @@ export async function exportZip(paths: string[]): Promise<ZipResponse> {
   return res.json();
 }
 
+export interface EvalMetrics {
+  genre: { available: boolean; classes?: string[]; feature_size?: number; model_type?: string; artifact_bytes?: number; reason?: string };
+  prompt_bench: { accuracy: number; total: number; correct: number; param_accuracy?: number | null; per_intent: Record<string, { accuracy: number; correct: number; total: number }> };
+}
+
+export async function getEvalMetrics(): Promise<EvalMetrics> {
+  const res = await fetch(`${API_BASE}/api/eval/metrics`);
+  if (!res.ok) throw new Error("Failed to get eval metrics");
+  return res.json();
+}
+
 export function downloadUrl(key: string): string {
   return `${API_BASE}/api/export/download?path=${encodeURIComponent(key)}`;
 }

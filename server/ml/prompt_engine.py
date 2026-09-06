@@ -89,7 +89,7 @@ def classify_intent(prompt: str) -> Intent:
             return Intent.ADD_INSTRUMENT
         if any(k in lower for k in ["bass", "drum", "synth", "guitar", "piano", "keys", "pad", "strings"]):
             return Intent.ADD_INSTRUMENT
-    if any(w in lower for w in ["trim", "cut", "crop", " shorten"]):
+    if any(w in lower for w in ["trim", "cut", "crop", "shorten"]):
         return Intent.TRIM
     if any(w in lower for w in ["inpaint", "fill smoothly", "seamless", "paint over", "fill the gap", "clean up the", "remove the cough", "fix that"]):
         return Intent.PAINT

@@ -1,10 +1,17 @@
-"""Instrument classification from acoustic features.
+"""Instrument classification — SOTA-optional with heuristic fallback.
 
-Lightweight, dependency-light classifier. Produces per-instrument presence
-scores (0.0-1.0) using librosa-derived spectral/rhythmic features, plus a
-texture description. Designed to run on CPU without downloading a model.
+- If ``USE_PRETRAINED=1`` and a pretrained tagger is installed (``transformers``
+  CLAP / PANNs / MusicNN), we route through it for 0.0-1.0 per-instrument scores.
+- Otherwise falls back to the lightweight librosa heuristic (no model download,
+  CPU-only, deterministic) so CI and offline mode stay green.
+
+Contract is stable: returns ``{instruments: [{instrument, confidence}], texture,
+tempo_bpm, duration_seconds, backend}`` regardless of backend.
 """
 
+from __future__ import annotations
+
+import os
 from typing import Any
 
 import librosa
@@ -20,14 +27,73 @@ def _band_energy_ratio(S, sr: int, fmin: float, fmax: float) -> float:
     return float(np.sum(np.abs(S[band]) ** 2) / total)
 
 
+_PRETRAINED_MODEL_ID = os.environ.get("INSTRUMENT_MODEL", "laion/clap-htsat-unfused")
+_PRETRAINED_CACHE: dict[str, Any] = {}
+
+
+def _try_pretrained(audio_path: str) -> dict[str, Any] | None:
+    """Try CLAP zero-shot tagger if enabled and deps are present.
+
+    Returns None on any failure so caller falls back to heuristic.
+    """
+    if os.environ.get("USE_PRETRAINED") != "1":
+        return None
+    try:
+        # lazy import — keeps base install light
+        from transformers import pipeline  # type: ignore
+    except Exception:
+        return None
+    try:
+        key = _PRETRAINED_MODEL_ID
+        if key not in _PRETRAINED_CACHE:
+            # CLAP supports zero-shot audio classification via candidate_labels
+            _PRETRAINED_CACHE[key] = pipeline("zero-shot-audio-classification", model=key)
+        clf = _PRETRAINED_CACHE[key]
+        labels = ["vocals", "drums", "bass", "guitar", "piano", "strings", "other"]
+        out = clf(audio_path, candidate_labels=labels)
+        # pipeline returns sorted list of {label, score}
+        scores = {r["label"]: float(r["score"]) for r in out}
+        # normalize to our stem map
+        mapped: dict[str, float] = {
+            "vocals": scores.get("vocals", 0),
+            "drums": scores.get("drums", 0),
+            "bass": scores.get("bass", 0),
+            "guitar": scores.get("guitar", 0),
+            "keys": scores.get("piano", 0),
+            "other": max(scores.get("strings", 0), scores.get("other", 0)),
+        }
+        present = [
+            {"instrument": k, "confidence": round(float(v), 3)}
+            for k, v in sorted(mapped.items(), key=lambda kv: kv[1], reverse=True)
+            if v >= 0.15
+        ]
+        y, sr = librosa.load(audio_path, sr=22050, mono=True)
+        tempo, _ = librosa.beat.beat_track(y=librosa.effects.hpss(y)[1], sr=sr)
+        tempo = float(np.atleast_1d(tempo)[0])
+        return {
+            "instruments": present,
+            "texture": "pretrained CLAP tagger",
+            "tempo_bpm": round(float(tempo) if tempo and not np.isnan(tempo) else 0, 1),
+            "duration_seconds": round(float(librosa.get_duration(y=y, sr=sr)), 2),
+            "backend": "pretrained:" + key,
+        }
+    except Exception:
+        return None
+
+
 def classify_instruments(audio_path: str) -> dict[str, Any]:
+    # SOTA path first — fast fallback if not enabled/available
+    pre = _try_pretrained(audio_path)
+    if pre is not None:
+        return pre
+
     y, sr = librosa.load(audio_path, sr=22050, mono=True)
     if y.ndim > 1:
         y = y[0]
 
     duration = librosa.get_duration(y=y, sr=sr)
     if duration < 1.0:
-        return {"instruments": {}, "texture": "too short to analyze"}
+        return {"instruments": {}, "texture": "too short to analyze", "backend": "heuristic"}
 
     S = np.abs(librosa.stft(y))
 
@@ -107,4 +173,5 @@ def classify_instruments(audio_path: str) -> dict[str, Any]:
         "texture": texture,
         "tempo_bpm": round(tempo, 1),
         "duration_seconds": round(duration, 2),
+        "backend": "heuristic:librosa-bands+hpss",
     }
