@@ -248,7 +248,7 @@ export default function PromptPage() {
                     <h1 className="mb-3 text-3xl sm:text-4xl lg:text-5xl font-bold text-white">Edit with AI</h1>
                     <p className="text-base sm:text-lg text-white/40">Upload audio or video and describe what you want to do.</p>
                   </div>
-                  <FileUpload onFileSelected={handleFileSelected} />
+                  <FileUpload onFileSelected={handleFileSelected} onInvalid={(m) => { setErrorMsg(m); }} />
 
                   <div className="mt-6 rounded-2xl border border-white/5 bg-white/[0.02] p-4">
                     <p className="mb-2 text-xs text-white/30">...or import from a URL</p>
@@ -274,7 +274,7 @@ export default function PromptPage() {
                   <div className="mt-8 text-center">
                     <p className="mb-3 text-sm text-white/30">Try saying:</p>
                     <div className="flex flex-wrap justify-center gap-2">
-                      {["Remove the vocals", "Trim from 1:00 to 2:30", "Make this sound darker", "Extract just the drums", "Add a bass line", "Add synth pad"].map((s) => (
+                      {["Remove the vocals", "Trim from 1:00 to 2:30", "Add funky drums following the groove", "Add bass guitar", "Make voices clearer", "Convert to house style"].map((s) => (
                         <button
                           key={s}
                           onClick={() => handlePromptSelect(s)}

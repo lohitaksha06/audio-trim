@@ -19,6 +19,8 @@ class Intent(str, Enum):
     SPEED = "speed"
     REVERB = "reverb"
     ADD_INSTRUMENT = "add_instrument"
+    ENHANCE_VOCALS = "enhance_vocals"
+    STYLE = "style"
     UNKNOWN = "unknown"
 
 
@@ -80,8 +82,54 @@ def extract_instrument(prompt: str) -> str | None:
 _FILLER_PATTERN = re.compile(r"(?<![a-z])(um+|uh+|ah+|er+)s?(?![a-z])")
 
 
+STYLE_KEYWORDS = {
+    "house": ["house music", "house style", "four-on-the-floor", "four on the floor", "deep house"],
+    "tropical": ["tropical", "tropical edm", "tropical house", "summer edm"],
+    "edm": ["edm style", "edm drop", "festival edm", "big room"],
+    "lofi": ["lo-fi", "lofi", "chillhop"],
+    "acoustic": ["acoustic style", "unplugged"],
+}
+
+ENHANCE_KEYWORDS = [
+    "make voices clearer", "voices clearer", "enhance vocal", "clear vocal",
+    "remove background noise", "remove disturbances", "denoise", "de-noise",
+    "clean up voice", "vocal clarity", "reduce hiss", "remove hiss",
+]
+
+
+def extract_groove(prompt: str) -> str:
+    lower = prompt.lower()
+    if any(k in lower for k in ["four-on-the-floor", "four on the floor", "house groove", "four to the floor"]):
+        return "four_on_floor"
+    if any(k in lower for k in ["syncopat", "funky", "groovy", "offbeat groove"]):
+        return "funky"
+    if any(k in lower for k in ["half-time", "half time", "halftime", "laid back", "laid-back"]):
+        return "half_time"
+    if any(k in lower for k in ["double-time", "double time", "doubletime", "driving", "energetic groove"]):
+        return "double_time"
+    return "default"
+
+
+def extract_style(prompt: str) -> str | None:
+    lower = prompt.lower()
+    for style, keys in STYLE_KEYWORDS.items():
+        if any(k in lower for k in keys):
+            return style
+    # generic "convert ... into X style" capture
+    m = re.search(r"(?:into|to|as)\s+(?:a\s+)?([a-z\- ]+?)\s*style", lower)
+    if m:
+        return m.group(1).strip().replace(" ", "_")[:32]
+    return None
+
+
 def classify_intent(prompt: str) -> Intent:
     lower = prompt.lower()
+
+    if any(k in lower for k in ENHANCE_KEYWORDS):
+        return Intent.ENHANCE_VOCALS
+    style = extract_style(prompt)
+    if style and any(w in lower for w in ["convert", "make it", "turn into", "style", "remix"]):
+        return Intent.STYLE
 
     if any(w in lower for w in ["add ", "generate", "create", "insert", "layer", "synthesize"]):
         # "add bass / synth / drums" must be checked before remove/isolate
@@ -210,6 +258,21 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
                 params["instrument"] = "guitar"
             else:
                 params["instrument"] = "other"
+        params["groove"] = extract_groove(prompt)
+        m_bpm = re.search(r"(\d{2,3})\s*bpm", prompt.lower())
+        if m_bpm:
+            params["target_bpm"] = float(m_bpm.group(1))
+
+    if intent == Intent.STYLE:
+        style = extract_style(prompt)
+        if style:
+            params["style"] = style
+        params["groove"] = extract_groove(prompt)
+
+    if intent == Intent.ENHANCE_VOCALS:
+        lower = prompt.lower()
+        params["denoise"] = any(k in lower for k in ["noise", "hiss", "disturbance", "denoise", "clean"])
+        params["clarity"] = True
 
     return PromptPlan(intent=intent, params=params, raw_prompt=prompt)
 

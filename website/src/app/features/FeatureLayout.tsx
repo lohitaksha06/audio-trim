@@ -183,7 +183,7 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
             {!file ? (
               <div className="flex flex-col items-center justify-center py-12">
                 <div className="w-full max-w-xl">
-                  <FileUpload onFileSelected={handleFileSelected} />
+                  <FileUpload onFileSelected={handleFileSelected} onInvalid={setErrorMsg} />
                 </div>
                 {errorMsg && <p className="mt-3 text-xs text-red-400">{errorMsg}</p>}
               </div>

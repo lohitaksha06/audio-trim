@@ -84,9 +84,19 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
         metadata["format"] = target_format
     elif plan.intent == Intent.ADD_INSTRUMENT:
         target = plan.params.get("instrument", "other")
-        y = _add_instrument(y, sr, target)
+        y, groove_meta = _add_instrument(y, sr, target, plan.params)
         output_path = _save_wav(y, sr)
         metadata["added_instrument"] = target
+        metadata.update(groove_meta)
+    elif plan.intent == Intent.ENHANCE_VOCALS:
+        y = _enhance_vocals(y, sr, plan.params)
+        output_path = _save_wav(y, sr)
+        metadata["enhanced"] = "vocals"
+    elif plan.intent == Intent.STYLE:
+        style = plan.params.get("style", "house")
+        y, style_meta = _apply_style(y, sr, style, plan.params)
+        output_path = _save_wav(y, sr)
+        metadata.update(style_meta)
 
     result: dict[str, Any] = {"intent": plan.intent.value, "params": plan.params}
 
@@ -207,52 +217,298 @@ def _mood_adjust(y: np.ndarray, sr: int, params: dict) -> np.ndarray:
     return y
 
 
-def _add_instrument(y: np.ndarray, sr: int, instrument: str) -> np.ndarray:
-    """Synthesize a simple instrument layer and mix it in.
+def _detect_beats(y: np.ndarray, sr: int) -> tuple[float, list[float]]:
+    """Detect tempo + beat times. Falls back to 120 BPM grid (deterministic)."""
+    mono = y[0] if y.ndim > 1 else y
+    try:
+        tempo, beats = librosa.beat.beat_track(y=mono, sr=sr, units="time")
+        tempo_f = float(np.atleast_1d(tempo)[0])
+        if np.isnan(tempo_f) or tempo_f < 40 or tempo_f > 220:
+            raise ValueError("bad tempo")
+        beat_list = [float(b) for b in np.atleast_1d(beats)]
+        if len(beat_list) >= 2:
+            return tempo_f, beat_list
+    except Exception:
+        pass
+    # fallback grid: 120 BPM from 0
+    dur = y.shape[-1] / sr if y.ndim > 1 else len(mono) / sr
+    step = 0.5
+    return 120.0, [round(i * step, 4) for i in range(int(dur / step))]
 
-    This is a heuristic placeholder — not a generative model — but it gives
-    audible feedback for 'add bass / synth / drums' prompts and keeps the
-    pipeline end-to-end testable. Replace with MusicGen/Riffusion later.
-    """
-    n = y.shape[1]
+
+def _detect_key_root(y: np.ndarray, sr: int) -> float:
+    """Estimate song key root -> bass fundamental near A1 (55 Hz)."""
+    try:
+        mono = y[0] if y.ndim > 1 else y
+        chroma = librosa.feature.chroma_cqt(y=mono, sr=sr)
+        pc = int(np.argmax(np.sum(chroma, axis=1)))
+        midi = 33 + ((pc - 9) % 12)  # A=9 -> A1=33
+        return float(440.0 * 2 ** ((midi - 69) / 12))
+    except Exception:
+        return 55.0
+
+
+def _kick_hit(sr: int, amp: float = 0.9) -> np.ndarray:
+    n = int(0.14 * sr)
     t = np.arange(n) / sr
-    # detect a rough tempo for rhythmic instruments: use 120 BPM if unknown
-    # so drums land on the beat and are audible in tests
+    return (amp * np.exp(-t * 28) * np.sin(2 * np.pi * 55 * t)).astype(np.float32)
+
+
+def _snare_hit(sr: int, amp: float = 0.55) -> np.ndarray:
+    n = int(0.16 * sr)
+    rng = np.random.default_rng(7)
+    noise = rng.standard_normal(n).astype(np.float32) * np.exp(-np.arange(n) / sr * 30)
+    t = np.arange(n) / sr
+    tone = 0.4 * np.exp(-t * 25) * np.sin(2 * np.pi * 190 * t)
+    return (amp * (noise * 0.6 + tone)).astype(np.float32)
+
+
+def _hat_hit(sr: int, amp: float = 0.3, dur: float = 0.04) -> np.ndarray:
+    n = max(1, int(dur * sr))
+    rng = np.random.default_rng(11)
+    noise = rng.standard_normal(n).astype(np.float32) * np.exp(-np.arange(n) / sr * 120)
+    return (amp * noise).astype(np.float32)
+
+
+def _place(gen: np.ndarray, sr: int, at_sec: float, hit: np.ndarray):
+    s = int(at_sec * sr)
+    if s >= len(gen):
+        return
+    e = min(s + len(hit), len(gen))
+    gen[s:e] += hit[: e - s]
+
+
+def _drum_pattern(tempo: float, beats: list[float], dur: float, groove: str, sr: int) -> np.ndarray:
+    gen = np.zeros(int(dur * sr), dtype=np.float32)
+    beat_sec = 60.0 / max(tempo, 40.0)
+    # extend grid beyond detected beats so tails get drums
+    grid = list(beats)
+    t = (grid[-1] + beat_sec) if grid else 0.0
+    while t < dur:
+        grid.append(round(t, 4))
+        t += beat_sec
+    kick, snare, hat = _kick_hit(sr), _snare_hit(sr), _hat_hit(sr)
+    open_hat = _hat_hit(sr, amp=0.28, dur=0.12)
+    for i, b in enumerate(grid):
+        if b >= dur:
+            break
+        bar_pos = i % 4
+        if groove == "four_on_floor":
+            _place(gen, sr, b, kick)
+            _place(gen, sr, b + beat_sec / 2, open_hat)
+            if bar_pos in (1, 3):
+                _place(gen, sr, b, _snare_hit(sr, 0.5))
+        elif groove == "funky":
+            if bar_pos in (0, 2) or (i % 8 == 5):
+                _place(gen, sr, b, kick)
+            if i % 2 == 1:
+                _place(gen, sr, b, _kick_hit(sr, 0.5))
+            _place(gen, sr, b + beat_sec / 4, hat)
+            _place(gen, sr, b + beat_sec / 2, hat)
+            if bar_pos in (1, 3):
+                _place(gen, sr, b, snare)
+        elif groove == "half_time":
+            if bar_pos in (0, 2):
+                _place(gen, sr, b, kick)
+            if bar_pos == 2:
+                _place(gen, sr, b, snare)
+            _place(gen, sr, b, _hat_hit(sr, 0.2))
+        elif groove == "double_time":
+            _place(gen, sr, b, _kick_hit(sr, 0.7))
+            _place(gen, sr, b + beat_sec / 2, _kick_hit(sr, 0.5))
+            _place(gen, sr, b + beat_sec / 4, hat)
+            _place(gen, sr, b + beat_sec * 0.75, hat)
+            if bar_pos in (1, 3):
+                _place(gen, sr, b, snare)
+        else:  # default pop: kick on beats, hats 8ths, snare 2 & 4
+            _place(gen, sr, b, kick)
+            _place(gen, sr, b + beat_sec / 2, hat)
+            if bar_pos in (1, 3):
+                _place(gen, sr, b, snare)
+    return gen
+
+
+def _bass_line(tempo: float, beats: list[float], dur: float, sr: int, groove: str, root: float) -> np.ndarray:
+    n = int(dur * sr)
+    gen = np.zeros(n, dtype=np.float32)
+    beat_sec = 60.0 / max(tempo, 40.0)
+    grid = list(beats)
+    t = (grid[-1] + beat_sec) if grid else 0.0
+    while t < dur:
+        grid.append(round(t, 4))
+        t += beat_sec
+    fifth = root * 1.5
+    octave = root * 2
+    for i, b in enumerate(grid):
+        if b >= dur:
+            break
+        # root on the beat (quarter-note bass), fifth on offbeat for movement
+        for f, at, ln, amp in (
+            (root, b, beat_sec * 0.9, 0.32),
+            (fifth if groove in ("funky", "default") else root, b + beat_sec / 2, beat_sec * 0.4, 0.2),
+        ):
+            if at >= dur:
+                continue
+            s = int(at * sr)
+            e = min(s + int(ln * sr), n)
+            tt = np.arange(e - s) / sr
+            env = np.minimum(1.0, tt * 30) * np.exp(-tt * 4)
+            tone = np.sin(2 * np.pi * f * tt) + 0.4 * np.sin(2 * np.pi * f * 2 * tt)
+            gen[s:e] += (amp * tone * env).astype(np.float32)
+        if groove == "funky" and i % 4 == 3:  # octave pop
+            s = int(b * sr)
+            e = min(s + int(beat_sec * 0.3 * sr), n)
+            tt = np.arange(e - s) / sr
+            gen[s:e] += (0.22 * np.sin(2 * np.pi * octave * tt) * np.exp(-tt * 8)).astype(np.float32)
+    return gen
+
+
+def _add_instrument(
+    y: np.ndarray, sr: int, instrument: str, params: dict | None = None
+) -> tuple[np.ndarray, dict]:
+    """Beat-synced instrument layer. Returns (mixed_audio, metadata)."""
+    params = params or {}
+    groove = params.get("groove", "default")
+    n = y.shape[1]
+    dur = n / sr
+    tempo, beats = _detect_beats(y, sr)
+    if params.get("target_bpm"):
+        try:
+            tempo = float(params["target_bpm"])
+            step = 60.0 / tempo
+            beats = [round(i * step, 4) for i in range(int(dur / step))]
+        except Exception:
+            pass
     gen = np.zeros(n, dtype=np.float32)
 
-    if instrument == "bass":
-        # low sine + octave, half-note pulse
-        f0 = 55.0  # A1
-        pulse = 0.5 * (1 + np.sin(2 * np.pi * 1.0 * t))  # 1 Hz sway
-        gen = 0.35 * np.sin(2 * np.pi * f0 * t) * pulse + 0.15 * np.sin(2 * np.pi * f0 * 2 * t) * pulse
-    elif instrument == "drums":
-        # click every 0.5s (120 BPM) as a short decaying burst
-        interval = int(0.5 * sr)
-        for start in range(0, n, interval):
-            end = min(start + int(0.04 * sr), n)
-            click_t = np.arange(end - start) / sr
-            burst = np.exp(-click_t * 80) * np.sin(2 * np.pi * 80 * click_t)
-            # add a hi frequency tick
-            burst += 0.5 * np.exp(-click_t * 120) * np.sin(2 * np.pi * 3000 * click_t) * (click_t < 0.01)
-            gen[start:end] += burst * 0.6
+    if instrument == "drums":
+        gen = _drum_pattern(tempo, beats, dur, groove, sr)
+    elif instrument == "bass":
+        root = _detect_key_root(y, sr)
+        gen = _bass_line(tempo, beats, dur, sr, groove, root)
     elif instrument == "guitar":
-        # arpeggiated 440Hz + harmonics
-        f0 = 110.0
-        gen = 0.2 * np.sin(2 * np.pi * f0 * t) + 0.1 * np.sin(2 * np.pi * f0 * 2 * t) + 0.06 * np.sin(2 * np.pi * f0 * 3 * t)
-        gen *= 0.5 * (1 + 0.5 * np.sin(2 * np.pi * 2 * t))
+        # strummed triad from detected key, 8th-note groove
+        root = _detect_key_root(y, sr) * 2
+        chord = [root, root * 2 ** (4 / 12), root * 2 ** (7 / 12)]
+        beat_sec = 60.0 / tempo
+        step = beat_sec / 2
+        tt = 0.0
+        k = 0
+        while tt < dur:
+            s = int(tt * sr)
+            e = min(s + int(step * 0.9 * sr), n)
+            tarr = np.arange(e - s) / sr
+            tone = sum(0.12 * np.sin(2 * np.pi * f * tarr) for f in chord)
+            env = np.minimum(1.0, tarr * 40) * np.exp(-tarr * 6)
+            gen[s:e] += (tone * env).astype(np.float32)
+            tt += step
+            k += 1
     elif instrument in ("keys", "other"):
-        # warm pad: C3 major chord (C4, E4, G4) with slow attack
-        freqs = [261.63, 329.63, 391.99] if instrument == "keys" else [220.0, 277.18, 329.63]
+        t = np.arange(n) / sr
+        root = _detect_key_root(y, sr) * 4
+        freqs = [root, root * 2 ** (4 / 12), root * 2 ** (7 / 12)]
         for f in freqs:
-            gen += 0.12 * np.sin(2 * np.pi * f * t)
-        gen *= np.minimum(1.0, t * 2)  # fade in
-        # gentle tremolo
-        gen *= 1 + 0.1 * np.sin(2 * np.pi * 0.8 * t)
+            gen += 0.1 * np.sin(2 * np.pi * f * t)
+        gen *= np.minimum(1.0, t * 2)
+        gen *= 1 + 0.1 * np.sin(2 * np.pi * (tempo / 60 / 4) * t)  # pulse at bar rate
     else:
-        # fallback pad
+        t = np.arange(n) / sr
         gen = 0.15 * np.sin(2 * np.pi * 220.0 * t) + 0.08 * np.sin(2 * np.pi * 330.0 * t)
 
-    # mix into each channel, keep headroom
+    peak = float(np.max(np.abs(gen))) if np.max(np.abs(gen)) > 0 else 1.0
+    gen = (gen / peak * 0.5).astype(np.float32)
     for ch in range(y.shape[0]):
-        y[ch] = np.clip(y[ch] * 0.85 + gen * 0.35, -1, 1)
-    return y
+        y[ch] = np.clip(y[ch] * 0.85 + gen * 0.4, -1, 1)
+    meta = {
+        "tempo_bpm": round(float(tempo), 1),
+        "beat_count": len(beats),
+        "groove": groove,
+    }
+    return y, meta
+
+
+def _enhance_vocals(y: np.ndarray, sr: int, params: dict | None = None) -> np.ndarray:
+    """Vocal clarity: HP <80 Hz, presence 2-5 kHz, spectral gate denoise."""
+    params = params or {}
+    out = np.zeros_like(y)
+    for ch in range(y.shape[0]):
+        S = librosa.stft(y[ch])
+        freqs = librosa.fft_frequencies(sr=sr)
+        gain = np.ones(len(freqs))
+        gain[freqs < 80] = 0.05  # rumble cut
+        band = (freqs >= 2000) & (freqs <= 5000)
+        gain[band] = 1.5  # presence
+        gain[freqs > 12000] = 0.6  # hiss tame
+        S_enh = S * gain[:, np.newaxis]
+        frame_rms = np.sqrt(np.mean(np.abs(S_enh) ** 2, axis=0) + 1e-12)
+        if params.get("denoise", True):
+            thresh = np.median(frame_rms) * 0.25
+            mask = np.clip((frame_rms - thresh) / (thresh + 1e-9), 0.25, 1.0)
+            S_enh = S_enh * mask[np.newaxis, :]
+        rec = librosa.istft(S_enh, length=y.shape[1])
+        out[ch] = rec
+    peak = np.max(np.abs(out))
+    if peak > 0:
+        out = out / peak * 0.9
+    return out
+
+
+def _apply_style(y: np.ndarray, sr: int, style: str, params: dict | None = None) -> tuple[np.ndarray, dict]:
+    """Style presets (honest DSP, not generative): drums + EQ movement."""
+    params = params or {}
+    groove = params.get("groove", "default")
+    tempo, beats = _detect_beats(y, sr)
+    dur = y.shape[1] / sr
+    style_l = style.lower()
+    if "house" in style_l or "edm" in style_l:
+        groove = "four_on_floor" if groove == "default" else groove
+        drums = _drum_pattern(tempo, beats, dur, groove, sr)
+        drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.45
+        for ch in range(y.shape[0]):
+            y[ch] = np.clip(y[ch] * 0.8 + drums * 0.5, -1, 1)
+        # pump: sidechain-ish LFO at beat rate
+        t = np.arange(y.shape[1]) / sr
+        pump = 1 - 0.25 * (0.5 * (1 + np.sin(2 * np.pi * (tempo / 60) * t - np.pi / 2)))
+        y = y * pump[np.newaxis, :]
+    elif "tropical" in style_l:
+        drums = _drum_pattern(tempo, beats, dur, "funky", sr)
+        drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.3
+        # offbeat plucks (major triad from key)
+        root = _detect_key_root(y, sr) * 4
+        pluck = np.zeros(y.shape[1], dtype=np.float32)
+        beat_sec = 60.0 / tempo
+        for b in beats:
+            for off in (0.5,):
+                at = b + beat_sec * off
+                if at >= dur:
+                    continue
+                s = int(at * sr)
+                e = min(s + int(0.22 * sr), len(pluck))
+                tt = np.arange(e - s) / sr
+                tone = sum(0.3 * np.sin(2 * np.pi * f * tt) * np.exp(-tt * 10) for f in (root, root * 1.25, root * 1.5))
+                pluck[s:e] += tone.astype(np.float32)
+        for ch in range(y.shape[0]):
+            y[ch] = np.clip(y[ch] * 0.82 + drums * 0.35 + pluck * 0.3, -1, 1)
+        y = _add_reverb(y, sr)
+    elif "lofi" in style_l:
+        # darken + soft half-time drums
+        for ch in range(y.shape[0]):
+            S = librosa.stft(y[ch])
+            freqs = librosa.fft_frequencies(sr=sr)
+            gain = np.ones(len(freqs))
+            gain[freqs > 6000] = 0.25
+            gain[freqs < 300] = 1.15
+            y[ch] = librosa.istft(S * gain[:, np.newaxis], length=y.shape[1])
+        drums = _drum_pattern(tempo, beats, dur, "half_time", sr)
+        drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.25
+        for ch in range(y.shape[0]):
+            y[ch] = np.clip(y[ch] * 0.9 + drums * 0.3, -1, 1)
+    else:
+        drums = _drum_pattern(tempo, beats, dur, groove, sr)
+        drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.35
+        for ch in range(y.shape[0]):
+            y[ch] = np.clip(y[ch] * 0.85 + drums * 0.35, -1, 1)
+    peak = np.max(np.abs(y))
+    if peak > 0:
+        y = y / peak * 0.9
+    return y, {"style": style, "tempo_bpm": round(float(tempo), 1), "beat_count": len(beats), "groove": groove}

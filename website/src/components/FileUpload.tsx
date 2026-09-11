@@ -4,9 +4,10 @@ import { useCallback, useRef, useState } from "react";
 
 interface FileUploadProps {
   onFileSelected: (file: File) => void;
+  onInvalid?: (msg: string) => void;
 }
 
-export default function FileUpload({ onFileSelected }: FileUploadProps) {
+export default function FileUpload({ onFileSelected, onInvalid }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -23,6 +24,7 @@ export default function FileUpload({ onFileSelected }: FileUploadProps) {
       const validExt = ["mp3", "wav", "flac", "aac", "m4a", "ogg", "mp4", "mov", "avi", "mkv"];
 
       if (!validAudio.includes(file.type) && !validVideo.includes(file.type) && !validExt.includes(ext || "")) {
+        onInvalid?.(`Unsupported file type: ${file.name}. Use MP3, WAV, FLAC, M4A, MP4, MOV, AVI or MKV.`);
         return;
       }
       onFileSelected(file);
@@ -46,7 +48,11 @@ export default function FileUpload({ onFileSelected }: FileUploadProps) {
       onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
       onDragLeave={() => setDragging(false)}
       onClick={() => inputRef.current?.click()}
-      className={`group cursor-pointer rounded-2xl border-2 border-dashed p-10 sm:p-14 lg:p-16 transition-all duration-300 ${
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); inputRef.current?.click(); } }}
+      role="button"
+      tabIndex={0}
+      aria-label="Upload audio or video file"
+      className={`group relative cursor-pointer rounded-2xl border-2 border-dashed p-10 sm:p-14 lg:p-16 transition-all duration-300 ${
         dragging
           ? "border-neon-blue bg-neon-blue/5 shadow-[0_0_40px_rgba(0,212,255,0.15)]"
           : "border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]"
@@ -86,9 +92,13 @@ export default function FileUpload({ onFileSelected }: FileUploadProps) {
         ref={inputRef}
         type="file"
         accept=".mp3,.wav,.flac,.aac,.m4a,.ogg,.mp4,.mov,.avi,.mkv,audio/*,video/*"
-        className="hidden"
+        aria-hidden={false}
+        tabIndex={-1}
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
         onChange={(e) => {
           const file = e.target.files?.[0];
+          // reset so picking the same file twice still fires onChange
+          e.target.value = "";
           if (file) handleFile(file);
         }}
       />

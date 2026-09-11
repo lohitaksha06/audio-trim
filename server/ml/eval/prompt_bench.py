@@ -62,9 +62,17 @@ BENCH: list[dict[str, Any]] = [
     # PAINT (2)
     {"prompt": "remove that cymbal crash and fill smoothly at 1:23", "intent": "paint"},
     {"prompt": "clean up the cough at 0:03 and paint over it", "intent": "paint"},
-    # ADD_INSTRUMENT (2)
+    # ADD_INSTRUMENT (4)
     {"prompt": "add a bass line", "intent": "add_instrument", "params": {"instrument": "bass"}},
     {"prompt": "add synth pad in the bridge", "intent": "add_instrument"},
+    {"prompt": "add funky syncopated drums following the groove", "intent": "add_instrument", "params": {"instrument": "drums"}},
+    {"prompt": "add four-on-the-floor drums", "intent": "add_instrument", "params": {"groove": "four_on_floor"}},
+    # STYLE (2)
+    {"prompt": "convert this song into a house music style", "intent": "style", "params": {"style": "house"}},
+    {"prompt": "make it tropical edm style", "intent": "style"},
+    # ENHANCE_VOCALS (2)
+    {"prompt": "make voices clearer and remove background noise", "intent": "enhance_vocals"},
+    {"prompt": "enhance vocals and denoise", "intent": "enhance_vocals"},
     # UNKNOWN (1)
     {"prompt": "hello world", "intent": "unknown"},
 ]

@@ -261,7 +261,7 @@ export default function LabPage() {
         {!uploadResult ? (
           <div className="flex flex-1 flex-col items-center justify-center px-4 py-12">
             <div className="w-full max-w-xl">
-              <FileUpload onFileSelected={handleFileSelected} />
+              <FileUpload onFileSelected={handleFileSelected} onInvalid={setErrorMsg} />
               <p className="mt-3 text-center text-xs text-white/20">Upload any audio/video — Lab works entirely in-browser until you export.</p>
               {uploading && <p className="mt-2 text-center text-xs text-neon-blue animate-pulse">Analyzing…</p>}
               {errorMsg && <p className="mt-2 text-center text-xs text-red-400">{errorMsg}</p>}
@@ -383,7 +383,7 @@ export default function LabPage() {
                     <div className="space-y-2 text-xs">
                       <div className="flex justify-between"><span className="text-white/40">Prompt NLU accuracy</span><span className="font-mono text-white">{(evalMetrics.prompt_bench.accuracy*100).toFixed(1)}% · {evalMetrics.prompt_bench.correct}/{evalMetrics.prompt_bench.total}</span></div>
                       <div className="flex justify-between"><span className="text-white/40">Genre model</span><span className="font-mono text-white">{evalMetrics.genre.available ? `${evalMetrics.genre.model_type} · ${evalMetrics.genre.classes?.length ?? 0} classes` : "not trained"}</span></div>
-                      <div className="text-[11px] text-white/30">Bench: 36 paraphrases across 15 intents · <code className="text-white/50">/api/eval/metrics</code> · <code className="text-white/50">docs/models/genre_classifier_card.md</code></div>
+                      <div className="text-[11px] text-white/30">Bench: {evalMetrics.prompt_bench.total} prompts · {(evalMetrics.prompt_bench.accuracy*100).toFixed(0)}% NLU · <code className="text-white/50">/api/eval/metrics</code> · <code className="text-white/50">docs/models/genre_classifier_card.md</code></div>
                     </div>
                   </div>
                 )}
