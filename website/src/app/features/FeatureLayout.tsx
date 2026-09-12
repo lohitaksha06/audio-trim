@@ -6,6 +6,7 @@ import Sidebar from "@/components/Sidebar";
 import FileUpload from "@/components/FileUpload";
 import AudioPreview from "@/components/AudioPreview";
 import { uploadFile, processAudio, understandAudio, exportZip, downloadUrl, type UploadResponse, type UnderstandResponse, type ProcessResponse } from "@/services/api";
+import { describeResult, isOutputFollowUp } from "@/utils/followUp";
 import { FeaturePromptContext } from "./FeaturePromptContext";
 
 interface FeatureLayoutProps {
@@ -56,10 +57,27 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
     }
   };
 
+  const handleDownload = (key?: string | null) => {
+    if (!key) return;
+    window.open(downloadUrl(key), "_blank", "noopener");
+  };
+
   const handleProcess = async () => {
     if (!prompt.trim()) return;
     if (!uploadResult) {
       setHistory((prev) => [...prev, { role: "ai", text: "Please upload a file first before processing." }]);
+      return;
+    }
+    if (isOutputFollowUp(prompt)) {
+      const currentPrompt = prompt;
+      setHistory((prev) => [...prev, { role: "user", text: currentPrompt }]);
+      setPrompt("");
+      if (lastResult?.download_key) {
+        setHistory((prev) => [...prev, { role: "ai", text: "Here's your latest output — opening the download now." }]);
+        handleDownload(lastResult.download_key);
+      } else {
+        setHistory((prev) => [...prev, { role: "ai", text: "No output yet — describe an edit first, e.g. \"Add drums\"." }]);
+      }
       return;
     }
     setHistory((prev) => [...prev, { role: "user", text: prompt }]);
@@ -75,7 +93,8 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
         setState("analyzed");
         return;
       }
-      const msg = `Done! Intent: ${result.intent}. Applied: "${currentPrompt}"`;
+      const detail = describeResult(result.intent, result.metadata as { added_instrument?: string; groove?: string; tempo_bpm?: number; beat_count?: number; hits?: number; style?: string; enhanced?: string; removed_stem?: string; isolated_stem?: string } | null);
+      const msg = detail ? `Done — ${detail}.` : `Done! Intent: ${result.intent}. Applied: "${currentPrompt}"`;
       setHistory((prev) => [...prev, { role: "ai", text: msg }]);
       setState("completed");
     } catch (e: unknown) {
@@ -100,11 +119,6 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
     } finally {
       setExporting(false);
     }
-  };
-
-  const handleDownload = (key?: string | null) => {
-    if (!key) return;
-    window.open(downloadUrl(key), "_blank", "noopener");
   };
 
   const reset = () => {
@@ -209,6 +223,9 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
                   {hasResult && lastResult?.download_key && (
                     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
                       <AudioPreview src={downloadUrl(lastResult.download_key)} height={48} />
+                      {lastResult.layer_download_key && (
+                        <button onClick={()=>handleDownload(lastResult.layer_download_key)} className="mt-2 w-full rounded-lg bg-neon-blue/10 px-3 py-2 text-xs font-medium text-neon-blue hover:bg-neon-blue/20 transition-colors">Download {lastResult.layer_label ?? "added layer"} only</button>
+                      )}
                       <div className="mt-2 flex gap-2">
                         <button onClick={()=>handleDownload(lastResult.download_key)} className="flex-1 rounded-lg bg-neon-blue/15 px-3 py-2 text-xs font-medium text-neon-blue hover:bg-neon-blue/25 transition-colors">Download result</button>
                         {lastResult.stems_keys && Object.keys(lastResult.stems_keys).length>0 && (

@@ -20,6 +20,8 @@ export interface UploadResponse {
 export interface ProcessResponse {
   output_path?: string | null;
   download_key?: string | null;
+  layer_download_key?: string | null;
+  layer_label?: string | null;
   stems?: Record<string, string> | null;
   stems_keys?: Record<string, string> | null;
   intent: string;

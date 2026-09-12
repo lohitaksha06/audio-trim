@@ -16,6 +16,7 @@ import {
   type ProcessResponse,
   type UnderstandResponse,
 } from "@/services/api";
+import { describeResult, isOutputFollowUp } from "@/utils/followUp";
 
 type PageState = "idle" | "uploading" | "analyzed" | "processing" | "completed" | "error";
 
@@ -103,6 +104,20 @@ export default function PromptPage() {
       setHistory((prev) => [...prev, { role: "ai", text: "Please upload a file first before processing." }]);
       return;
     }
+    // Conversational follow-up ("show me the output", "send the download"):
+    // resurface the last result instead of re-processing as an unknown edit.
+    if (isOutputFollowUp(prompt)) {
+      const currentPrompt = prompt;
+      setHistory((prev) => [...prev, { role: "user", text: currentPrompt }]);
+      setPrompt("");
+      if (lastResult?.download_key) {
+        setHistory((prev) => [...prev, { role: "ai", text: "Here's your latest output — opening the download now. The player and Download buttons are in the Output panel too." }]);
+        handleDownload(lastResult.download_key);
+      } else {
+        setHistory((prev) => [...prev, { role: "ai", text: "No output yet — describe an edit first, e.g. \"Add drums\"." }]);
+      }
+      return;
+    }
     setHistory((prev) => [...prev, { role: "user", text: prompt }]);
     setPromptHistory((prev) => [prompt, ...prev.filter((p) => p !== prompt)].slice(0, 30));
     const currentPrompt = prompt;
@@ -116,7 +131,8 @@ export default function PromptPage() {
         setState("analyzed");
         return;
       }
-      const msg = `Done! Applied: "${currentPrompt}"`;
+      const detail = describeResult(result.intent, result.metadata as { added_instrument?: string; groove?: string; tempo_bpm?: number; beat_count?: number; hits?: number; style?: string; enhanced?: string; removed_stem?: string; isolated_stem?: string } | null);
+      const msg = detail ? `Done — ${detail}. Preview it in the Output panel.` : `Done! Applied: "${currentPrompt}"`;
       setHistory((prev) => [...prev, { role: "ai", text: msg }]);
       setState("completed");
     } catch (e: unknown) {
@@ -430,6 +446,14 @@ export default function PromptPage() {
                             </button>
                           </div>
                         )}
+                        {lastResult?.layer_download_key && (
+                          <button
+                            onClick={() => handleDownload(lastResult.layer_download_key)}
+                            className="w-full rounded-lg bg-neon-blue/10 px-3 py-2 text-xs font-medium text-neon-blue hover:bg-neon-blue/20 transition-colors"
+                          >
+                            Download {lastResult.layer_label ?? "added layer"} only
+                          </button>
+                        )}
                         {stemsKeys && Object.keys(stemsKeys).length > 0 && (
                           <button
                             onClick={handleExportZip}
@@ -497,7 +521,7 @@ export default function PromptPage() {
                   onChange={(e) => setPrompt(e.target.value)}
                   placeholder='e.g. "Remove the kick drum" or "Make this sound darker"'
                   className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 pr-12 text-sm sm:text-base text-white placeholder-white/20 outline-none transition-all focus:border-neon-blue/50 focus:ring-2 focus:ring-neon-blue/20 focus:bg-white/[0.04]"
-                  disabled={state === "processing"}
+                  disabled={state === "processing" || state === "uploading"}
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleProcess(); } }}
                   autoFocus
                 />
@@ -513,14 +537,14 @@ export default function PromptPage() {
               </div>
               <button
                 onClick={handleProcess}
-                disabled={!prompt.trim() || state === "processing"}
+                disabled={!prompt.trim() || state === "processing" || state === "uploading"}
                 className="shrink-0 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple px-6 py-3.5 text-sm sm:text-base font-semibold text-black transition-all duration-300 hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {state === "processing" ? "..." : "Process"}
               </button>
             </div>
             <p className="mt-2 text-[11px] text-white/20">
-              {file ? "Press Enter to send · mic for voice input" : "Upload a file first, then describe what you want"}
+              {state === "uploading" ? "Uploading your file — hold on…" : file ? "Press Enter to send · mic for voice input" : "Upload a file first, then describe what you want"}
             </p>
           </div>
         </main>
