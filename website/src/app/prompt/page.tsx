@@ -36,6 +36,12 @@ export default function PromptPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [history, setHistory] = useState<{ role: string; text: string }[]>([]);
   const [promptHistory, setPromptHistory] = useState<string[]>([]);
+  const [edits, setEdits] = useState(0);
+  const [fromOriginal, setFromOriginal] = useState(false);
+  // chaining: each edit builds on the latest output, not the raw upload
+  const activeAudioPath = !fromOriginal && lastResult?.download_key
+    ? lastResult.download_key
+    : uploadResult?.audio_path;
   useEffect(() => {
     try { const v = localStorage.getItem("audelle:promptHistory"); if (v) setPromptHistory(JSON.parse(v)); } catch {}
   }, []);
@@ -118,20 +124,27 @@ export default function PromptPage() {
       }
       return;
     }
+    const srcPath = activeAudioPath;
+    if (!srcPath) {
+      setHistory((prev) => [...prev, { role: "ai", text: "Please upload a file first before processing." }]);
+      return;
+    }
     setHistory((prev) => [...prev, { role: "user", text: prompt }]);
     setPromptHistory((prev) => [prompt, ...prev.filter((p) => p !== prompt)].slice(0, 30));
     const currentPrompt = prompt;
     setPrompt("");
     setState("processing");
     try {
-      const result = await processAudio(uploadResult.audio_path, currentPrompt);
+      const result = await processAudio(srcPath, currentPrompt);
       setLastResult(result);
       if (result.intent === "unknown") {
-        setHistory((prev) => [...prev, { role: "ai", text: `I didn't understand "${currentPrompt}". Try: "Trim from 0:05 to 0:10" or "Remove the drums"` }]);
+        setHistory((prev) => [...prev, { role: "ai", text: `I didn't understand "${currentPrompt}". Try: "Trim from 0:05 to 0:10" or "Remove the drums" — or see the Guide for everything I can do.` }]);
         setState("analyzed");
         return;
       }
-      const detail = describeResult(result.intent, result.metadata as { added_instrument?: string; groove?: string; tempo_bpm?: number; beat_count?: number; hits?: number; style?: string; enhanced?: string; removed_stem?: string; isolated_stem?: string } | null);
+      setEdits((n) => n + 1);
+      setFromOriginal(false);
+      const detail = describeResult(result.intent, result.metadata as { added_instrument?: string; combined?: string[]; groove?: string; tempo_bpm?: number; beat_count?: number; hits?: number; style?: string; enhanced?: string; boosted?: string; removed_stem?: string; isolated_stem?: string } | null);
       const msg = detail ? `Done — ${detail}. Preview it in the Output panel.` : `Done! Applied: "${currentPrompt}"`;
       setHistory((prev) => [...prev, { role: "ai", text: msg }]);
       setState("completed");
@@ -143,13 +156,16 @@ export default function PromptPage() {
   };
 
   const handleManualTrim = async (start: number, end: number) => {
-    if (!uploadResult) return;
+    const srcPath = activeAudioPath;
+    if (!srcPath) return;
     setHistory((prev) => [...prev, { role: "user", text: `Trim from ${Math.round(start)}s to ${Math.round(end)}s (manual)` }]);
     setShowManual(false);
     setState("processing");
     try {
-      const result = await processAudio(uploadResult.audio_path, `trim from ${start.toFixed(2)} to ${end.toFixed(2)}`);
+      const result = await processAudio(srcPath, `trim from ${start.toFixed(2)} to ${end.toFixed(2)}`);
       setLastResult(result);
+      setEdits((n) => n + 1);
+      setFromOriginal(false);
       setHistory((prev) => [...prev, { role: "ai", text: `Trimmed to ${(end - start).toFixed(1)}s.` }]);
       setState("completed");
     } catch (e: unknown) {
@@ -214,8 +230,22 @@ export default function PromptPage() {
     setShowManual(false);
     setErrorMsg("");
     setHistory([]);
+    setEdits(0);
+    setFromOriginal(false);
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     setObjectUrl(null);
+  };
+
+  const newChat = () => {
+    // fresh session on the same file: clear conversation + outputs, keep upload
+    setHistory([]);
+    setLastResult(null);
+    setPrompt("");
+    setErrorMsg("");
+    setShowManual(false);
+    setEdits(0);
+    setFromOriginal(false);
+    if (uploadResult) setState("analyzed");
   };
 
   const formatSize = (bytes: number) => {
@@ -327,10 +357,24 @@ export default function PromptPage() {
                   >
                     {showManual ? "AI Mode" : "Manual Mode"}
                   </button>
-                  <button onClick={reset} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/40 hover:border-white/20 hover:text-white/70 transition-colors">
+                  <button onClick={newChat} title="Clear conversation, keep this file" className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/40 hover:border-white/20 hover:text-white/70 transition-colors">
+                    New chat
+                  </button>
+                  <button onClick={reset} title="Upload a different file" className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/40 hover:border-white/20 hover:text-white/70 transition-colors">
                     New file
                   </button>
                 </div>
+                {edits > 0 && lastResult?.download_key && (
+                  <div className="shrink-0 flex items-center gap-2 border-b border-neon-blue/10 bg-neon-blue/[0.04] px-4 sm:px-6 py-1.5 text-[11px] text-neon-blue/80">
+                    <span>Layering on output {edits} — each edit builds on the last.</span>
+                    {!fromOriginal ? (
+                      <button onClick={() => setFromOriginal(true)} className="underline hover:text-neon-blue">Start next edit from original instead</button>
+                    ) : (
+                      <button onClick={() => setFromOriginal(false)} className="underline hover:text-neon-blue">Back to layering on latest</button>
+                    )}
+                    {fromOriginal && <span className="text-white/40">(next edit starts from your upload)</span>}
+                  </div>
+                )}
 
                 {objectUrl && showManual && (
                   <div className="shrink-0 border-b border-white/5 bg-white/[0.02] px-4 sm:px-6 py-3">

@@ -24,6 +24,12 @@ export default function Nav() {
           >
             Lab
           </Link>
+          <Link
+            href="/guide"
+            className="text-sm sm:text-base text-white/50 transition-colors hover:text-white"
+          >
+            Guide
+          </Link>
           <span className="text-white/20">|</span>
           <span className="text-xs sm:text-sm text-white/30">No account needed</span>
         </div>

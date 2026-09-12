@@ -19,6 +19,8 @@ class Intent(str, Enum):
     SPEED = "speed"
     REVERB = "reverb"
     ADD_INSTRUMENT = "add_instrument"
+    COMBINE = "combine"
+    BOOST = "boost"
     ENHANCE_VOCALS = "enhance_vocals"
     STYLE = "style"
     UNKNOWN = "unknown"
@@ -62,21 +64,52 @@ def extract_time_range(prompt: str) -> tuple[float | None, float | None]:
     return None, None
 
 
+_INSTRUMENT_KEYWORDS = {
+    "vocals": ["vocal", "voice", "singer", "singing", "speech"],
+    "drums": ["drum", "kick", "snare", "hi-hat", "hihat", "cymbal", "percussion"],
+    "bass": ["bass", "bassline", "sub-bass"],
+    "guitar": ["guitar", "acoustic guitar", "electric guitar", "strum"],
+    "keys": ["piano", "keys", "keyboard", "synth", "synthesizer", "organ"],
+    "strings": ["strings", "violin", "cello", "orchestra"],
+    "other": ["pad", "fx", "effects"],
+}
+
+
 def extract_instrument(prompt: str) -> str | None:
-    instruments = {
-        "vocals": ["vocal", "voice", "singer", "singing", "speech"],
-        "drums": ["drum", "kick", "snare", "hi-hat", "hihat", "cymbal", "percussion"],
-        "bass": ["bass", "bassline", "sub-bass"],
-        "guitar": ["guitar", "acoustic guitar", "electric guitar", "strum"],
-        "keys": ["piano", "keys", "keyboard", "synth", "synthesizer", "organ"],
-        "other": ["pad", "strings", "orchestra", "fx", "effects"],
-    }
     lower = prompt.lower()
-    for stem, keywords in instruments.items():
+    # "base guitar" = user's spelling of bass; word-boundary so "based" is safe
+    if re.search(r"\bbase\b", lower):
+        return "bass"
+    for stem, keywords in _INSTRUMENT_KEYWORDS.items():
         for kw in keywords:
             if kw in lower:
                 return stem
     return None
+
+
+def extract_instruments(prompt: str) -> list[str]:
+    """All instruments mentioned, in canonical order, de-duplicated."""
+    lower = prompt.lower()
+    found: list[str] = []
+    if re.search(r"\bbase\b", lower):
+        found.append("bass")
+    # compound names are one instrument — don't double-count their parts
+    guitar_scan = re.sub(r"\b(?:bass|base) guitar\b", " ", lower)
+    other_scan = re.sub(r"\bsynth pad\b", "synth", lower)
+    for stem, keywords in _INSTRUMENT_KEYWORDS.items():
+        if stem in found:
+            continue
+        if stem == "guitar":
+            scan = guitar_scan
+        elif stem == "other":
+            scan = other_scan
+        else:
+            scan = lower
+        for kw in keywords:
+            if kw in scan:
+                found.append(stem)
+                break
+    return found
 
 
 _FILLER_PATTERN = re.compile(r"(?<![a-z])(um+|uh+|ah+|er+)s?(?![a-z])")
@@ -99,6 +132,8 @@ ENHANCE_KEYWORDS = [
 
 def extract_groove(prompt: str) -> str:
     lower = prompt.lower()
+    if any(k in lower for k in ["swing", "shuffled", "shuffle"]):
+        return "swing"
     if any(k in lower for k in ["four-on-the-floor", "four on the floor", "house groove", "four to the floor"]):
         return "four_on_floor"
     if any(k in lower for k in ["syncopat", "funky", "groovy", "offbeat groove"]):
@@ -131,8 +166,27 @@ def classify_intent(prompt: str) -> Intent:
     if style and any(w in lower for w in ["convert", "make it", "turn into", "style", "remix"]):
         return Intent.STYLE
 
+    if any(
+        w in lower
+        for w in ["cant hear", "can't hear", "cannot hear", "too quiet", "too soft", "louder", "turn it up", "turn up the", "bring up the", "pump up", "boost the", "boost "]
+    ):
+        return Intent.BOOST
+
+    # combine first: "add both drums and bass" must beat the single-add branch
+    mentioned = extract_instruments(prompt)
+    if "combin" in lower or "comebin" in lower:
+        if mentioned:
+            return Intent.COMBINE
+    if (
+        any(w in lower for w in ["both", "together", "merge", "mix them", "layer them"])
+        and len(mentioned) >= 2
+    ):
+        return Intent.COMBINE
+
     if any(w in lower for w in ["add ", "generate", "create", "insert", "layer", "synthesize"]):
         # "add bass / synth / drums" must be checked before remove/isolate
+        if len(mentioned) >= 2:
+            return Intent.COMBINE
         if extract_instrument(prompt):
             return Intent.ADD_INSTRUMENT
         if any(k in lower for k in ["bass", "drum", "synth", "guitar", "piano", "keys", "pad", "strings"]):
@@ -273,6 +327,16 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
         lower = prompt.lower()
         params["denoise"] = any(k in lower for k in ["noise", "hiss", "disturbance", "denoise", "clean"])
         params["clarity"] = True
+
+    if intent == Intent.COMBINE:
+        params["instruments"] = extract_instruments(prompt) or ["drums", "bass"]
+        params["groove"] = extract_groove(prompt)
+        m_bpm = re.search(r"(\d{2,3})\s*bpm", prompt.lower())
+        if m_bpm:
+            params["target_bpm"] = float(m_bpm.group(1))
+
+    if intent == Intent.BOOST:
+        params["target"] = extract_instrument(prompt) or "other"
 
     return PromptPlan(intent=intent, params=params, raw_prompt=prompt)
 

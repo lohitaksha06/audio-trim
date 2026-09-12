@@ -20,25 +20,36 @@ export function isOutputFollowUp(prompt: string): boolean {
 
 export interface ResultMeta {
   added_instrument?: string;
+  combined?: string[];
   groove?: string;
   tempo_bpm?: number;
   beat_count?: number;
   hits?: number;
   style?: string;
   enhanced?: string;
+  boosted?: string;
   removed_stem?: string;
   isolated_stem?: string;
+}
+
+function grooveBits(meta: ResultMeta, bits: string[]) {
+  if (meta.groove && meta.groove !== "default") bits.push(`${meta.groove.replace(/_/g, " ")} groove`);
+  if (meta.tempo_bpm) bits.push(`${Math.round(meta.tempo_bpm)} BPM`);
+  if (meta.hits) bits.push(`${meta.hits} hits`);
 }
 
 /** "Added drums · funky groove · 99 BPM · 32 hits" — proof the AI did work. */
 export function describeResult(intent: string, meta?: ResultMeta | null): string | null {
   if (!meta) return null;
   const bits: string[] = [];
-  if (meta.added_instrument) {
+  if (meta.combined && meta.combined.length > 0) {
+    bits.push(`added ${meta.combined.join(" + ")}`);
+    grooveBits(meta, bits);
+  } else if (meta.added_instrument) {
     bits.push(`added ${meta.added_instrument}`);
-    if (meta.groove && meta.groove !== "default") bits.push(`${meta.groove.replace(/_/g, " ")} groove`);
-    if (meta.tempo_bpm) bits.push(`${Math.round(meta.tempo_bpm)} BPM`);
-    if (meta.hits) bits.push(`${meta.hits} hits`);
+    grooveBits(meta, bits);
+  } else if (meta.boosted) {
+    bits.push(`turned up ${meta.boosted}`);
   } else if (meta.style) {
     bits.push(`${meta.style} style`);
     if (meta.tempo_bpm) bits.push(`${Math.round(meta.tempo_bpm)} BPM`);

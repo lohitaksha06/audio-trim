@@ -92,6 +92,30 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
         if layer is not None:
             layer_path_out = _save_wav(layer[np.newaxis, :], sr)
             metadata["layer_kind"] = f"{target}_only"
+    elif plan.intent == Intent.COMBINE:
+        instruments = plan.params.get("instruments") or ["drums", "bass"]
+        stems = {}
+        total_hits = 0
+        tempo_seen = 0.0
+        beats_seen = 0
+        for inst in instruments:
+            y, gm, layer = _add_instrument(y, sr, inst, {**plan.params, "instrument": inst})
+            total_hits += int(gm.get("hits", 0))
+            tempo_seen = float(gm.get("tempo_bpm", tempo_seen))
+            beats_seen = max(beats_seen, int(gm.get("beat_count", 0)))
+            if layer is not None:
+                stems[f"{inst}_added"] = _save_wav(layer[np.newaxis, :], sr)
+        output_path = _save_wav(y, sr)
+        metadata["combined"] = instruments
+        metadata["tempo_bpm"] = round(tempo_seen, 1)
+        metadata["beat_count"] = beats_seen
+        metadata["hits"] = total_hits
+        metadata["groove"] = plan.params.get("groove", "default")
+    elif plan.intent == Intent.BOOST:
+        target = plan.params.get("target", "other")
+        y = _boost_target(y, sr, target)
+        output_path = _save_wav(y, sr)
+        metadata["boosted"] = target
     elif plan.intent == Intent.ENHANCE_VOCALS:
         y = _enhance_vocals(y, sr, plan.params)
         output_path = _save_wav(y, sr)
@@ -233,6 +257,11 @@ def _detect_beats(y: np.ndarray, sr: int) -> tuple[float, list[float]]:
             raise ValueError("bad tempo")
         beat_list = [float(b) for b in np.atleast_1d(beats)]
         if len(beat_list) >= 2:
+            # layered mixes lure the tracker onto hats (2x tempo) — fold back
+            # to a musical grid so chained layers don't get frantic
+            while tempo_f > 180 and len(beat_list) >= 4:
+                tempo_f /= 2
+                beat_list = beat_list[::2]
             return tempo_f, beat_list
     except Exception:
         pass
@@ -319,6 +348,14 @@ def _drum_pattern(
             hits += _place(gen, sr, b + beat_sec / 2, hat)
             if bar_pos in (1, 3):
                 hits += _place(gen, sr, b, snare)
+        elif groove == "swing":
+            # shuffled ride: long-short 8ths (2:1 triplet feel), kick light, snare 2 & 4
+            hits += _place(gen, sr, b, _kick_hit(sr, 0.55))
+            hits += _place(gen, sr, b + beat_sec * 2 / 3, hat)
+            if bar_pos in (1, 3):
+                hits += _place(gen, sr, b, snare)
+            else:
+                hits += _place(gen, sr, b + beat_sec / 3, _hat_hit(sr, 0.18))
         elif groove == "half_time":
             if bar_pos in (0, 2):
                 hits += _place(gen, sr, b, kick)
@@ -420,6 +457,16 @@ def _add_instrument(
             gen[s:e] += (tone * env).astype(np.float32)
             tt += step
             hits += 1
+    elif instrument == "strings":
+        # sustained string section: root+fifth+octave, slow bowed attack, vibrato
+        t = np.arange(n) / sr
+        root = _detect_key_root(y, sr) * 4
+        for i, f in enumerate((root, root * 1.5, root * 2)):
+            vib = 1 + 0.004 * np.sin(2 * np.pi * 5.5 * t + i)
+            gen += 0.11 * np.sin(2 * np.pi * f * vib * t)
+        gen *= np.minimum(1.0, t / 1.5)  # 1.5s bowed swell
+        gen *= 1 + 0.08 * np.sin(2 * np.pi * (tempo / 60 / 8) * t)
+        hits = len(beats)
     elif instrument in ("keys", "other"):
         t = np.arange(n) / sr
         root = _detect_key_root(y, sr) * 4
@@ -450,6 +497,35 @@ def _add_instrument(
         "hits": hits,
     }
     return y, meta, layer
+
+
+def _boost_target(y: np.ndarray, sr: int, target: str) -> np.ndarray:
+    """Turn up one element in the mix: shelf its home band + master normalize.
+
+    drums -> sub/low punch (<200 Hz) + snap (2-4 kHz)
+    bass -> low shelf (<250 Hz)
+    anything else -> presence (1-6 kHz)
+    """
+    out = np.zeros_like(y)
+    for ch in range(y.shape[0]):
+        S = librosa.stft(y[ch])
+        freqs = librosa.fft_frequencies(sr=sr)
+        gain = np.ones(len(freqs))
+        if target == "drums":
+            gain[freqs < 200] = 2.2
+            band = (freqs >= 2000) & (freqs <= 4000)
+            gain[band] = 1.5
+        elif target == "bass":
+            gain[freqs < 250] = 2.2
+            gain[(freqs >= 250) & (freqs < 500)] = 1.2
+        else:
+            band = (freqs >= 1000) & (freqs <= 6000)
+            gain[band] = 1.7
+        out[ch] = librosa.istft(S * gain[:, np.newaxis], length=y.shape[1])
+    peak = float(np.max(np.abs(out)))
+    if peak > 1e-9:
+        out = (out / peak * 0.9).astype(np.float32)
+    return out
 
 
 def _enhance_vocals(y: np.ndarray, sr: int, params: dict | None = None) -> np.ndarray:

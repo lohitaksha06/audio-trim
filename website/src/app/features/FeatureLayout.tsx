@@ -26,6 +26,11 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
   const [lastResult, setLastResult] = useState<ProcessResponse | null>(null);
   const [exporting, setExporting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [edits, setEdits] = useState(0);
+  const [fromOriginal, setFromOriginal] = useState(false);
+  const activeAudioPath = !fromOriginal && lastResult?.download_key
+    ? lastResult.download_key
+    : uploadResult?.audio_path;
 
   const handleFileSelected = async (f: File) => {
     setFile(f);
@@ -80,20 +85,27 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
       }
       return;
     }
+    const srcPath = activeAudioPath;
+    if (!srcPath) {
+      setHistory((prev) => [...prev, { role: "ai", text: "Please upload a file first before processing." }]);
+      return;
+    }
     setHistory((prev) => [...prev, { role: "user", text: prompt }]);
     const currentPrompt = prompt;
     setPrompt("");
     setState("processing");
     setErrorMsg("");
     try {
-      const result = await processAudio(uploadResult.audio_path, currentPrompt);
+      const result = await processAudio(srcPath, currentPrompt);
       setLastResult(result);
       if (result.intent === "unknown") {
         setHistory((prev) => [...prev, { role: "ai", text: `I didn't understand "${currentPrompt}". Try: "Trim from 0:05 to 0:10" or "Remove the drums"` }]);
         setState("analyzed");
         return;
       }
-      const detail = describeResult(result.intent, result.metadata as { added_instrument?: string; groove?: string; tempo_bpm?: number; beat_count?: number; hits?: number; style?: string; enhanced?: string; removed_stem?: string; isolated_stem?: string } | null);
+      setEdits((n) => n + 1);
+      setFromOriginal(false);
+      const detail = describeResult(result.intent, result.metadata as { added_instrument?: string; combined?: string[]; groove?: string; tempo_bpm?: number; beat_count?: number; hits?: number; style?: string; enhanced?: string; boosted?: string; removed_stem?: string; isolated_stem?: string } | null);
       const msg = detail ? `Done — ${detail}.` : `Done! Intent: ${result.intent}. Applied: "${currentPrompt}"`;
       setHistory((prev) => [...prev, { role: "ai", text: msg }]);
       setState("completed");
@@ -130,6 +142,18 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
     setLastResult(null);
     setHistory([]);
     setErrorMsg("");
+    setEdits(0);
+    setFromOriginal(false);
+  };
+
+  const newChat = () => {
+    setHistory([]);
+    setLastResult(null);
+    setPrompt("");
+    setErrorMsg("");
+    setEdits(0);
+    setFromOriginal(false);
+    if (uploadResult) setState("analyzed");
   };
 
   const formatSize = (bytes: number) => {
@@ -164,9 +188,24 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
               <p className="text-xs text-white/40">{subtitle}</p>
             </div>
             {file && (
-              <button onClick={reset} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/40 hover:border-white/20 hover:text-white/70 transition-colors">
-                New file
-              </button>
+              <div className="flex gap-2">
+                <button onClick={newChat} title="Clear conversation, keep this file" className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/40 hover:border-white/20 hover:text-white/70 transition-colors">
+                  New chat
+                </button>
+                <button onClick={reset} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/40 hover:border-white/20 hover:text-white/70 transition-colors">
+                  New file
+                </button>
+              </div>
+            )}
+            {edits > 0 && lastResult?.download_key && (
+              <div className="shrink-0 text-[11px] text-neon-blue/70 px-1">
+                Layering on output {edits}
+                {!fromOriginal ? (
+                  <button onClick={() => setFromOriginal(true)} className="underline ml-1">from original instead</button>
+                ) : (
+                  <button onClick={() => setFromOriginal(false)} className="underline ml-1">back to latest</button>
+                )}
+              </div>
             )}
           </div>
 

@@ -73,6 +73,16 @@ BENCH: list[dict[str, Any]] = [
     # ENHANCE_VOCALS (2)
     {"prompt": "make voices clearer and remove background noise", "intent": "enhance_vocals"},
     {"prompt": "enhance vocals and denoise", "intent": "enhance_vocals"},
+    # COMBINE (3)
+    {"prompt": "combine both drums and bass", "intent": "combine"},
+    {"prompt": "can u comebin both drum and base", "intent": "combine"},
+    {"prompt": "add a base guitar in the back too", "intent": "add_instrument", "params": {"instrument": "bass"}},
+    # BOOST (2)
+    {"prompt": "i cant hear the drums", "intent": "boost", "params": {"target": "drums"}},
+    {"prompt": "make the drums louder", "intent": "boost"},
+    # GROOVE/EXTRA (2)
+    {"prompt": "add swing drums", "intent": "add_instrument", "params": {"groove": "swing"}},
+    {"prompt": "add strings", "intent": "add_instrument"},
     # UNKNOWN (1)
     {"prompt": "hello world", "intent": "unknown"},
 ]

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -30,7 +32,14 @@ class ProcessResponse(BaseModel):
 async def process_audio(req: ProcessRequest):
     try:
         plan = plan_from_prompt(req.prompt)
-        result = execute_plan(req.audio_path, plan)
+        # chaining: accept a previous download_key as readily as a server path
+        audio_src = req.audio_path
+        if not Path(audio_src).is_file():
+            try:
+                audio_src = storage.resolve(audio_src)
+            except Exception:
+                pass
+        result = execute_plan(audio_src, plan)
 
         download_key = None
         layer_download_key = None

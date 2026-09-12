@@ -40,6 +40,14 @@ describe("describeResult", () => {
       describeResult("add_instrument", { added_instrument: "drums", groove: "funky", tempo_bpm: 99.4, hits: 32 }),
     ).toBe("added drums · funky groove · 99 BPM · 32 hits");
   });
+  test("combine summary", () => {
+    expect(
+      describeResult("combine", { combined: ["drums", "bass"], groove: "default", tempo_bpm: 99.4, hits: 71 }),
+    ).toBe("added drums + bass · 99 BPM · 71 hits");
+  });
+  test("boost summary", () => {
+    expect(describeResult("boost", { boosted: "drums" })).toBe("turned up drums");
+  });
   test("null meta", () => {
     expect(describeResult("trim", null)).toBeNull();
   });
