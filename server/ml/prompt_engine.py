@@ -13,6 +13,7 @@ class Intent(str, Enum):
     ISOLATE = "isolate"
     FADE = "fade"
     NORMALIZE = "normalize"
+    GAIN = "gain"
     REMOVE_SILENCE = "remove_silence"
     REMOVE_FILLERS = "remove_fillers"
     MOOD = "mood"
@@ -210,6 +211,14 @@ def classify_intent(prompt: str) -> Intent:
 
     if any(k in lower for k in ENHANCE_KEYWORDS):
         return Intent.ENHANCE_VOCALS
+    # precise gain knob ("set gain +3dB", "volume to 80%") beats the fuzzy BOOST
+    if re.search(r"[+-]?\d+(?:\.\d+)?\s*db\b", lower) or re.search(r"\bgain\b", lower):
+        return Intent.GAIN
+    if any(
+        w in lower
+        for w in ["set volume", "volume to ", "increase volume", "reduce volume", "lower the volume", "raise the volume", "turn the volume up", "turn the volume down", "make it quieter"]
+    ):
+        return Intent.GAIN
     style = extract_style(prompt)
     if style and any(w in lower for w in ["convert", "make it", "turn into", "style", "remix"]):
         return Intent.STYLE
@@ -322,8 +331,41 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
 
     if intent == Intent.FADE:
         lower = prompt.lower()
-        params["fade_in"] = "in" in lower
-        params["fade_out"] = "out" in lower
+        params["fade_in"] = bool(
+            re.search(r"fade[\s-]*in\b", lower) or ("fade" in lower and re.search(r"\bin\b", lower))
+        )
+        params["fade_out"] = bool(
+            re.search(r"fade[\s-]*out\b", lower) or ("fade" in lower and re.search(r"\bout\b", lower))
+        )
+        # "fade in 2.5s and fade out 1s" / "3s fade out" — per-side durations
+        m_in = re.search(r"fade[\s-]*in[^\d]*(\d+(?:\.\d+)?)\s*s", lower) or re.search(
+            r"(\d+(?:\.\d+)?)\s*s\w*\s+fade[\s-]*in", lower
+        )
+        m_out = re.search(r"fade[\s-]*out[^\d]*(\d+(?:\.\d+)?)\s*s", lower) or re.search(
+            r"(\d+(?:\.\d+)?)\s*s\w*\s+fade[\s-]*out", lower
+        )
+        if m_in:
+            params["fade_in_dur"] = float(m_in.group(1))
+        if m_out:
+            params["fade_out_dur"] = float(m_out.group(1))
+
+    if intent == Intent.GAIN:
+        import math
+
+        lower = prompt.lower()
+        m_db = re.search(r"([+-]?\d+(?:\.\d+)?)\s*db\b", lower)
+        m_pct = re.search(r"(\d+(?:\.\d+)?)\s*%", lower)
+        if m_db:
+            params["gain_db"] = max(-24.0, min(24.0, float(m_db.group(1))))
+        elif m_pct:
+            pct = max(1.0, float(m_pct.group(1)))
+            params["gain_db"] = round(20 * math.log10(pct / 100.0), 1)
+        elif any(w in lower for w in ["up", "raise", "increase", "louder"]):
+            params["gain_db"] = 3.0
+        elif any(w in lower for w in ["down", "lower", "reduce", "quieter"]):
+            params["gain_db"] = -3.0
+        else:
+            params["gain_db"] = 0.0
 
     if intent == Intent.SPEED:
         lower = prompt.lower()

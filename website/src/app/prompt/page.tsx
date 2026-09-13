@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import Nav from "@/components/Nav";
 import Sidebar from "@/components/Sidebar";
 import FileUpload from "@/components/FileUpload";
 import AudioPreview from "@/components/AudioPreview";
-import ManualEditor from "@/components/ManualEditor";
 import {
   uploadFile,
   processAudio,
@@ -31,7 +31,6 @@ export default function PromptPage() {
   const [urlInput, setUrlInput] = useState("");
   const [urlLoading, setUrlLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [showManual, setShowManual] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [history, setHistory] = useState<{ role: string; text: string }[]>([]);
@@ -68,6 +67,7 @@ export default function PromptPage() {
     try {
       const result = await uploadFile(f);
       setUploadResult(result);
+      try { localStorage.setItem("audelle:lastAudio", JSON.stringify({ audio_path: result.audio_path, filename: f.name })); } catch {}
       setState("analyzed");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Upload failed";
@@ -156,25 +156,6 @@ export default function PromptPage() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Processing failed";
       setHistory((prev) => [...prev, { role: "ai", text: `Error: ${msg}` }]);
-      setState("analyzed");
-    }
-  };
-
-  const handleManualTrim = async (start: number, end: number) => {
-    const srcPath = activeAudioPath;
-    if (!srcPath) return;
-    setHistory((prev) => [...prev, { role: "user", text: `Trim from ${Math.round(start)}s to ${Math.round(end)}s (manual)` }]);
-    setShowManual(false);
-    setState("processing");
-    try {
-      const result = await processAudio(srcPath, `trim from ${start.toFixed(2)} to ${end.toFixed(2)}`);
-      setLastResult(result);
-      setEdits((n) => n + 1);
-      setFromOriginal(false);
-      setHistory((prev) => [...prev, { role: "ai", text: `Trimmed to ${(end - start).toFixed(1)}s.` }]);
-      setState("completed");
-    } catch (e: unknown) {
-      setHistory((prev) => [...prev, { role: "ai", text: `Error: ${e instanceof Error ? e.message : "Trim failed"}` }]);
       setState("analyzed");
     }
   };
@@ -271,7 +252,6 @@ export default function PromptPage() {
     setUploadResult(null);
     setUnderstand(null);
     setLastResult(null);
-    setShowManual(false);
     setErrorMsg("");
     setHistory([]);
     setEdits(0);
@@ -288,7 +268,6 @@ export default function PromptPage() {
     setLastResult(null);
     setPrompt("");
     setErrorMsg("");
-    setShowManual(false);
     setEdits(0);
     setFromOriginal(false);
     if (uploadResult) setState("analyzed");
@@ -397,12 +376,12 @@ export default function PromptPage() {
                   {state === "completed" && (
                     <span className="rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-medium text-green-400">Done</span>
                   )}
-                  <button
-                    onClick={() => setShowManual((v) => !v)}
+                  <Link
+                    href="/features/manual"
                     className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/40 hover:border-white/20 hover:text-white/70 transition-colors"
                   >
-                    {showManual ? "AI Mode" : "Manual Mode"}
-                  </button>
+                    Manual Mode
+                  </Link>
                   <button onClick={newChat} title="Clear conversation, keep this file" className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/40 hover:border-white/20 hover:text-white/70 transition-colors">
                     New chat
                   </button>
@@ -422,11 +401,13 @@ export default function PromptPage() {
                   </div>
                 )}
 
-                {objectUrl && showManual && (
-                  <div className="shrink-0 border-b border-white/5 bg-white/[0.02] px-4 sm:px-6 py-3">
-                    <ManualEditor src={objectUrl} onApply={handleManualTrim} />
-                  </div>
-                )}
+                <Link
+                  href="/features/manual"
+                  className="shrink-0 flex items-center gap-2 border-b border-neon-purple/10 bg-neon-purple/[0.04] px-4 sm:px-6 py-1.5 text-[11px] text-neon-purple/80 hover:bg-neon-purple/[0.08] transition-colors"
+                >
+                  <span>Want hands-on control? The Manual Editor has waveform select, trims, fades, gain & speed — it picks up your upload automatically.</span>
+                  <span className="underline shrink-0">Open Manual Editor →</span>
+                </Link>
 
                 <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
                   <div className="lg:w-80 shrink-0 border-r border-white/5 overflow-y-auto p-4 space-y-4">
@@ -606,7 +587,7 @@ export default function PromptPage() {
                       {history.length === 0 && (
                         <div className="flex flex-col items-center justify-center h-full text-center">
                           <p className="text-base text-white/30 mb-2">What do you want to do?</p>
-                          <p className="text-xs text-white/20">Type a prompt below, or try Manual Mode.</p>
+                          <p className="text-xs text-white/20">Type a prompt below, or <Link href="/features/manual" className="underline hover:text-white/40">open the Manual Editor</Link>.</p>
                         </div>
                       )}
                       {history.map((h, i) => (

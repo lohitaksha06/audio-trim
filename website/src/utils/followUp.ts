@@ -30,6 +30,7 @@ export interface ResultMeta {
   boosted?: string;
   removed_stem?: string;
   isolated_stem?: string;
+  gain_db?: number;
   song_bpm?: number;
   stem_bpm?: number;
   stretch_factor?: number;
@@ -60,6 +61,8 @@ export function describeResult(intent: string, meta?: ResultMeta | null): string
     grooveBits(meta, bits);
   } else if (meta.boosted) {
     bits.push(`turned up ${meta.boosted}`);
+  } else if (typeof meta.gain_db === "number") {
+    bits.push(`gain ${meta.gain_db > 0 ? "+" : ""}${meta.gain_db} dB`);
   } else if (meta.style) {
     bits.push(`${meta.style} style`);
     if (meta.tempo_bpm) bits.push(`${Math.round(meta.tempo_bpm)} BPM`);

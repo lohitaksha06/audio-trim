@@ -49,6 +49,11 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
     elif plan.intent == Intent.NORMALIZE:
         y = _normalize(y)
         output_path = _save_wav(y, sr)
+    elif plan.intent == Intent.GAIN:
+        db = float(plan.params.get("gain_db", 0.0))
+        y = _apply_gain(y, db)
+        output_path = _save_wav(y, sr)
+        metadata["gain_db"] = round(db, 1)
     elif plan.intent == Intent.REMOVE_SILENCE:
         y = _remove_silence(y, sr)
         output_path = _save_wav(y, sr)
@@ -196,14 +201,21 @@ def _remove_section(y: np.ndarray, sr: int, params: dict) -> np.ndarray:
 def _fade(y: np.ndarray, sr: int, params: dict) -> np.ndarray:
     fade_in = params.get("fade_in", False)
     fade_out = params.get("fade_out", False)
-    fade_len = int(2.0 * sr)
+    try:
+        in_dur = max(0.0, float(params.get("fade_in_dur", 2.0)))
+    except (TypeError, ValueError):
+        in_dur = 2.0
+    try:
+        out_dur = max(0.0, float(params.get("fade_out_dur", 2.0)))
+    except (TypeError, ValueError):
+        out_dur = 2.0
 
-    if fade_in and fade_len > 0:
-        fade_len = min(fade_len, y.shape[1])
+    if fade_in and in_dur > 0:
+        fade_len = min(int(in_dur * sr), y.shape[1])
         ramp = np.linspace(0, 1, fade_len)
         y[:, :fade_len] *= ramp
-    if fade_out and fade_len > 0:
-        fade_len = min(fade_len, y.shape[1])
+    if fade_out and out_dur > 0:
+        fade_len = min(int(out_dur * sr), y.shape[1])
         ramp = np.linspace(1, 0, fade_len)
         y[:, -fade_len:] *= ramp
     return y
@@ -214,6 +226,13 @@ def _normalize(y: np.ndarray) -> np.ndarray:
     if peak > 0:
         y = y / peak * 0.9
     return y
+
+
+def _apply_gain(y: np.ndarray, db: float) -> np.ndarray:
+    """Manual volume knob: fixed dB adjustment, then soft-clip to [-1, 1]."""
+    db = max(-24.0, min(24.0, db))
+    y = y * (10.0 ** (db / 20.0))
+    return np.clip(y, -1, 1).astype(np.float32)
 
 
 def _remove_silence(y: np.ndarray, sr: int, threshold_db: float = 20) -> np.ndarray:

@@ -57,12 +57,13 @@ When audio is loaded, the model automatically analyzes and catalogs:
 - "Separate dialogue, music, and SFX into stems"
 - "Sync my voiced ADR to lip movements"
 
-### ✋ Manual Mode (Fallback)
-For fine-grained control when prompting isn't precise enough:
-- Waveform + stem visualization
-- Manual region selection
-- Volume curves, fades, crossfades
-- Drag-to-trim handles
+### ✋ Manual Editor (Dedicated Page)
+For fine-grained control when prompting isn't precise enough — sidebar → **Manual Editor** (`/features/manual`), picks up your last upload automatically:
+- Real waveform with drag-to-select + draggable trim handles, click-to-seek
+- Keep selection (trim) / cut selection out
+- Fade in / fade out with per-side durations (0–10s)
+- Gain knob (−12…+12 dB), normalize, speed (0.5–2x)
+- Every edit chains on the last, with download + edit history
 
 ### 📦 Export & Integration
 - Export as MP3, WAV, FLAC, AAC, stems as ZIP
