@@ -13,6 +13,8 @@ router = APIRouter(prefix="/api", tags=["process"])
 class ProcessRequest(BaseModel):
     audio_path: str
     prompt: str
+    stem_path: str | None = None
+    stem_level: float | None = None
 
 
 class ProcessResponse(BaseModel):
@@ -32,6 +34,19 @@ class ProcessResponse(BaseModel):
 async def process_audio(req: ProcessRequest):
     try:
         plan = plan_from_prompt(req.prompt)
+        # imported-stem file supplied alongside the prompt ("mix my stem in")
+        if req.stem_path:
+            plan.params["stem_path"] = req.stem_path
+        if req.stem_level is not None:
+            plan.params["stem_level"] = req.stem_level
+        # bare "mix my stem" phrasing without the file attached yet
+        from server.ml.prompt_engine import Intent as _Intent
+
+        if plan.intent == _Intent.MIX_STEM and not plan.params.get("stem_path"):
+            raise HTTPException(
+                status_code=400,
+                detail="Upload your stem file first, then press Mix — I need the stem audio to BPM-match it.",
+            )
         # chaining: accept a previous download_key as readily as a server path
         audio_src = req.audio_path
         if not Path(audio_src).is_file():

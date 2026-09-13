@@ -38,6 +38,11 @@ export default function PromptPage() {
   const [promptHistory, setPromptHistory] = useState<string[]>([]);
   const [edits, setEdits] = useState(0);
   const [fromOriginal, setFromOriginal] = useState(false);
+  // import-your-own-stem: second file that gets BPM-matched + beat-aligned into the song
+  const [stemFile, setStemFile] = useState<File | null>(null);
+  const [stemUpload, setStemUpload] = useState<UploadResponse | null>(null);
+  const [stemLevel, setStemLevel] = useState(0.6);
+  const [stemBusy, setStemBusy] = useState(false);
   // chaining: each edit builds on the latest output, not the raw upload
   const activeAudioPath = !fromOriginal && lastResult?.download_key
     ? lastResult.download_key
@@ -176,6 +181,45 @@ export default function PromptPage() {
 
   const handlePromptSelect = (p: string) => setPrompt(p);
 
+  const handleStemSelected = async (f: File) => {
+    setStemFile(f);
+    setStemBusy(true);
+    setErrorMsg("");
+    try {
+      const result = await uploadFile(f);
+      setStemUpload(result);
+      setHistory((prev) => [...prev, { role: "ai", text: `Stem "${f.name}" analyzed: ${result.analysis.bpm?.toFixed(1) ?? "?"} BPM in ${result.analysis.key ?? "?"}. Press "Mix stem in" and I'll tempo-match + beat-align it into your song.` }]);
+    } catch (e: unknown) {
+      setErrorMsg(e instanceof Error ? e.message : "Stem upload failed");
+    } finally {
+      setStemBusy(false);
+    }
+  };
+
+  const handleMixStem = async () => {
+    const srcPath = activeAudioPath;
+    const stemPath = stemUpload?.audio_path;
+    if (!srcPath || !stemPath) {
+      setHistory((prev) => [...prev, { role: "ai", text: "Upload your song AND a stem file first, then press Mix." }]);
+      return;
+    }
+    setHistory((prev) => [...prev, { role: "user", text: `Mix my stem "${stemFile?.name ?? "stem"}" in at ${Math.round(stemLevel * 100)}%` }]);
+    setState("processing");
+    try {
+      const result = await processAudio(srcPath, "mix my imported stem in", { stemPath, stemLevel });
+      setLastResult(result);
+      setEdits((n) => n + 1);
+      setFromOriginal(false);
+      const m = result.metadata as { song_bpm?: number; stem_bpm?: number; stretch_factor?: number; beat_offset_sec?: number } | null | undefined;
+      const detail = m ? `Mixed your stem (${m.stem_bpm ?? "?"} → ${m.song_bpm ?? "?"} BPM, stretched ×${m.stretch_factor ?? 1}, offset ${m.beat_offset_sec ?? 0}s). Preview it in the Output panel.` : "Stem mixed — preview it in the Output panel.";
+      setHistory((prev) => [...prev, { role: "ai", text: `Done — ${detail}` }]);
+      setState("completed");
+    } catch (e: unknown) {
+      setHistory((prev) => [...prev, { role: "ai", text: `Error: ${e instanceof Error ? e.message : "Mix failed"}` }]);
+      setState("analyzed");
+    }
+  };
+
   const handleVoice = () => {
     type SRCtor = new () => {
       start: () => void;
@@ -232,6 +276,8 @@ export default function PromptPage() {
     setHistory([]);
     setEdits(0);
     setFromOriginal(false);
+    setStemFile(null);
+    setStemUpload(null);
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     setObjectUrl(null);
   };
@@ -320,7 +366,7 @@ export default function PromptPage() {
                   <div className="mt-8 text-center">
                     <p className="mb-3 text-sm text-white/30">Try saying:</p>
                     <div className="flex flex-wrap justify-center gap-2">
-                      {["Remove the vocals", "Trim from 1:00 to 2:30", "Add funky drums following the groove", "Add bass guitar", "Make voices clearer", "Convert to house style"].map((s) => (
+                      {["Remove the vocals", "Trim from 1:00 to 2:30", "Add funky drums following the groove", "Add plucky bass guitar", "Add tropical synth", "Add futuristic synth + dubstep wobble", "Add edm drums and synth", "Convert to dubstep style", "Make voices clearer", "Convert to house style"].map((s) => (
                         <button
                           key={s}
                           onClick={() => handlePromptSelect(s)}
@@ -404,6 +450,35 @@ export default function PromptPage() {
                           <span className="text-sm font-medium text-white">{d.value}</span>
                         </div>
                       ))}
+                    </div>
+
+                    <div className="rounded-xl border border-neon-purple/20 bg-neon-purple/[0.04] p-3">
+                      <h4 className="mb-1 text-xs font-semibold text-neon-purple/80 uppercase tracking-wider">Import your own stem</h4>
+                      <p className="mb-2 text-[11px] text-white/40">AI detects both BPMs, tempo-matches + beat-aligns, then mixes.</p>
+                      <label className="block w-full cursor-pointer rounded-lg bg-white/5 px-3 py-2 text-center text-xs text-white/60 hover:bg-white/10 transition-colors">
+                        {stemBusy ? "Analyzing stem..." : stemFile ? stemFile.name : "Choose stem audio..."}
+                        <input type="file" accept="audio/*,.mp3,.wav,.flac,.m4a,.ogg" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleStemSelected(f); }} />
+                      </label>
+                      {stemUpload && (
+                        <p className="mt-1.5 text-[11px] text-white/40">Stem: {stemUpload.analysis.bpm?.toFixed(1) ?? "?"} BPM · {stemUpload.analysis.key ?? ""}</p>
+                      )}
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="text-[11px] text-white/40">Level</span>
+                        <input type="range" min={10} max={100} value={Math.round(stemLevel * 100)} onChange={(e) => setStemLevel(Number(e.target.value) / 100)} className="flex-1" />
+                        <span className="text-[11px] text-white/60 w-9 text-right">{Math.round(stemLevel * 100)}%</span>
+                      </div>
+                      <button onClick={handleMixStem} disabled={!stemUpload || state === "processing"} className="mt-2 w-full rounded-lg bg-neon-purple/20 px-3 py-2 text-xs font-medium text-neon-purple hover:bg-neon-purple/30 transition-colors disabled:opacity-40">
+                        Mix stem in
+                      </button>
+                    </div>
+
+                    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                      <h4 className="mb-2 text-xs font-semibold text-white/50 uppercase tracking-wider">Synths & EDM</h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {["Add warm synth pad", "Add tropical synth", "Add futuristic synth", "Add dubstep wobble", "Add edm drums and synth", "Add tropical synth and dubstep wobble", "Convert to tropical style", "Convert to futuristic style", "Convert to dubstep style"].map((s) => (
+                          <button key={s} onClick={() => handlePromptSelect(s)} className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-white/50 hover:border-neon-blue/30 hover:text-neon-blue transition-colors">{s}</button>
+                        ))}
+                      </div>
                     </div>
 
                     {!understand ? (

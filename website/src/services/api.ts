@@ -127,11 +127,11 @@ export async function uploadFile(file: File): Promise<UploadResponse> {
   return res.json();
 }
 
-export async function processAudio(audioPath: string, prompt: string): Promise<ProcessResponse> {
+export async function processAudio(audioPath: string, prompt: string, opts?: { stemPath?: string | null; stemLevel?: number | null }): Promise<ProcessResponse> {
   const res = await fetch(`${API_BASE}/api/process`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ audio_path: audioPath, prompt }),
+    body: JSON.stringify({ audio_path: audioPath, prompt, stem_path: opts?.stemPath ?? null, stem_level: opts?.stemLevel ?? null }),
   });
 
   if (!res.ok) {

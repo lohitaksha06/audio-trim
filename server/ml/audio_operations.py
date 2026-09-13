@@ -125,6 +125,25 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
         y, style_meta = _apply_style(y, sr, style, plan.params)
         output_path = _save_wav(y, sr)
         metadata.update(style_meta)
+    elif plan.intent == Intent.MIX_STEM:
+        stem_src = plan.params.get("stem_path")
+        if not stem_src:
+            raise ValueError("mix_stem needs a stem_path — upload your stem file first")
+        import server.services.storage as storage_mod
+
+        stem_file = stem_src
+        if not Path(stem_file).is_file():
+            try:
+                stem_file = storage_mod.resolve(stem_src)
+            except Exception:
+                pass
+        mixed, mix_meta, aligned = mix_imported_stem(audio_path, stem_file, plan.params)
+        y = mixed
+        output_path = _save_wav(y, sr)
+        metadata.update(mix_meta)
+        if aligned is not None:
+            layer_path_out = _save_wav(aligned[np.newaxis, :], sr)
+            metadata["layer_kind"] = "imported stem (BPM-matched)"
 
     result: dict[str, Any] = {"intent": plan.intent.value, "params": plan.params}
 
@@ -369,6 +388,37 @@ def _drum_pattern(
             hits += _place(gen, sr, b + beat_sec * 0.75, hat)
             if bar_pos in (1, 3):
                 hits += _place(gen, sr, b, snare)
+        elif groove == "tropical":
+            # sunny dembow-lite: kick on 1 & the "and" of 2, rim/snare on 2 & 4, shaker 16ths
+            if bar_pos in (0, 2) or (i % 8 == 5):
+                hits += _place(gen, sr, b, _kick_hit(sr, 0.7))
+            if bar_pos in (1, 3):
+                hits += _place(gen, sr, b, snare)
+            for off in (0.25, 0.5, 0.75):
+                hits += _place(gen, sr, b + beat_sec * off, _hat_hit(sr, 0.14, dur=0.03))
+        elif groove in ("future", "futuristic", "future_bass"):
+            # future-bass: four-on-floor kick + trap-ish hats + clap on 2 & 4
+            hits += _place(gen, sr, b, _kick_hit(sr, 0.85))
+            hits += _place(gen, sr, b + beat_sec / 3, _hat_hit(sr, 0.16))
+            hits += _place(gen, sr, b + beat_sec * 2 / 3, _hat_hit(sr, 0.16))
+            if bar_pos in (1, 3):
+                hits += _place(gen, sr, b, snare)
+                hits += _place(gen, sr, b + 0.01, _hat_hit(sr, 0.2, dur=0.08))
+        elif groove in ("dubstep", "wobble"):
+            # dubstep half-time: kick on 1, snare on 3, sparse hats — heavy, not frantic
+            if bar_pos == 0:
+                hits += _place(gen, sr, b, _kick_hit(sr, 0.95))
+            if bar_pos == 2:
+                hits += _place(gen, sr, b, _snare_hit(sr, 0.7))
+                hits += _place(gen, sr, b, _kick_hit(sr, 0.4))
+            hits += _place(gen, sr, b + beat_sec / 2, _hat_hit(sr, 0.18))
+        elif groove in ("big_room", "bigroom", "festival"):
+            # big-room EDM: hard four-on-floor + offbeat open hats + clap stack
+            hits += _place(gen, sr, b, _kick_hit(sr, 1.0))
+            hits += _place(gen, sr, b + beat_sec / 2, open_hat)
+            if bar_pos in (1, 3):
+                hits += _place(gen, sr, b, _snare_hit(sr, 0.6))
+                hits += _place(gen, sr, b + 0.015, _snare_hit(sr, 0.4))
         else:  # default pop: kick on beats, hats 8ths, snare 2 & 4
             hits += _place(gen, sr, b, kick)
             hits += _place(gen, sr, b + beat_sec / 2, hat)
@@ -378,38 +428,177 @@ def _drum_pattern(
 
 
 def _bass_line(tempo: float, beats: list[float], dur: float, sr: int, groove: str, root: float) -> np.ndarray:
+    """Plucky bass-guitar line (not a drone sine).
+
+    Why the old one sounded like "eerie straight noise" on voice+piano:
+    notes were ~0.9 beats long with a slow exp(-tt*4) decay, so they bled
+    into each other as a constant hum — and the 55 Hz fundamental is
+    inaudible on small speakers, leaving only beating harmonics.
+
+    Fix: short plucked notes (0.32-beat), fast decay, sharp attack + pick
+    transient, string-like harmonics, root up an octave for audibility
+    with a quiet sub layer underneath. Sparse pattern: root on beats,
+    fifth only as a passing 8th, octave pop only for funky.
+    """
     n = int(dur * sr)
     gen = np.zeros(n, dtype=np.float32)
+    sub = np.zeros(n, dtype=np.float32)
     beat_sec = 60.0 / max(tempo, 40.0)
     grid = list(beats)
     t = (grid[-1] + beat_sec) if grid else 0.0
     while t < dur:
         grid.append(round(t, 4))
         t += beat_sec
-    fifth = root * 1.5
-    octave = root * 2
+    # Audible pluck one octave up from detected sub root; keep sub quiet.
+    pluck_root = root * 2.0
+    fifth = pluck_root * 1.5
+    octave = pluck_root * 2.0
     for i, b in enumerate(grid):
         if b >= dur:
             break
-        # root on the beat (quarter-note bass), fifth on offbeat for movement
-        for f, at, ln, amp in (
-            (root, b, beat_sec * 0.9, 0.32),
-            (fifth if groove in ("funky", "default") else root, b + beat_sec / 2, beat_sec * 0.4, 0.2),
+        bar_pos = i % 4
+        # Sparse: beats 0 & 2 always, 1 & 3 softer (leaves room for voice)
+        amp = 0.5 if bar_pos in (0, 2) else 0.34
+        note_len = beat_sec * 0.38
+        for f, at, ln, a in (
+            (pluck_root, b, note_len, amp),
+            # passing fifth only on funky/default, not every beat
+            (fifth, b + beat_sec / 2, beat_sec * 0.22, 0.22)
+            if groove in ("funky", "default") and bar_pos in (1, 3)
+            else (None, -1, 0, 0),
         ):
-            if at >= dur:
+            if f is None or at >= dur or at < 0:
                 continue
             s = int(at * sr)
             e = min(s + int(ln * sr), n)
+            if e <= s:
+                continue
             tt = np.arange(e - s) / sr
-            env = np.minimum(1.0, tt * 30) * np.exp(-tt * 4)
-            tone = np.sin(2 * np.pi * f * tt) + 0.4 * np.sin(2 * np.pi * f * 2 * tt)
-            gen[s:e] += (amp * tone * env).astype(np.float32)
+            # pluck envelope: instant attack, fast exponential decay
+            env = np.minimum(1.0, tt * 160) * np.exp(-tt * 9)
+            # string harmonics: fundamental + 2nd/3rd/4th decaying
+            tone = (
+                np.sin(2 * np.pi * f * tt)
+                + 0.35 * np.sin(2 * np.pi * f * 2 * tt)
+                + 0.18 * np.sin(2 * np.pi * f * 3 * tt)
+                + 0.08 * np.sin(2 * np.pi * f * 4 * tt)
+            )
+            # pick transient: first 8 ms click
+            pick_n = min(len(tt), int(0.008 * sr))
+            if pick_n > 0:
+                tone[:pick_n] += 0.5 * np.sign(np.sin(2 * np.pi * f * tt[:pick_n]))
+            # gentle saturation like a bass amp
+            note = np.tanh(a * tone * env * 2.0) * 0.6
+            gen[s:e] += note.astype(np.float32)
+            # sub layer: pure sine at original root, very quiet, same envelope
+            ss = int(at * sr)
+            ee = min(ss + int(ln * sr), n)
+            tts = np.arange(ee - ss) / sr
+            sub[ss:ee] += (
+                0.12 * np.sin(2 * np.pi * root * tts) * np.minimum(1.0, tts * 120) * np.exp(-tts * 7)
+            ).astype(np.float32)
         if groove == "funky" and i % 4 == 3:  # octave pop
             s = int(b * sr)
-            e = min(s + int(beat_sec * 0.3 * sr), n)
+            e = min(s + int(beat_sec * 0.22 * sr), n)
             tt = np.arange(e - s) / sr
-            gen[s:e] += (0.22 * np.sin(2 * np.pi * octave * tt) * np.exp(-tt * 8)).astype(np.float32)
-    return gen
+            pop = 0.3 * np.sin(2 * np.pi * octave * tt) * np.minimum(1.0, tt * 200) * np.exp(-tt * 12)
+            gen[s:e] += pop.astype(np.float32)
+    # mute tail between notes: already short notes + fast decay, just sum
+    return (gen + sub).astype(np.float32)
+
+
+def _saw(freqs: list[float], t: np.ndarray) -> np.ndarray:
+    """Cheap supersaw approx: sum of first 6 harmonics, normalized."""
+    out = np.zeros_like(t)
+    for k in range(1, 7):
+        out += (1.0 / k) * sum(np.sin(2 * np.pi * f * k * t) for f in freqs) / max(len(freqs), 1)
+    return (out / 2.2).astype(np.float32)
+
+
+def _synth_layer(kind: str, tempo: float, beats: list[float], dur: float, sr: int, root: float) -> tuple[np.ndarray, int]:
+    """Segregated synth/EDM layers. kind in synth/tropical/future/dubstep/edm."""
+    n = int(dur * sr)
+    gen = np.zeros(n, dtype=np.float32)
+    beat_sec = 60.0 / max(tempo, 40.0)
+    hits = 0
+    # chord tones from detected key (major triad + 9th for air)
+    base = root * 4.0
+    triad = [base, base * 2 ** (4 / 12), base * 2 ** (7 / 12), base * 2 ** (14 / 12)]
+
+    if kind == "tropical":
+        # marimba-like pluck on offbeats — sunny, sparse, leaves room for voice
+        for b in beats:
+            at = b + beat_sec * 0.5
+            if at >= dur:
+                continue
+            s = int(at * sr)
+            e = min(s + int(0.28 * sr), n)
+            tt = np.arange(e - s) / sr
+            f = triad[(int(b / beat_sec) % len(triad))]
+            tone = np.sin(2 * np.pi * f * tt) + 0.3 * np.sin(2 * np.pi * f * 2 * tt)
+            gen[s:e] += (0.42 * tone * np.exp(-tt * 11)).astype(np.float32)
+            hits += 1
+    elif kind in ("future", "futuristic", "future_bass"):
+        # supersaw chords, one per bar, sidechain-pumped
+        t = np.arange(n) / sr
+        chords = np.zeros(n, dtype=np.float32)
+        for idx, b in enumerate(beats[::4]):
+            s = int(b * sr)
+            e = min(s + int(beat_sec * 4 * sr), n)
+            seg = t[s:e] - (b if e > s else 0)
+            # rotate chord inversion per bar
+            inv = triad[idx % len(triad):] + triad[: idx % len(triad)]
+            chords[s:e] += _saw(inv[:3], seg) * 0.5
+        pump = 1 - 0.45 * (0.5 * (1 + np.sin(2 * np.pi * (tempo / 60) * t - np.pi / 2)))
+        gen = (chords * pump * 0.55).astype(np.float32)
+        hits = len(beats[::4]) * 3
+    elif kind in ("dubstep", "wobble"):
+        # wobble bass: sub sine + LFO-gated harmonics, half-time (plays on beat 1 & 3)
+        for i, b in enumerate(beats):
+            if i % 2 == 1:
+                continue
+            s = int(b * sr)
+            e = min(s + int(beat_sec * 1.6 * sr), n)
+            if e <= s:
+                continue
+            tt = np.arange(e - s) / sr
+            f = root * 2.0  # audible wobble fundamental
+            lfo_rate = 6.0 if tempo < 120 else 8.0  # classic wobble rate
+            lfo = 0.5 * (1 + np.sin(2 * np.pi * lfo_rate * tt))
+            tone = np.sin(2 * np.pi * f * tt) + 0.5 * np.sin(2 * np.pi * f * 1.5 * tt) * lfo
+            env = np.minimum(1.0, tt * 60) * np.exp(-tt * 2.2)
+            gen[s:e] += (0.55 * tone * (0.35 + 0.65 * lfo) * env).astype(np.float32)
+            hits += 1
+    elif kind in ("edm", "big_room", "bigroom", "festival"):
+        # big-room stab: supersaw hit on every beat + driving sub pulse
+        for b in beats:
+            s = int(b * sr)
+            e = min(s + int(0.3 * sr), n)
+            tt = np.arange(e - s) / sr
+            stab = _saw(triad[:3], tt) * np.exp(-tt * 8)
+            gen[s:e] += (0.5 * stab).astype(np.float32)
+            hits += 1
+        # sub pulse underneath
+        t = np.arange(n) / sr
+        gen += (0.12 * np.sin(2 * np.pi * root * 2 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * (tempo / 60) * t))).astype(np.float32)
+    else:  # generic warm synth: pad + gentle arp
+        t = np.arange(n) / sr
+        pad = _saw(triad[:3], t) * 0.28 * np.minimum(1.0, t / 2.0)
+        arp = np.zeros(n, dtype=np.float32)
+        step = beat_sec / 2
+        tt = 0.0
+        k = 0
+        while tt < dur:
+            s = int(tt * sr)
+            e = min(s + int(0.22 * sr), n)
+            seg = np.arange(e - s) / sr
+            f = triad[k % len(triad)] * 2
+            arp[s:e] += (0.3 * np.sin(2 * np.pi * f * seg) * np.exp(-seg * 9)).astype(np.float32)
+            tt += step
+            k += 1
+            hits += 1
+        gen = (pad + arp * 0.8).astype(np.float32)
+    return gen, hits
 
 
 def _add_instrument(
@@ -475,6 +664,22 @@ def _add_instrument(
             gen += 0.1 * np.sin(2 * np.pi * f * t)
         gen *= np.minimum(1.0, t * 2)
         gen *= 1 + 0.1 * np.sin(2 * np.pi * (tempo / 60 / 4) * t)  # pulse at bar rate
+    elif instrument in ("synth", "tropical", "future", "futuristic", "future_bass",
+                         "dubstep", "wobble", "edm", "big_room", "bigroom", "festival"):
+        # segregated synth / EDM kits — each gets its own timbre (multi-add ready)
+        kind = instrument
+        if kind in ("futuristic", "future_bass"):
+            kind = "future"
+        if kind in ("wobble",):
+            kind = "dubstep"
+        if kind in ("big_room", "bigroom", "festival"):
+            kind = "edm"
+        root = _detect_key_root(y, sr)
+        gen, hits = _synth_layer(kind, tempo, beats, dur, sr, root)
+        # auto groove so drums layered next to it match: tropical->tropical etc.
+        if groove == "default":
+            groove = {"tropical": "tropical", "future": "future",
+                      "dubstep": "dubstep", "edm": "big_room"}.get(kind, groove)
     else:
         t = np.arange(n) / sr
         gen = 0.15 * np.sin(2 * np.pi * 220.0 * t) + 0.08 * np.sin(2 * np.pi * 330.0 * t)
@@ -497,6 +702,81 @@ def _add_instrument(
         "hits": hits,
     }
     return y, meta, layer
+
+
+def mix_imported_stem(
+    audio_path: str, stem_path: str, params: dict | None = None
+) -> tuple[np.ndarray, dict, np.ndarray | None]:
+    """Mix a user-imported stem with the original song.
+
+    The AI listens to BOTH files: detects each BPM + beat grid, time-stretches
+    the stem to the song's tempo, beat-aligns downbeat to downbeat, then mixes.
+    Returns (mixed_audio[ch, n], metadata, aligned_stem_mono).
+    """
+    params = params or {}
+    stem_level = float(params.get("stem_level", 0.6))
+    stem_level = min(1.0, max(0.05, stem_level))
+
+    y, sr = librosa.load(audio_path, sr=None, mono=False)
+    if y.ndim == 1:
+        y = y[np.newaxis, :]
+    ys, sr_s = librosa.load(stem_path, sr=sr, mono=True)
+
+    orig_tempo, orig_beats = _detect_beats(y, sr)
+    stem_mono2d = ys[np.newaxis, :]
+    stem_tempo, stem_beats = _detect_beats(stem_mono2d, sr)
+
+    # 1. tempo match: stretch stem -> original tempo (skip if within 3%)
+    stretch = 1.0
+    if stem_tempo > 40 and orig_tempo > 40:
+        ratio = stem_tempo / orig_tempo
+        if abs(ratio - 1.0) > 0.03 and 0.5 <= ratio <= 2.0:
+            ys = librosa.effects.time_stretch(ys, rate=float(ratio))
+            stretch = float(ratio)
+            # scale detected stem beats into stretched time
+            stem_beats = [b / ratio for b in stem_beats]
+            stem_tempo = orig_tempo
+
+    # 2. beat-align: shift stem so downbeats coincide
+    offset_sec = 0.0
+    if orig_beats and stem_beats:
+        offset_sec = float(orig_beats[0]) - float(stem_beats[0])
+    elif orig_beats:
+        offset_sec = float(orig_beats[0])
+
+    n = y.shape[1]
+    aligned = np.zeros(n, dtype=np.float32)
+    off_samp = int(round(offset_sec * sr))
+    if off_samp >= 0:
+        src_end = min(len(ys), n - off_samp)
+        if src_end > 0:
+            aligned[off_samp: off_samp + src_end] = ys[:src_end]
+    else:
+        src_start = min(-off_samp, len(ys))
+        dst_len = min(len(ys) - src_start, n)
+        if dst_len > 0:
+            aligned[:dst_len] = ys[src_start: src_start + dst_len]
+
+    # 3. level-match stem to song (avoid one burying the other), then mix
+    peak_song = float(np.max(np.abs(y))) + 1e-9
+    peak_stem = float(np.max(np.abs(aligned))) + 1e-9
+    aligned = (aligned / peak_stem * 0.9 * stem_level).astype(np.float32)
+    mixed = y.copy()
+    for ch in range(mixed.shape[0]):
+        mixed[ch] = mixed[ch] * 0.85 + aligned * 0.65
+    master = float(np.max(np.abs(mixed))) + 1e-9
+    mixed = (mixed / master * 0.9).astype(np.float32)
+
+    meta = {
+        "song_bpm": round(float(orig_tempo), 1),
+        "stem_bpm": round(float(stem_tempo), 1),
+        "tempo_bpm": round(float(orig_tempo), 1),
+        "stretch_factor": round(float(stretch), 3),
+        "beat_offset_sec": round(float(offset_sec), 3),
+        "stem_level": round(float(stem_level), 2),
+        "beat_count": len(orig_beats),
+    }
+    return mixed, meta, aligned
 
 
 def _boost_target(y: np.ndarray, sr: int, target: str) -> np.ndarray:
@@ -561,7 +841,42 @@ def _apply_style(y: np.ndarray, sr: int, style: str, params: dict | None = None)
     tempo, beats = _detect_beats(y, sr)
     dur = y.shape[1] / sr
     style_l = style.lower()
-    if "house" in style_l or "edm" in style_l:
+    if "dubstep" in style_l or "wobble" in style_l:
+        groove = "dubstep"
+        drums, _ = _drum_pattern(tempo, beats, dur, "dubstep", sr)
+        drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.45
+        root = _detect_key_root(y, sr)
+        wob, _ = _synth_layer("dubstep", tempo, beats, dur, sr, root)
+        wob = wob / (np.max(np.abs(wob)) + 1e-9) * 0.5
+        for ch in range(y.shape[0]):
+            y[ch] = np.clip(y[ch] * 0.78 + drums * 0.5 + wob * 0.55, -1, 1)
+    elif "futur" in style_l or "future_bass" in style_l:
+        groove = "future" if groove == "default" else groove
+        drums, _ = _drum_pattern(tempo, beats, dur, "future", sr)
+        drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.4
+        root = _detect_key_root(y, sr)
+        saw, _ = _synth_layer("future", tempo, beats, dur, sr, root)
+        saw = saw / (np.max(np.abs(saw)) + 1e-9) * 0.45
+        for ch in range(y.shape[0]):
+            y[ch] = np.clip(y[ch] * 0.8 + drums * 0.45 + saw * 0.5, -1, 1)
+        t = np.arange(y.shape[1]) / sr
+        pump = 1 - 0.25 * (0.5 * (1 + np.sin(2 * np.pi * (tempo / 60) * t - np.pi / 2)))
+        y = y * pump[np.newaxis, :]
+    elif "big_room" in style_l or "bigroom" in style_l or "festival" in style_l or (
+        "edm" in style_l and "tropical" not in style_l
+    ):
+        groove = "big_room" if groove == "default" else groove
+        drums, _ = _drum_pattern(tempo, beats, dur, "big_room", sr)
+        drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.5
+        root = _detect_key_root(y, sr)
+        stab, _ = _synth_layer("edm", tempo, beats, dur, sr, root)
+        stab = stab / (np.max(np.abs(stab)) + 1e-9) * 0.4
+        for ch in range(y.shape[0]):
+            y[ch] = np.clip(y[ch] * 0.78 + drums * 0.55 + stab * 0.45, -1, 1)
+        t = np.arange(y.shape[1]) / sr
+        pump = 1 - 0.25 * (0.5 * (1 + np.sin(2 * np.pi * (tempo / 60) * t - np.pi / 2)))
+        y = y * pump[np.newaxis, :]
+    elif "house" in style_l:
         groove = "four_on_floor" if groove == "default" else groove
         drums, _ = _drum_pattern(tempo, beats, dur, groove, sr)
         drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.45
@@ -572,7 +887,7 @@ def _apply_style(y: np.ndarray, sr: int, style: str, params: dict | None = None)
         pump = 1 - 0.25 * (0.5 * (1 + np.sin(2 * np.pi * (tempo / 60) * t - np.pi / 2)))
         y = y * pump[np.newaxis, :]
     elif "tropical" in style_l:
-        drums, _ = _drum_pattern(tempo, beats, dur, "funky", sr)
+        drums, _ = _drum_pattern(tempo, beats, dur, "tropical", sr)
         drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.3
         # offbeat plucks (major triad from key)
         root = _detect_key_root(y, sr) * 4

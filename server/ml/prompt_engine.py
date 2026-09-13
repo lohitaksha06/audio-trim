@@ -23,6 +23,7 @@ class Intent(str, Enum):
     BOOST = "boost"
     ENHANCE_VOCALS = "enhance_vocals"
     STYLE = "style"
+    MIX_STEM = "mix_stem"
     UNKNOWN = "unknown"
 
 
@@ -69,8 +70,13 @@ _INSTRUMENT_KEYWORDS = {
     "drums": ["drum", "kick", "snare", "hi-hat", "hihat", "cymbal", "percussion"],
     "bass": ["bass", "bassline", "sub-bass"],
     "guitar": ["guitar", "acoustic guitar", "electric guitar", "strum"],
-    "keys": ["piano", "keys", "keyboard", "synth", "synthesizer", "organ"],
+    "keys": ["piano", "keys", "keyboard", "organ"],
     "strings": ["strings", "violin", "cello", "orchestra"],
+    "synth": ["synth", "synthesizer", "synth pad", "synth lead", "supersaw", "saw", "pluck synth"],
+    "tropical": ["tropical synth", "tropical pluck", "tropical edm synth", "marimba synth", "tropical"],
+    "future": ["future synth", "futuristic synth", "future bass synth", "futuristic edm synth", "futuristic", "future bass"],
+    "dubstep": ["dubstep", "wobble", "wobble bass", "dubstep bass", "riddim"],
+    "edm": ["edm synth", "edm lead", "big room", "bigroom", "festival lead", "edm stab", "edm"],
     "other": ["pad", "fx", "effects"],
 }
 
@@ -80,6 +86,21 @@ def extract_instrument(prompt: str) -> str | None:
     # "base guitar" = user's spelling of bass; word-boundary so "based" is safe
     if re.search(r"\bbase\b", lower):
         return "bass"
+    # qualified synth kinds first — "tropical synth" is tropical, not generic synth
+    for stem in ("tropical", "future", "dubstep", "edm"):
+        for kw in _INSTRUMENT_KEYWORDS.get(stem, []):
+            if kw in lower:
+                return stem
+    if "tropical" in lower:
+        return "tropical"
+    if "futuristic" in lower or "future bass" in lower or "future synth" in lower:
+        return "future"
+    if "dubstep" in lower or "wobble" in lower or "riddim" in lower:
+        return "dubstep"
+    if re.search(r"\bedm\b", lower) or "big room" in lower or "bigroom" in lower:
+        # "edm drums" alone still means drums, but bare "add edm" means the edm kit
+        if "drum" not in lower or "synth" in lower:
+            return "edm"
     for stem, keywords in _INSTRUMENT_KEYWORDS.items():
         for kw in keywords:
             if kw in lower:
@@ -109,6 +130,14 @@ def extract_instruments(prompt: str) -> list[str]:
             if kw in scan:
                 found.append(stem)
                 break
+    # "tropical synth" is one instrument (tropical), not tropical+synth
+    if "synth" in found and any(k in found for k in ("tropical", "future", "dubstep", "edm")):
+        synth_tokens = len(re.findall(r"synth", lower))
+        qual_tokens = len(
+            re.findall(r"(?:tropical|future|futuristic|dubstep|edm|big(?:-| )?room)(?:\s+(?:edm|bass))?\s+synth", lower)
+        )
+        if synth_tokens <= qual_tokens:
+            found.remove("synth")
     return found
 
 
@@ -118,7 +147,9 @@ _FILLER_PATTERN = re.compile(r"(?<![a-z])(um+|uh+|ah+|er+)s?(?![a-z])")
 STYLE_KEYWORDS = {
     "house": ["house music", "house style", "four-on-the-floor", "four on the floor", "deep house"],
     "tropical": ["tropical", "tropical edm", "tropical house", "summer edm"],
-    "edm": ["edm style", "edm drop", "festival edm", "big room"],
+    "edm": ["edm style", "edm drop", "festival edm", "big room", "bigroom", "big-room"],
+    "futuristic": ["futuristic", "futuristic edm", "future bass", "future-bass", "future edm"],
+    "dubstep": ["dubstep", "dubstep style", "wobble", "riddim", "brostep"],
     "lofi": ["lo-fi", "lofi", "chillhop"],
     "acoustic": ["acoustic style", "unplugged"],
 }
@@ -132,6 +163,16 @@ ENHANCE_KEYWORDS = [
 
 def extract_groove(prompt: str) -> str:
     lower = prompt.lower()
+    if any(k in lower for k in ["dubstep", "wobble", "riddim", "brostep"]):
+        return "dubstep"
+    if any(k in lower for k in ["futuristic", "future bass", "future-bass", "future edm"]):
+        return "future"
+    if any(k in lower for k in ["tropical edm", "tropical house", "tropical"]):
+        return "tropical"
+    if any(k in lower for k in ["big room", "bigroom", "big-room", "festival edm"]):
+        return "big_room"
+    if re.search(r"\bedm\b", lower):
+        return "big_room"
     if any(k in lower for k in ["swing", "shuffled", "shuffle"]):
         return "swing"
     if any(k in lower for k in ["four-on-the-floor", "four on the floor", "house groove", "four to the floor"]):
@@ -159,6 +200,13 @@ def extract_style(prompt: str) -> str | None:
 
 def classify_intent(prompt: str) -> Intent:
     lower = prompt.lower()
+
+    # import-your-own-stem: "mix my uploaded stem", "import a stem", "blend this stem in"
+    # (must run before SEPARATE so "stems" doesn't hijack it)
+    if "stem" in lower and any(
+        w in lower for w in ["import", "my stem", "my own", "own stem", "uploaded", "mix in", "blend", "mix my", "mix this", "add my stem"]
+    ):
+        return Intent.MIX_STEM
 
     if any(k in lower for k in ENHANCE_KEYWORDS):
         return Intent.ENHANCE_VOCALS
@@ -189,7 +237,7 @@ def classify_intent(prompt: str) -> Intent:
             return Intent.COMBINE
         if extract_instrument(prompt):
             return Intent.ADD_INSTRUMENT
-        if any(k in lower for k in ["bass", "drum", "synth", "guitar", "piano", "keys", "pad", "strings"]):
+        if any(k in lower for k in ["bass", "drum", "synth", "guitar", "piano", "keys", "pad", "strings", "tropical", "future", "futuristic", "dubstep", "wobble", "edm", "big room", "bigroom", "lead", "pluck", "supersaw", "riddim"]):
             return Intent.ADD_INSTRUMENT
     if any(w in lower for w in ["trim", "cut", "crop", "shorten"]):
         return Intent.TRIM
@@ -302,7 +350,17 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
         # ensure we have an instrument even if keyword was "synth" mapped to keys
         if not params.get("instrument"):
             lower = prompt.lower()
-            if "synth" in lower or "pad" in lower:
+            if "dubstep" in lower or "wobble" in lower or "riddim" in lower:
+                params["instrument"] = "dubstep"
+            elif "tropical" in lower:
+                params["instrument"] = "tropical"
+            elif "futur" in lower:
+                params["instrument"] = "future"
+            elif "big room" in lower or "bigroom" in lower or ("edm" in lower and "style" not in lower):
+                params["instrument"] = "edm"
+            elif "synth" in lower or "supersaw" in lower or "lead" in lower or "pluck" in lower:
+                params["instrument"] = "synth"
+            elif "pad" in lower:
                 params["instrument"] = "keys"
             elif "bass" in lower:
                 params["instrument"] = "bass"
@@ -330,10 +388,23 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
 
     if intent == Intent.COMBINE:
         params["instruments"] = extract_instruments(prompt) or ["drums", "bass"]
+        # keep only generatable layers (drop vocals etc. that can't be synthesized)
+        generatable = {"drums", "bass", "guitar", "keys", "strings",
+                       "synth", "tropical", "future", "dubstep", "edm", "other"}
+        params["instruments"] = [i for i in params["instruments"] if i in generatable] or ["drums", "bass"]
         params["groove"] = extract_groove(prompt)
         m_bpm = re.search(r"(\d{2,3})\s*bpm", prompt.lower())
         if m_bpm:
             params["target_bpm"] = float(m_bpm.group(1))
+
+    if intent == Intent.MIX_STEM:
+        # stem file is supplied via API (stem_path); prompt may carry mix level
+        m = re.search(r"(\d{1,3})\s*%", prompt)
+        if m:
+            params["stem_level"] = min(100, max(5, int(m.group(1)))) / 100.0
+        if "quiet" in prompt.lower() or "background" in prompt.lower():
+            params.setdefault("stem_level", 0.35)
+        params["groove"] = extract_groove(prompt)
 
     if intent == Intent.BOOST:
         params["target"] = extract_instrument(prompt) or "other"

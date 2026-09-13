@@ -30,6 +30,11 @@ export interface ResultMeta {
   boosted?: string;
   removed_stem?: string;
   isolated_stem?: string;
+  song_bpm?: number;
+  stem_bpm?: number;
+  stretch_factor?: number;
+  beat_offset_sec?: number;
+  stem_level?: number;
 }
 
 function grooveBits(meta: ResultMeta, bits: string[]) {
@@ -42,7 +47,12 @@ function grooveBits(meta: ResultMeta, bits: string[]) {
 export function describeResult(intent: string, meta?: ResultMeta | null): string | null {
   if (!meta) return null;
   const bits: string[] = [];
-  if (meta.combined && meta.combined.length > 0) {
+  if (intent === "mix_stem" || (meta.song_bpm && meta.stem_bpm)) {
+    bits.push(`mixed your stem (${meta.stem_bpm ?? "?"} → ${meta.song_bpm ?? "?"} BPM`);
+    if (meta.stretch_factor && meta.stretch_factor !== 1) bits.push(`stretched ×${meta.stretch_factor}`);
+    if (typeof meta.beat_offset_sec === "number") bits.push(`aligned +${meta.beat_offset_sec}s`);
+    bits.push(`${Math.round((meta.stem_level ?? 0.6) * 100)}% level)`);
+  } else if (meta.combined && meta.combined.length > 0) {
     bits.push(`added ${meta.combined.join(" + ")}`);
     grooveBits(meta, bits);
   } else if (meta.added_instrument) {
