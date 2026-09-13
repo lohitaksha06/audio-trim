@@ -345,7 +345,7 @@ export default function PromptPage() {
                   <div className="mt-8 text-center">
                     <p className="mb-3 text-sm text-white/30">Try saying:</p>
                     <div className="flex flex-wrap justify-center gap-2">
-                      {["Remove the vocals", "Trim from 1:00 to 2:30", "Add funky drums following the groove", "Add plucky bass guitar", "Add tropical synth", "Add futuristic synth + dubstep wobble", "Add edm drums and synth", "Convert to dubstep style", "Make voices clearer", "Convert to house style"].map((s) => (
+                      {["Remove the vocals", "Trim from 1:00 to 2:30", "Add funky drums following the groove", "Add plucky bass guitar", "Add tropical synth", "Add techno drums", "Add an 808 bass", "Add a supersaw lead", "Add edm drums and synth", "Convert to synthwave style", "Make the drums louder and the vocals quieter", "Make voices clearer", "Convert to house style"].map((s) => (
                         <button
                           key={s}
                           onClick={() => handlePromptSelect(s)}
@@ -408,6 +408,13 @@ export default function PromptPage() {
                   <span>Want hands-on control? The Manual Editor has waveform select, trims, fades, gain & speed — it picks up your upload automatically.</span>
                   <span className="underline shrink-0">Open Manual Editor →</span>
                 </Link>
+                <Link
+                  href="/features/mix"
+                  className="shrink-0 flex items-center gap-2 border-b border-neon-blue/10 bg-neon-blue/[0.04] px-4 sm:px-6 py-1.5 text-[11px] text-neon-blue/80 hover:bg-neon-blue/[0.08] transition-colors"
+                >
+                  <span>Drums louder, vocals lower? Mix Lab has stem faders, wave editing and one-click mix fixes.</span>
+                  <span className="underline shrink-0">Open Mix Lab →</span>
+                </Link>
 
                 <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
                   <div className="lg:w-80 shrink-0 border-r border-white/5 overflow-y-auto p-4 space-y-4">
@@ -456,10 +463,21 @@ export default function PromptPage() {
                     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
                       <h4 className="mb-2 text-xs font-semibold text-white/50 uppercase tracking-wider">Synths & EDM</h4>
                       <div className="flex flex-wrap gap-1.5">
-                        {["Add warm synth pad", "Add tropical synth", "Add futuristic synth", "Add dubstep wobble", "Add edm drums and synth", "Add tropical synth and dubstep wobble", "Convert to tropical style", "Convert to futuristic style", "Convert to dubstep style"].map((s) => (
+                        {["Add warm synth pad", "Add tropical synth", "Add futuristic synth", "Add dubstep wobble", "Add techno drums", "Add an 808 bass", "Add a supersaw lead", "Add phonk cowbell", "Add synthwave pad", "Add trumpet", "Add choir pad", "Add edm drums and synth", "Add tropical synth and dubstep wobble", "Convert to tropical style", "Convert to techno style", "Convert to hardstyle style", "Convert to dubstep style"].map((s) => (
                           <button key={s} onClick={() => handlePromptSelect(s)} className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-white/50 hover:border-neon-blue/30 hover:text-neon-blue transition-colors">{s}</button>
                         ))}
                       </div>
+                    </div>
+
+                    <div className="rounded-xl border border-neon-purple/20 bg-neon-purple/[0.04] p-3">
+                      <h4 className="mb-1 text-xs font-semibold text-neon-purple/80 uppercase tracking-wider">Mix Lab</h4>
+                      <p className="mb-2 text-[11px] text-white/40">Stem faders, wave editing and one-click mix fixes.</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {["Make the drums louder and the vocals quieter", "Prioritize drums over vocals", "Balance the mix: vocals -3dB, drums +6dB"].map((s) => (
+                          <button key={s} onClick={() => handlePromptSelect(s)} className="rounded-full border border-neon-purple/20 bg-white/5 px-2 py-1 text-[11px] text-white/50 hover:border-neon-purple/40 hover:text-neon-purple transition-colors">{s}</button>
+                        ))}
+                      </div>
+                      <Link href="/features/mix" className="mt-2 block text-center text-[11px] text-neon-purple/80 underline hover:text-neon-purple">Open Mix Lab →</Link>
                     </div>
 
                     {!understand ? (

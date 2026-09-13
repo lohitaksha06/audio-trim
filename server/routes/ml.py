@@ -9,6 +9,7 @@ from server.ml.audio_understanding import (
     compute_mood_curve,
     describe_mood,
     predict_genre,
+    analyze_mix,
 )
 from server.ml.diarization import diarize
 from server.ml.inpainting import inpaint
@@ -112,6 +113,37 @@ async def diarize_audio(req: AudioPathRequest):
         return diarize(req.audio_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Diarization failed: {e}")
+
+
+@router.post("/optimize")
+async def optimize_audio(req: AudioPathRequest):
+    """Mix Doctor: measurement-based tips to make the song better.
+
+    Each tip carries a one-click ``fix_prompt`` for /api/process or Mix Lab.
+    """
+    try:
+        return analyze_mix(req.audio_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Optimization failed: {e}")
+
+
+@router.get("/catalog")
+async def instrument_catalog():
+    """All generatable instruments + synth waves + grooves for the Guide/Mix Lab."""
+    from server.ml.prompt_engine import INSTRUMENT_CATALOG, WAVE_KEYWORDS
+
+    grooves = ["default", "four_on_floor", "funky", "swing", "half_time", "double_time",
+               "tropical", "future", "dubstep", "big_room", "deep_house", "tech_house",
+               "techno", "trance", "trap", "dnb", "hardstyle", "phonk", "synthwave"]
+    return {
+        "instruments": [
+            {"id": k, "name": v[0], "family": v[1], "blurb": v[2]}
+            for k, v in INSTRUMENT_CATALOG.items()
+        ],
+        "waves": [{"id": k, "aliases": v} for k, v in WAVE_KEYWORDS.items()],
+        "grooves": grooves,
+        "mix_stems": ["vocals", "drums", "bass", "other"],
+    }
 
 
 class InpaintRequest(BaseModel):

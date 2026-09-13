@@ -93,6 +93,8 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
         y, groove_meta, layer = _add_instrument(y, sr, target, plan.params)
         output_path = _save_wav(y, sr)
         metadata["added_instrument"] = target
+        if plan.params.get("wave"):
+            metadata["wave"] = plan.params["wave"]
         metadata.update(groove_meta)
         if layer is not None:
             layer_path_out = _save_wav(layer[np.newaxis, :], sr)
@@ -121,6 +123,11 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
         y = _boost_target(y, sr, target)
         output_path = _save_wav(y, sr)
         metadata["boosted"] = target
+    elif plan.intent == Intent.MIX:
+        gains = dict(plan.params.get("gains_db") or {})
+        y, mix_meta = _rebalance_mix(audio_path, y, sr, gains)
+        output_path = _save_wav(y, sr)
+        metadata.update(mix_meta)
     elif plan.intent == Intent.ENHANCE_VOCALS:
         y = _enhance_vocals(y, sr, plan.params)
         output_path = _save_wav(y, sr)
@@ -438,6 +445,76 @@ def _drum_pattern(
             if bar_pos in (1, 3):
                 hits += _place(gen, sr, b, _snare_hit(sr, 0.6))
                 hits += _place(gen, sr, b + 0.015, _snare_hit(sr, 0.4))
+        elif groove in ("house", "deep_house", "tech_house"):
+            # house family: warm four-floor, offbeat open hats, soft clap 2 & 4
+            vel = 0.7 if groove == "deep_house" else 0.9
+            hits += _place(gen, sr, b, _kick_hit(sr, vel))
+            hits += _place(gen, sr, b + beat_sec / 2, open_hat)
+            if groove == "tech_house":
+                hits += _place(gen, sr, b + beat_sec * 0.75, _hat_hit(sr, 0.16))
+            else:
+                for off in (0.25, 0.75):
+                    hits += _place(gen, sr, b + beat_sec * off, _hat_hit(sr, 0.12, dur=0.03))
+            if bar_pos in (1, 3):
+                hits += _place(gen, sr, b, _snare_hit(sr, 0.45))
+        elif groove == "techno":
+            # driving techno: hard kick 4/4, closed 16ths, clap 2 & 4
+            hits += _place(gen, sr, b, _kick_hit(sr, 0.95))
+            for off in (0.25, 0.5, 0.75):
+                hits += _place(gen, sr, b + beat_sec * off, _hat_hit(sr, 0.15, dur=0.03))
+            if bar_pos in (1, 3):
+                hits += _place(gen, sr, b, _snare_hit(sr, 0.5))
+        elif groove == "trance":
+            # uplifting trance: 4-floor kick, offbeat hats, clap stack 2 & 4
+            hits += _place(gen, sr, b, _kick_hit(sr, 0.9))
+            hits += _place(gen, sr, b + beat_sec / 2, open_hat)
+            hits += _place(gen, sr, b + beat_sec * 0.25, _hat_hit(sr, 0.12, dur=0.03))
+            hits += _place(gen, sr, b + beat_sec * 0.75, _hat_hit(sr, 0.12, dur=0.03))
+            if bar_pos in (1, 3):
+                hits += _place(gen, sr, b, _snare_hit(sr, 0.55))
+                hits += _place(gen, sr, b + 0.02, _snare_hit(sr, 0.35))
+        elif groove == "trap":
+            # trap half-time: syncopated kick, snare on 3, triplet hats
+            if bar_pos == 0 or (i % 8 == 6):
+                hits += _place(gen, sr, b, _kick_hit(sr, 0.9))
+            if bar_pos == 2:
+                hits += _place(gen, sr, b, _snare_hit(sr, 0.7))
+            for off in (1 / 3, 2 / 3):
+                hits += _place(gen, sr, b + beat_sec * off, _hat_hit(sr, 0.15, dur=0.03))
+            hits += _place(gen, sr, b + beat_sec / 2, _hat_hit(sr, 0.13, dur=0.03))
+        elif groove == "dnb":
+            # dnb break: kick + snare interplay on a fast grid, hats 8ths
+            if bar_pos in (0, 2) or (i % 8 == 5):
+                hits += _place(gen, sr, b, _kick_hit(sr, 0.8))
+            if bar_pos in (1, 3):
+                hits += _place(gen, sr, b, _snare_hit(sr, 0.6))
+            hits += _place(gen, sr, b + beat_sec / 2, _hat_hit(sr, 0.16))
+            hits += _place(gen, sr, b + beat_sec * 0.75, _hat_hit(sr, 0.12, dur=0.03))
+        elif groove == "hardstyle":
+            # hardstyle: distorted punch kick every beat, clap 2 & 4
+            hard = _kick_hit(sr, 1.0) + 0.35 * _snare_hit(sr, 0.5)[: len(_kick_hit(sr))]
+            hits += _place(gen, sr, b, hard)
+            if bar_pos in (1, 3):
+                hits += _place(gen, sr, b, _snare_hit(sr, 0.55))
+            hits += _place(gen, sr, b + beat_sec / 2, _hat_hit(sr, 0.13, dur=0.03))
+        elif groove == "phonk":
+            # drift phonk: swung kick, snare 2 & 4, cowbell ping pattern
+            if bar_pos in (0, 2) or (i % 8 == 6):
+                hits += _place(gen, sr, b, _kick_hit(sr, 0.85))
+            if bar_pos in (1, 3):
+                hits += _place(gen, sr, b, snare)
+            hits += _place(gen, sr, b + beat_sec * 2 / 3, _hat_hit(sr, 0.16))
+            if i % 2 == 0:  # cowbell-ish ping: short high sine + click
+                n = int(0.09 * sr)
+                tt = np.arange(n) / sr
+                bell = (0.3 * np.sin(2 * np.pi * 840 * tt) * np.exp(-tt * 30)).astype(np.float32)
+                hits += _place(gen, sr, b + beat_sec / 2, bell)
+        elif groove == "synthwave":
+            # retro gated: soft 4-floor, big snare 2 & 4, hats 8ths
+            hits += _place(gen, sr, b, _kick_hit(sr, 0.75))
+            hits += _place(gen, sr, b + beat_sec / 2, _hat_hit(sr, 0.15))
+            if bar_pos in (1, 3):
+                hits += _place(gen, sr, b, _snare_hit(sr, 0.65))
         else:  # default pop: kick on beats, hats 8ths, snare 2 & 4
             hits += _place(gen, sr, b, kick)
             hits += _place(gen, sr, b + beat_sec / 2, hat)
@@ -534,6 +611,33 @@ def _saw(freqs: list[float], t: np.ndarray) -> np.ndarray:
     return (out / 2.2).astype(np.float32)
 
 
+def _osc_wave(freq: float, t: np.ndarray, wave: str) -> np.ndarray:
+    """Single-oscillator tone for named synth waves (saw/square/triangle/sine/fm)."""
+    ph = 2 * np.pi * freq * t
+    if wave == "square":
+        return np.sign(np.sin(ph)).astype(np.float32) * 0.6
+    if wave == "triangle":
+        return (2 / np.pi * np.arcsin(np.sin(ph))).astype(np.float32) * 0.8
+    if wave == "fm":
+        # 2-op FM: bright bell-ish keys tone
+        mod = np.sin(2 * np.pi * freq * 2.0 * t) * 2.0
+        return np.sin(ph + mod).astype(np.float32) * 0.7
+    if wave == "saw":
+        out = np.zeros_like(t)
+        for k in range(1, 7):
+            out += (1.0 / k) * np.sin(ph * k)
+        return (out / 2.2).astype(np.float32)
+    # sine / default
+    return np.sin(ph).astype(np.float32)
+
+
+def _square(freqs: list[float], t: np.ndarray) -> np.ndarray:
+    out = np.zeros_like(t)
+    for f in freqs:
+        out += np.sign(np.sin(2 * np.pi * f * t))
+    return (out / max(len(freqs), 1) * 0.5).astype(np.float32)
+
+
 def _synth_layer(kind: str, tempo: float, beats: list[float], dur: float, sr: int, root: float) -> tuple[np.ndarray, int]:
     """Segregated synth/EDM layers. kind in synth/tropical/future/dubstep/edm."""
     n = int(dur * sr)
@@ -600,6 +704,265 @@ def _synth_layer(kind: str, tempo: float, beats: list[float], dur: float, sr: in
         # sub pulse underneath
         t = np.arange(n) / sr
         gen += (0.12 * np.sin(2 * np.pi * root * 2 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * (tempo / 60) * t))).astype(np.float32)
+    elif kind in ("house", "tech_house"):
+        # house chords: warm stab offbeat + four-floor sub pulse
+        for b in beats:
+            at = b + beat_sec * 0.5
+            if at >= dur:
+                continue
+            s = int(at * sr)
+            e = min(s + int(0.28 * sr), n)
+            tt = np.arange(e - s) / sr
+            stab = _saw(triad[:3], tt) * np.exp(-tt * 9)
+            gen[s:e] += (0.42 * stab).astype(np.float32)
+            hits += 1
+        t = np.arange(n) / sr
+        gen += (0.1 * np.sin(2 * np.pi * root * 2 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * (tempo / 60) * t))).astype(np.float32)
+    elif kind == "deep_house":
+        # deep house: Rhodes-ish soft chords, low-slung, one per bar
+        t = np.arange(n) / sr
+        for idx, b in enumerate(beats[::4]):
+            s = int(b * sr)
+            e = min(s + int(beat_sec * 3.5 * sr), n)
+            seg = t[s:e] - (b if e > s else 0)
+            inv = triad[idx % len(triad):] + triad[: idx % len(triad)]
+            tone = sum(0.2 * np.sin(2 * np.pi * f * seg) + 0.06 * np.sin(2 * np.pi * f * 2 * seg) for f in inv[:3])
+            gen[s:e] += (tone * np.exp(-seg * 1.2)).astype(np.float32)
+            hits += 3
+    elif kind == "techno":
+        # techno: dark rolling sub + minor stab every 2 beats
+        for i, b in enumerate(beats):
+            if i % 2 == 1:
+                continue
+            s = int(b * sr)
+            e = min(s + int(0.35 * sr), n)
+            tt = np.arange(e - s) / sr
+            f = root * 2.0
+            stab = _saw([f, f * 2 ** (3 / 12)], tt) * np.exp(-tt * 7)
+            gen[s:e] += (0.45 * stab).astype(np.float32)
+            hits += 1
+        t = np.arange(n) / sr
+        gen += (0.14 * np.sin(2 * np.pi * root * 2 * t)).astype(np.float32)
+    elif kind == "trance":
+        # trance: gated supersaw arp 16ths + bar chords
+        step = beat_sec / 4
+        tt = 0.0
+        k = 0
+        while tt < dur:
+            s = int(tt * sr)
+            e = min(s + int(0.16 * sr), n)
+            seg = np.arange(e - s) / sr
+            f = triad[k % len(triad)] * 2
+            gate = 0.5 * (1 + np.sign(np.sin(2 * np.pi * (tempo / 60) * 2 * (tt))))
+            gen[s:e] += (0.35 * _saw([f], seg) * np.exp(-seg * 10) * (0.4 + 0.6 * gate)).astype(np.float32)
+            tt += step
+            k += 1
+            hits += 1
+    elif kind == "trap":
+        # trap: dark bell lead + 808-ish sub glides on downbeats
+        for i, b in enumerate(beats):
+            if i % 2 == 1:
+                continue
+            s = int(b * sr)
+            e = min(s + int(0.5 * sr), n)
+            tt = np.arange(e - s) / sr
+            f = triad[i % len(triad)] * 2
+            bell = (np.sin(2 * np.pi * f * tt) * np.exp(-tt * 5) + 0.3 * np.sin(2 * np.pi * f * 2.4 * tt) * np.exp(-tt * 8))
+            gen[s:e] += (0.4 * bell).astype(np.float32)
+            hits += 1
+        t = np.arange(n) / sr
+        gen += (0.13 * np.sin(2 * np.pi * root * t)).astype(np.float32)
+    elif kind == "dnb":
+        # dnb: reese-ish detuned sub + sparse atmospheric pad
+        for i, b in enumerate(beats):
+            if i % 2 == 1:
+                continue
+            s = int(b * sr)
+            e = min(s + int(beat_sec * 1.4 * sr), n)
+            tt = np.arange(e - s) / sr
+            f = root * 2.0
+            tone = np.sin(2 * np.pi * f * tt) + np.sin(2 * np.pi * f * 1.007 * tt)
+            gen[s:e] += (0.3 * tone * np.minimum(1.0, tt * 40) * np.exp(-tt * 2.5)).astype(np.float32)
+            hits += 1
+        t = np.arange(n) / sr
+        gen += (_saw(triad[:3], t) * 0.12 * np.minimum(1.0, t / 3.0)).astype(np.float32)
+    elif kind == "hardstyle":
+        # hardstyle: screech lead stabs on beats + reverse-bass-ish pulse
+        for b in beats:
+            s = int(b * sr)
+            e = min(s + int(0.28 * sr), n)
+            tt = np.arange(e - s) / sr
+            f = triad[int(b / beat_sec) % len(triad)] * 4
+            lead = _saw([f, f * 1.005], tt) * np.exp(-tt * 9)
+            gen[s:e] += (0.42 * lead).astype(np.float32)
+            hits += 1
+        t = np.arange(n) / sr
+        gen += (0.12 * np.sin(2 * np.pi * root * 2 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * (tempo / 60) * t))).astype(np.float32)
+    elif kind == "phonk":
+        # phonk: cowbell-ish lead pattern + Memphis sub
+        for i, b in enumerate(beats):
+            if i % 2 == 0:
+                s = int(b * sr)
+                e = min(s + int(0.22 * sr), n)
+                tt = np.arange(e - s) / sr
+                f = triad[i % len(triad)] * 4
+                bell = (0.35 * np.sin(2 * np.pi * f * tt) + 0.2 * np.sin(2 * np.pi * f * 1.48 * tt)) * np.exp(-tt * 14)
+                gen[s:e] += bell.astype(np.float32)
+                hits += 1
+        t = np.arange(n) / sr
+        gen += (0.13 * np.sin(2 * np.pi * root * t)).astype(np.float32)
+    elif kind == "synthwave":
+        # synthwave: retro square/saw pad + gated arp
+        t = np.arange(n) / sr
+        pad = _square(triad[:3], t) * 0.2 * np.minimum(1.0, t / 2.0)
+        gen += pad
+        step = beat_sec / 2
+        tt = 0.0
+        k = 0
+        while tt < dur:
+            s = int(tt * sr)
+            e = min(s + int(0.2 * sr), n)
+            seg = np.arange(e - s) / sr
+            f = triad[k % len(triad)] * 2
+            gen[s:e] += (0.28 * np.sin(2 * np.pi * f * seg) * np.exp(-seg * 9)).astype(np.float32)
+            tt += step
+            k += 1
+            hits += 1
+    elif kind in ("supersaw", "square_lead", "saw", "square", "triangle", "sine", "fm", "wavetable", "hoover"):
+        # named oscillator waves: lead line following the beat grid
+        wave = {"supersaw": "saw", "square_lead": "square", "hoover": "saw"}.get(kind, kind if kind in ("saw", "square", "triangle", "sine", "fm") else "saw")
+        for i, b in enumerate(beats):
+            s = int(b * sr)
+            e = min(s + int(beat_sec * 0.85 * sr), n)
+            if e <= s:
+                continue
+            tt = np.arange(e - s) / sr
+            f = triad[i % len(triad)] * (2 if kind in ("supersaw", "square_lead", "hoover") else 1)
+            if kind in ("supersaw", "hoover"):
+                tone = _saw([f, f * 1.006, f * 0.994], tt)
+            elif kind == "wavetable":
+                morph = 0.5 * (1 + np.sin(2 * np.pi * 0.5 * tt))
+                tone = (1 - morph) * _osc_wave(f, tt, "saw") + morph * _osc_wave(f, tt, "square")
+            else:
+                tone = _osc_wave(f, tt, wave)
+            env = np.minimum(1.0, tt * 80) * np.exp(-tt * 3.0)
+            gen[s:e] += (0.45 * tone * env).astype(np.float32)
+            hits += 1
+    elif kind in ("pluck", "marimba"):
+        for b in beats:
+            at = b + beat_sec * 0.5
+            if at >= dur:
+                continue
+            s = int(at * sr)
+            e = min(s + int(0.26 * sr), n)
+            tt = np.arange(e - s) / sr
+            f = triad[int(b / beat_sec) % len(triad)] * 2
+            tone = np.sin(2 * np.pi * f * tt) + 0.3 * np.sin(2 * np.pi * f * 2 * tt)
+            gen[s:e] += (0.42 * tone * np.exp(-tt * 11)).astype(np.float32)
+            hits += 1
+    elif kind in ("pad", "choir"):
+        t = np.arange(n) / sr
+        if kind == "choir":
+            # soft vocal-ish pad: stacked sines with slow vibrato + swell
+            for i, f in enumerate(triad[:3]):
+                vib = 1 + 0.005 * np.sin(2 * np.pi * 5.0 * t + i)
+                gen += 0.14 * np.sin(2 * np.pi * f * vib * t)
+        else:
+            gen += _saw(triad[:3], t) * 0.3
+        gen *= np.minimum(1.0, t / 2.0)
+        hits = len(beats)
+    elif kind == "arp":
+        step = beat_sec / 4
+        tt = 0.0
+        k = 0
+        while tt < dur:
+            s = int(tt * sr)
+            e = min(s + int(0.14 * sr), n)
+            seg = np.arange(e - s) / sr
+            f = triad[k % len(triad)] * 4
+            gen[s:e] += (0.3 * np.sin(2 * np.pi * f * seg) * np.exp(-seg * 12)).astype(np.float32)
+            tt += step
+            k += 1
+            hits += 1
+    elif kind in ("808", "acid", "reese", "fm_bass", "trap_bass"):
+        # sub/bass synth family: pattern on beats with family timbre
+        for i, b in enumerate(beats):
+            if kind in ("acid",) and i % 2 == 1:
+                continue
+            s = int(b * sr)
+            ln = beat_sec * (0.9 if kind == "808" else 0.5)
+            e = min(s + int(ln * sr), n)
+            if e <= s:
+                continue
+            tt = np.arange(e - s) / sr
+            f0 = root * (1.0 if kind in ("808", "reese") else 2.0)
+            if kind == "808":
+                # sliding 808: glide up into the note, long decay
+                glide = f0 * (0.85 + 0.15 * np.minimum(1.0, tt * 20))
+                phase = 2 * np.pi * np.cumsum(glide) / sr
+                tone = np.sin(phase) * np.exp(-tt * 2.5)
+                gen[s:e] += (0.55 * tone).astype(np.float32)
+            elif kind == "acid":
+                # squelchy: saw + resonant-ish 3rd harmonic wobble
+                lfo = 0.5 * (1 + np.sin(2 * np.pi * 8.0 * tt))
+                tone = _osc_wave(f0, tt, "saw") + 0.5 * np.sin(2 * np.pi * f0 * 3 * tt) * lfo
+                gen[s:e] += (0.4 * tone * np.minimum(1.0, tt * 60) * np.exp(-tt * 4)).astype(np.float32)
+            elif kind == "reese":
+                tone = np.sin(2 * np.pi * f0 * tt) + np.sin(2 * np.pi * f0 * 1.008 * tt)
+                gen[s:e] += (0.32 * tone * np.minimum(1.0, tt * 30) * np.exp(-tt * 2.8)).astype(np.float32)
+            else:  # fm_bass / trap_bass: FM sub thump
+                tone = _osc_wave(f0, tt, "fm")
+                gen[s:e] += (0.45 * tone * np.minimum(1.0, tt * 60) * np.exp(-tt * 4)).astype(np.float32)
+            hits += 1
+    elif kind in ("piano", "organ", "lofi_keys"):
+        t = np.arange(n) / sr
+        for idx, b in enumerate(beats[::2]):
+            s = int(b * sr)
+            e = min(s + int(beat_sec * 1.8 * sr), n)
+            seg = t[s:e] - (b if e > s else 0)
+            inv = triad[idx % len(triad):] + triad[: idx % len(triad)]
+            if kind == "organ":
+                tone = sum(0.16 * np.sin(2 * np.pi * f * seg) + 0.05 * np.sin(2 * np.pi * f * 2 * seg) for f in inv[:3])
+            elif kind == "lofi_keys":
+                tone = sum(0.2 * np.sin(2 * np.pi * f * seg) * np.exp(-seg * 2.5) for f in inv[:3])
+            else:
+                tone = sum(0.22 * np.sin(2 * np.pi * f * seg) * np.exp(-seg * 3.5) for f in inv[:3])
+            gen[s:e] += tone.astype(np.float32)
+            hits += 3
+    elif kind in ("brass", "trumpet", "sax", "flute", "violin", "cello", "harp"):
+        # orchestral / acoustic leads: legato line with vibrato, family voicing
+        step_beats = 2 if kind in ("brass", "cello") else 1
+        for i, b in enumerate(beats[::step_beats]):
+            s = int(b * sr)
+            e = min(s + int(beat_sec * step_beats * 0.95 * sr), n)
+            if e <= s:
+                continue
+            seg = np.arange(e - s) / sr
+            mult = {"brass": 2.0, "trumpet": 4.0, "sax": 2.0, "flute": 4.0, "violin": 4.0, "cello": 1.0, "harp": 4.0}[kind]
+            f = triad[i % len(triad)] * mult
+            if kind == "harp":
+                # glissando arp instead of sustained line
+                for k2, ff in enumerate(triad):
+                    ss = s + int(k2 * 0.06 * sr)
+                    ee = min(ss + int(0.3 * sr), n)
+                    if ss >= n or ee <= ss:
+                        continue
+                    t2 = np.arange(ee - ss) / sr
+                    gen[ss:ee] += (0.3 * np.sin(2 * np.pi * ff * 2 * t2) * np.exp(-t2 * 8)).astype(np.float32)
+                    hits += 1
+                continue
+            vib = 1 + 0.006 * np.sin(2 * np.pi * 5.5 * seg)
+            if kind in ("brass", "trumpet"):
+                tone = _saw([f], seg) * 0.5 + 0.2 * np.sin(2 * np.pi * f * vib * seg)
+                env = np.minimum(1.0, seg * 25)
+            elif kind == "sax":
+                tone = np.sin(2 * np.pi * f * vib * seg) + 0.3 * np.sin(2 * np.pi * f * 2 * seg)
+                env = np.minimum(1.0, seg * 12) * np.exp(-seg * 0.8)
+            else:
+                tone = np.sin(2 * np.pi * f * vib * seg) + 0.2 * np.sin(2 * np.pi * f * 2 * seg)
+                env = np.minimum(1.0, seg * 8) * np.exp(-seg * 0.6)
+            gen[s:e] += (0.4 * tone * env).astype(np.float32)
+            hits += 1
     else:  # generic warm synth: pad + gentle arp
         t = np.arange(n) / sr
         pad = _saw(triad[:3], t) * 0.28 * np.minimum(1.0, t / 2.0)
@@ -675,16 +1038,19 @@ def _add_instrument(
         gen *= np.minimum(1.0, t / 1.5)  # 1.5s bowed swell
         gen *= 1 + 0.08 * np.sin(2 * np.pi * (tempo / 60 / 8) * t)
         hits = len(beats)
-    elif instrument in ("keys", "other"):
-        t = np.arange(n) / sr
-        root = _detect_key_root(y, sr) * 4
-        freqs = [root, root * 2 ** (4 / 12), root * 2 ** (7 / 12)]
-        for f in freqs:
-            gen += 0.1 * np.sin(2 * np.pi * f * t)
-        gen *= np.minimum(1.0, t * 2)
-        gen *= 1 + 0.1 * np.sin(2 * np.pi * (tempo / 60 / 4) * t)  # pulse at bar rate
+    elif instrument in ("keys", "other", "piano", "organ", "choir", "pad", "arp",
+                          "pluck", "marimba", "harp", "brass", "trumpet", "sax",
+                          "flute", "violin", "cello", "supersaw", "square_lead",
+                          "saw", "square", "triangle", "sine", "fm", "wavetable",
+                          "hoover", "808", "acid", "reese", "fm_bass", "trap_bass",
+                          "lofi_keys"):
+        # named waves / acoustic / sub families — each gets its own timbre
+        root = _detect_key_root(y, sr)
+        gen, hits = _synth_layer(instrument, tempo, beats, dur, sr, root)
     elif instrument in ("synth", "tropical", "future", "futuristic", "future_bass",
-                         "dubstep", "wobble", "edm", "big_room", "bigroom", "festival"):
+                         "dubstep", "wobble", "edm", "big_room", "bigroom", "festival",
+                         "house", "deep_house", "tech_house", "techno", "trance",
+                         "trap", "dnb", "hardstyle", "phonk", "synthwave"):
         # segregated synth / EDM kits — each gets its own timbre (multi-add ready)
         kind = instrument
         if kind in ("futuristic", "future_bass"):
@@ -693,12 +1059,23 @@ def _add_instrument(
             kind = "dubstep"
         if kind in ("big_room", "bigroom", "festival"):
             kind = "edm"
+        if kind == "tech_house":
+            kind = "house"
         root = _detect_key_root(y, sr)
+        wave = (params.get("wave") or "").lower()
+        # a named wave ("add an acid bassline") wins over the kit default
+        if wave in ("acid", "reese", "808", "pluck", "supersaw", "square", "arp", "pad"):
+            kind = {"supersaw": "supersaw", "square": "square_lead"}.get(wave, wave)
         gen, hits = _synth_layer(kind, tempo, beats, dur, sr, root)
         # auto groove so drums layered next to it match: tropical->tropical etc.
         if groove == "default":
             groove = {"tropical": "tropical", "future": "future",
-                      "dubstep": "dubstep", "edm": "big_room"}.get(kind, groove)
+                      "dubstep": "dubstep", "edm": "big_room",
+                      "house": "house", "deep_house": "deep_house",
+                      "tech_house": "house", "techno": "techno",
+                      "trance": "trance", "trap": "trap", "dnb": "dnb",
+                      "hardstyle": "hardstyle", "phonk": "phonk",
+                      "synthwave": "synthwave"}.get(kind, groove)
     else:
         t = np.arange(n) / sr
         gen = 0.15 * np.sin(2 * np.pi * 220.0 * t) + 0.08 * np.sin(2 * np.pi * 330.0 * t)
@@ -814,7 +1191,7 @@ def _boost_target(y: np.ndarray, sr: int, target: str) -> np.ndarray:
             gain[freqs < 200] = 2.2
             band = (freqs >= 2000) & (freqs <= 4000)
             gain[band] = 1.5
-        elif target == "bass":
+        elif target in ("bass", "808"):
             gain[freqs < 250] = 2.2
             gain[(freqs >= 250) & (freqs < 500)] = 1.2
         else:
@@ -825,6 +1202,86 @@ def _boost_target(y: np.ndarray, sr: int, target: str) -> np.ndarray:
     if peak > 1e-9:
         out = (out / peak * 0.9).astype(np.float32)
     return out
+
+
+def _db_to_lin(db: float) -> float:
+    return float(10.0 ** (max(-12.0, min(12.0, db)) / 20.0))
+
+
+def _mix_eq_curve(freqs: np.ndarray, gains_db: dict) -> np.ndarray:
+    """Multi-band balance curve: each stem owns frequency home(s); series mix.
+
+    vocals -> presence 1-6 kHz (+ air 6-12 kHz at half strength)
+    drums  -> punch <200 Hz + snap 2-4 kHz
+    bass   -> lows <250 Hz (+ low-mids 250-500 at half strength)
+    other  -> broadband tilt (everything else)
+    """
+    curve = np.ones(len(freqs))
+    gv = _db_to_lin(float(gains_db.get("vocals", 0.0)))
+    gd = _db_to_lin(float(gains_db.get("drums", 0.0)))
+    gb = _db_to_lin(float(gains_db.get("bass", 0.0)))
+    go = _db_to_lin(float(gains_db.get("other", 0.0)))
+    if gv != 1.0:
+        curve[(freqs >= 1000) & (freqs <= 6000)] *= gv
+        curve[(freqs > 6000) & (freqs <= 12000)] *= 1 + (gv - 1) * 0.5
+    if gd != 1.0:
+        curve[freqs < 200] *= gd * gd  # punch gets extra weight
+        curve[(freqs >= 2000) & (freqs <= 4000)] *= 1 + (gd - 1) * 0.7
+    if gb != 1.0:
+        curve[freqs < 250] *= gb
+        curve[(freqs >= 250) & (freqs < 500)] *= 1 + (gb - 1) * 0.5
+    if go != 1.0:
+        curve *= go
+    return curve
+
+
+def _rebalance_mix(
+    audio_path: str, y: np.ndarray, sr: int, gains_db: dict
+) -> tuple[np.ndarray, dict]:
+    """Prioritize sounds in the mix: {stem: dB} over vocals/drums/bass/other.
+
+    True stem remix when Demucs separation works; otherwise an honest
+    multi-band EQ-balance approximation (documented in metadata.method).
+    """
+    gains_db = {k: max(-12.0, min(12.0, float(v))) for k, v in (gains_db or {}).items()}
+    if not gains_db:
+        gains_db = {"drums": 6.0, "vocals": -3.0}
+
+    # 1. true stem remix — surgical when the model loads
+    try:
+        separator = SourceSeparator()
+        stems = separator.separate(audio_path)
+        if stems and set(stems) >= {"vocals", "drums", "bass", "other"}:
+            loaded: dict[str, np.ndarray] = {}
+            n = y.shape[1]
+            for name, path in stems.items():
+                s, _ = librosa.load(path, sr=sr, mono=True)
+                if len(s) < n:
+                    s = np.pad(s, (0, n - len(s)))
+                loaded[name] = s[:n].astype(np.float32) * _db_to_lin(gains_db.get(name, 0.0))
+            remix = sum(loaded.values())
+            mix = np.stack([remix] * y.shape[0]).astype(np.float32)
+            peak = float(np.max(np.abs(mix)))
+            if peak > 1e-9:
+                mix = (mix / peak * 0.9).astype(np.float32)
+            return mix, {"method": "stem_remix", "gains_db": gains_db,
+                         "note": "Separated with Demucs, per-stem faders applied, remixed."}
+    except Exception as e:
+        stem_error = str(e)[:160]
+    else:
+        stem_error = "stems incomplete"
+
+    # 2. EQ-balance fallback — fast, deterministic, no model needed
+    out = np.zeros_like(y)
+    for ch in range(y.shape[0]):
+        S = librosa.stft(y[ch])
+        freqs = librosa.fft_frequencies(sr=sr)
+        out[ch] = librosa.istft(S * _mix_eq_curve(freqs, gains_db)[:, np.newaxis], length=y.shape[1])
+    peak = float(np.max(np.abs(out)))
+    if peak > 1e-9:
+        out = (out / peak * 0.9).astype(np.float32)
+    return out, {"method": "eq_balance", "gains_db": gains_db,
+                 "note": f"EQ-balance approximation ({stem_error}); separate into stems for surgical moves."}
 
 
 def _enhance_vocals(y: np.ndarray, sr: int, params: dict | None = None) -> np.ndarray:
@@ -895,6 +1352,19 @@ def _apply_style(y: np.ndarray, sr: int, style: str, params: dict | None = None)
         t = np.arange(y.shape[1]) / sr
         pump = 1 - 0.25 * (0.5 * (1 + np.sin(2 * np.pi * (tempo / 60) * t - np.pi / 2)))
         y = y * pump[np.newaxis, :]
+    elif "deep_house" in style_l or "deep-house" in style_l:
+        # before the bare-"house" branch: "deep_house" contains "house"
+        groove = "deep_house" if groove == "default" else groove
+        drums, _ = _drum_pattern(tempo, beats, dur, "deep_house", sr)
+        drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.35
+        root = _detect_key_root(y, sr)
+        rhodes, _ = _synth_layer("deep_house", tempo, beats, dur, sr, root)
+        rhodes = rhodes / (np.max(np.abs(rhodes)) + 1e-9) * 0.4
+        for ch in range(y.shape[0]):
+            y[ch] = np.clip(y[ch] * 0.82 + drums * 0.4 + rhodes * 0.45, -1, 1)
+        t = np.arange(y.shape[1]) / sr
+        pump = 1 - 0.2 * (0.5 * (1 + np.sin(2 * np.pi * (tempo / 60) * t - np.pi / 2)))
+        y = y * pump[np.newaxis, :]
     elif "house" in style_l:
         groove = "four_on_floor" if groove == "default" else groove
         drums, _ = _drum_pattern(tempo, beats, dur, groove, sr)
@@ -938,6 +1408,71 @@ def _apply_style(y: np.ndarray, sr: int, style: str, params: dict | None = None)
         drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.25
         for ch in range(y.shape[0]):
             y[ch] = np.clip(y[ch] * 0.9 + drums * 0.3, -1, 1)
+    elif "techno" in style_l:
+        groove = "techno" if groove == "default" else groove
+        drums, _ = _drum_pattern(tempo, beats, dur, "techno", sr)
+        drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.5
+        root = _detect_key_root(y, sr)
+        roll, _ = _synth_layer("techno", tempo, beats, dur, sr, root)
+        roll = roll / (np.max(np.abs(roll)) + 1e-9) * 0.4
+        for ch in range(y.shape[0]):
+            y[ch] = np.clip(y[ch] * 0.78 + drums * 0.55 + roll * 0.45, -1, 1)
+    elif "trance" in style_l or "psytrance" in style_l:
+        groove = "trance" if groove == "default" else groove
+        drums, _ = _drum_pattern(tempo, beats, dur, "trance", sr)
+        drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.45
+        root = _detect_key_root(y, sr)
+        gate, _ = _synth_layer("trance", tempo, beats, dur, sr, root)
+        gate = gate / (np.max(np.abs(gate)) + 1e-9) * 0.45
+        for ch in range(y.shape[0]):
+            y[ch] = np.clip(y[ch] * 0.78 + drums * 0.5 + gate * 0.5, -1, 1)
+        y = _add_reverb(y, sr)
+    elif "trap" in style_l:
+        groove = "trap" if groove == "default" else groove
+        drums, _ = _drum_pattern(tempo, beats, dur, "trap", sr)
+        drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.45
+        root = _detect_key_root(y, sr)
+        bell, _ = _synth_layer("trap", tempo, beats, dur, sr, root)
+        bell = bell / (np.max(np.abs(bell)) + 1e-9) * 0.45
+        for ch in range(y.shape[0]):
+            y[ch] = np.clip(y[ch] * 0.8 + drums * 0.5 + bell * 0.5, -1, 1)
+    elif "dnb" in style_l or "drum_and_bass" in style_l or "jungle" in style_l:
+        groove = "dnb" if groove == "default" else groove
+        drums, _ = _drum_pattern(tempo, beats, dur, "dnb", sr)
+        drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.5
+        root = _detect_key_root(y, sr)
+        reese, _ = _synth_layer("dnb", tempo, beats, dur, sr, root)
+        reese = reese / (np.max(np.abs(reese)) + 1e-9) * 0.45
+        for ch in range(y.shape[0]):
+            y[ch] = np.clip(y[ch] * 0.78 + drums * 0.55 + reese * 0.5, -1, 1)
+    elif "hardstyle" in style_l or "rawstyle" in style_l:
+        groove = "hardstyle" if groove == "default" else groove
+        drums, _ = _drum_pattern(tempo, beats, dur, "hardstyle", sr)
+        drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.55
+        root = _detect_key_root(y, sr)
+        screech, _ = _synth_layer("hardstyle", tempo, beats, dur, sr, root)
+        screech = screech / (np.max(np.abs(screech)) + 1e-9) * 0.4
+        for ch in range(y.shape[0]):
+            y[ch] = np.clip(y[ch] * 0.76 + drums * 0.6 + screech * 0.45, -1, 1)
+    elif "phonk" in style_l:
+        groove = "phonk" if groove == "default" else groove
+        drums, _ = _drum_pattern(tempo, beats, dur, "phonk", sr)
+        drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.45
+        root = _detect_key_root(y, sr)
+        cow, _ = _synth_layer("phonk", tempo, beats, dur, sr, root)
+        cow = cow / (np.max(np.abs(cow)) + 1e-9) * 0.4
+        for ch in range(y.shape[0]):
+            y[ch] = np.clip(y[ch] * 0.8 + drums * 0.5 + cow * 0.45, -1, 1)
+    elif "synthwave" in style_l or "retrowave" in style_l or "outrun" in style_l:
+        groove = "synthwave" if groove == "default" else groove
+        drums, _ = _drum_pattern(tempo, beats, dur, "synthwave", sr)
+        drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.4
+        root = _detect_key_root(y, sr)
+        retro, _ = _synth_layer("synthwave", tempo, beats, dur, sr, root)
+        retro = retro / (np.max(np.abs(retro)) + 1e-9) * 0.45
+        for ch in range(y.shape[0]):
+            y[ch] = np.clip(y[ch] * 0.8 + drums * 0.45 + retro * 0.5, -1, 1)
+        y = _add_reverb(y, sr)
     else:
         drums, _ = _drum_pattern(tempo, beats, dur, groove, sr)
         drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.35

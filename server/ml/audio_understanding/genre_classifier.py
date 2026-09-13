@@ -71,6 +71,51 @@ GENRE_TUNING_ACTIONS: dict[str, list[str]] = {
         "Bring up the electric guitar",
         "Add a room sound for live feel",
     ],
+    "house": [
+        "Give it a four-on-the-floor groove feel",
+        "Pump the sidechain on the bass",
+        "Add a warm house synth stab",
+    ],
+    "techno": [
+        "Drive the kick four-on-the-floor",
+        "Add a dark rolling techno bass",
+        "Make the drums punchy",
+    ],
+    "trance": [
+        "Add an uplifting trance arp",
+        "Give the chorus more energy",
+        "Add reverb for that big-room wash",
+    ],
+    "trap": [
+        "Add an 808 slide bass",
+        "Make the hi-hats roll faster",
+        "Punch up the kick and 808 bass",
+    ],
+    "dubstep": [
+        "Add a dubstep wobble bass",
+        "Make the drop hit harder",
+        "Convert to dubstep style",
+    ],
+    "dnb": [
+        "Add a fast drum-and-bass break",
+        "Layer a reese bass underneath",
+        "Make the drums punchy",
+    ],
+    "phonk": [
+        "Add a phonk cowbell lead",
+        "Give the bass that deep 808 groove",
+        "Slow it down to a drift tempo",
+    ],
+    "synthwave": [
+        "Add a retro synthwave pad",
+        "Add a square-wave lead",
+        "Give it an 80s gated-drum feel",
+    ],
+    "edm": [
+        "Add a big-room EDM stab",
+        "Add a supersaw lead",
+        "Convert to big-room festival style",
+    ],
 }
 
 _ARTIFACT: dict[str, Any] | None = None

@@ -243,3 +243,55 @@ export async function getEvalMetrics(): Promise<EvalMetrics> {
 export function downloadUrl(key: string): string {
   return `${API_BASE}/api/export/download?path=${encodeURIComponent(key)}`;
 }
+
+export interface MixTip {
+  severity: "high" | "medium" | "low" | "good";
+  title: string;
+  detail: string;
+  fix_prompt: string;
+}
+
+export interface OptimizeResponse {
+  summary: {
+    peak: number;
+    rms: number;
+    crest_db: number;
+    dynamics_db: number;
+    clipped_pct: number;
+    bands: { bass: number; lowmid: number; presence: number; air: number };
+    stereo_width: number;
+    channels: number;
+    duration_seconds: number;
+    sample_rate: number;
+  };
+  score: number;
+  tips: MixTip[];
+}
+
+export async function optimizeAudio(audioPath: string): Promise<OptimizeResponse> {
+  const res = await fetch(`${API_BASE}/api/ml/optimize`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ audio_path: audioPath }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err || "Optimization failed");
+  }
+
+  return res.json();
+}
+
+export interface CatalogResponse {
+  instruments: { id: string; name: string; family: string; blurb: string }[];
+  waves: { id: string; aliases: string[] }[];
+  grooves: string[];
+  mix_stems: string[];
+}
+
+export async function getCatalog(): Promise<CatalogResponse> {
+  const res = await fetch(`${API_BASE}/api/ml/catalog`);
+  if (!res.ok) throw new Error("Failed to get catalog");
+  return res.json();
+}

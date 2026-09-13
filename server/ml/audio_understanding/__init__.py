@@ -9,6 +9,7 @@ from server.ml.audio_understanding.genre_classifier import (
     genre_tuning_actions,
     model_available,
 )
+from server.ml.audio_understanding.mix_doctor import analyze_mix
 
 __all__ = [
     "classify_instruments",
@@ -18,4 +19,5 @@ __all__ = [
     "predict_genre",
     "genre_tuning_actions",
     "model_available",
+    "analyze_mix",
 ]

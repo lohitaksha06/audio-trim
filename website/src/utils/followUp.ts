@@ -3,7 +3,7 @@
 const LEAD = /^(please\s+|now\s+|then\s+|and\s+|ok\s+|okay\s+|so\s+)+/;
 
 const EDIT_START =
-  /^(add|remove|delete|drop|trim|cut|crop|shorten|make|convert|turn|change|separate|split|extract|isolate|keep|fade|normaliz|enhance|denoise|clean|generate|create|insert|give it|speed|slow)/;
+  /^(add|remove|delete|drop|trim|cut|crop|shorten|make|convert|turn|change|separate|split|extract|isolate|keep|fade|normaliz|enhance|denoise|clean|generate|create|insert|give it|speed|slow|mix|balance|rebalance|prioritiz|prioritise|feature)/;
 
 const SHOW_START =
   /^(show|send|give|play|download|export|share|where|let me (hear|see|have)|i want (to hear|to see|the))/;
@@ -22,6 +22,7 @@ export interface ResultMeta {
   added_instrument?: string;
   combined?: string[];
   groove?: string;
+  wave?: string;
   tempo_bpm?: number;
   beat_count?: number;
   hits?: number;
@@ -31,6 +32,8 @@ export interface ResultMeta {
   removed_stem?: string;
   isolated_stem?: string;
   gain_db?: number;
+  gains_db?: Record<string, number>;
+  method?: string;
   song_bpm?: number;
   stem_bpm?: number;
   stretch_factor?: number;
@@ -57,8 +60,14 @@ export function describeResult(intent: string, meta?: ResultMeta | null): string
     bits.push(`added ${meta.combined.join(" + ")}`);
     grooveBits(meta, bits);
   } else if (meta.added_instrument) {
-    bits.push(`added ${meta.added_instrument}`);
+    bits.push(`added ${meta.added_instrument}${meta.wave ? ` (${meta.wave} wave)` : ""}`);
     grooveBits(meta, bits);
+  } else if (meta.gains_db && Object.keys(meta.gains_db).length > 0) {
+    bits.push(
+      `rebalanced ${Object.entries(meta.gains_db)
+        .map(([k, v]) => `${k} ${v > 0 ? "+" : ""}${v}dB`)
+        .join(", ")}${meta.method === "eq_balance" ? " (EQ balance)" : " (stem remix)"}`
+    );
   } else if (meta.boosted) {
     bits.push(`turned up ${meta.boosted}`);
   } else if (typeof meta.gain_db === "number") {

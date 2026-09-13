@@ -45,6 +45,15 @@ const FEATURE_CATEGORIES = [
     ),
   },
   {
+    name: "Mix Lab",
+    href: "/features/mix",
+    icon: (
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 4v16M5 8h4M9 8v4m6-8v16m0-12h4m-4 4v4m-6 0H5m14 0h-4M5 16h4m10 0h-4" />
+      </svg>
+    ),
+  },
+  {
     name: "Mood & Style",
     href: "/features/mood",
     icon: (
