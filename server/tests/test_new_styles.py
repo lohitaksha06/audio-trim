@@ -46,6 +46,7 @@ def test_new_intents_parse():
     t = regex_plan_from_prompt("pitch it up 2 semitones")
     assert t.intent == Intent.TRANSPOSE and t.params["semitones"] == 2.0
     assert regex_plan_from_prompt("transpose down").params["semitones"] == -2.0
+    assert regex_plan_from_prompt("pitch it down 3 semitones").params["semitones"] == -3.0
 
 
 def test_new_drum_patterns_execute(tmp_path):

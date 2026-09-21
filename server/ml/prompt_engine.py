@@ -812,6 +812,12 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
         m = re.search(r"([+-]?\d+(?:\.\d+)?)\s*semitones?\b", lower)
         if m:
             semi = float(m.group(1))
+            # unsigned number ("down 3 semitones") takes direction from words
+            if not m.group(1).startswith(("+", "-")):
+                if re.search(r"\b(down|lower|drop|decrease)\b", lower):
+                    semi = -abs(semi)
+                elif re.search(r"\b(up|higher|raise|increase)\b", lower):
+                    semi = abs(semi)
         else:
             m2 = re.search(r"(?:pitch|transpose|tune)(?:\s+it)?\s+(up|down|higher|lower)\b", lower)
             if m2:
