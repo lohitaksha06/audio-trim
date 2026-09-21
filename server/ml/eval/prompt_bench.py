@@ -73,6 +73,24 @@ BENCH: list[dict[str, Any]] = [
     # ENHANCE_VOCALS (2)
     {"prompt": "make voices clearer and remove background noise", "intent": "enhance_vocals"},
     {"prompt": "enhance vocals and denoise", "intent": "enhance_vocals"},
+    # ENHANCE_VOCALS voice-audibility + combined voice-first chaining
+    {"prompt": "make her voice audible and clear", "intent": "enhance_vocals"},
+    {"prompt": "add drums to this and make the voice more clear, remove the background noises", "intent": "enhance_vocals", "params": {"add_instrument": "drums"}},
+    # selective drum pieces
+    {"prompt": "add only snare", "intent": "add_instrument", "params": {"instrument": "drums", "drum_parts": ["snare"]}},
+    {"prompt": "add a kick drum", "intent": "add_instrument", "params": {"instrument": "drums", "drum_parts": ["kick"]}},
+    # new-school grooves
+    {"prompt": "add uk garage drums", "intent": "add_instrument", "params": {"instrument": "drums", "groove": "garage"}},
+    {"prompt": "add a 2-step beat", "intent": "add_instrument", "params": {"groove": "garage"}},
+    {"prompt": "add amapiano drums", "intent": "add_instrument", "params": {"groove": "amapiano"}},
+    {"prompt": "add an afro house groove", "intent": "add_instrument", "params": {"groove": "afro_house"}},
+    {"prompt": "add a jungle break", "intent": "add_instrument", "params": {"groove": "jungle"}},
+    {"prompt": "add a grime beat", "intent": "add_instrument", "params": {"groove": "grime"}},
+    {"prompt": "convert to garage style", "intent": "style", "params": {"style": "garage"}},
+    # new editing options
+    {"prompt": "reverse the intro", "intent": "reverse"},
+    {"prompt": "loop the chorus 3 times", "intent": "repeat", "params": {"times": 3}},
+    {"prompt": "pitch it up 2 semitones", "intent": "transpose", "params": {"semitones": 2.0}},
     # COMBINE (3)
     {"prompt": "combine both drums and bass", "intent": "combine"},
     {"prompt": "can u comebin both drum and base", "intent": "combine"},

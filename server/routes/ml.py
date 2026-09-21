@@ -96,12 +96,24 @@ async def understand_audio(req: AudioPathRequest):
         mood = describe_mood(req.audio_path)
         curve = compute_mood_curve(req.audio_path)
         genre = predict_genre(req.audio_path)
+        try:
+            # rhythm read: tempo, beat grid, feel, auto-groove. Loads lazily
+            # and never breaks understanding if it fails.
+            from server.ml.rhythm import analyze_rhythm
+            import librosa as _lib
+
+            _y, _sr = _lib.load(req.audio_path, sr=None, mono=False)
+            _dur = _y.shape[-1] / _sr if _y.ndim > 1 else len(_y) / _sr
+            rhythm = analyze_rhythm(_y, _sr, full_duration=_dur)
+        except Exception:
+            rhythm = None
         return {
             "instruments": instruments,
             "structure": structure,
             "mood": mood,
             "energy_curve": curve,
             "genre": genre,
+            "rhythm": rhythm,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Understanding failed: {e}")
@@ -134,7 +146,8 @@ async def instrument_catalog():
 
     grooves = ["default", "four_on_floor", "funky", "swing", "half_time", "double_time",
                "tropical", "future", "dubstep", "big_room", "deep_house", "tech_house",
-               "techno", "trance", "trap", "dnb", "hardstyle", "phonk", "synthwave"]
+               "techno", "trance", "trap", "dnb", "hardstyle", "phonk", "synthwave",
+               "garage", "amapiano", "afro_house", "jungle", "grime"]
     return {
         "instruments": [
             {"id": k, "name": v[0], "family": v[1], "blurb": v[2]}

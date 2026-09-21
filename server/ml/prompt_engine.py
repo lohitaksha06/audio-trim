@@ -26,6 +26,9 @@ class Intent(str, Enum):
     ENHANCE_VOCALS = "enhance_vocals"
     STYLE = "style"
     MIX_STEM = "mix_stem"
+    REVERSE = "reverse"
+    REPEAT = "repeat"
+    TRANSPOSE = "transpose"
     UNKNOWN = "unknown"
 
 
@@ -71,6 +74,11 @@ INSTRUMENT_CATALOG: dict[str, tuple[str, str, str]] = {
     "hardstyle": ("Hardstyle", "edm", "Punchy distorted kick + screech lead"),
     "phonk": ("Phonk", "edm", "Cowbell lead + Memphis 808 + hats"),
     "synthwave": ("Synthwave", "edm", "Retro square/saw pad + gated drums"),
+    "garage": ("UK garage", "edm", "Shuffled 2-step drums + warpy sub"),
+    "amapiano": ("Amapiano", "edm", "Shaker groove + log-drum bassline"),
+    "afro_house": ("Afro house", "edm", "Syncopated percussion + deep groove"),
+    "jungle": ("Jungle", "edm", "Chopped Amen break + heavy sub"),
+    "grime": ("Grime", "edm", "Half-time eski beat + deep sub"),
     "lofi_keys": ("Lo-fi keys", "edm", "Dusty Rhodes + soft half-time drums"),
     "other": ("FX / Pad", "fx", "Generic texture layer"),
 }
@@ -171,18 +179,24 @@ _INSTRUMENT_KEYWORDS = {
     "techno": ["techno", "peak-time techno", "melodic techno", "rolling techno"],
     "trance": ["trance", "uplifting trance", "psytrance", "psy-trance"],
     "trap": ["trap synth", "trap drums", "trap hats", "trap edm", "hybrid trap", "trap"],
-    "dnb": ["drum and bass", "drum & bass", "dnb", "jungle", "liquid dnb"],
-    "hardstyle": ["hardstyle", "hard style", "rawstyle", "reverse bass"],
+    "dnb": ["drum and bass", "drum & bass", "dnb", "liquid dnb"],
+    "hardstyle": ["hardstyle", "hard style", "rawstyle"],
     "phonk": ["phonk", "drift phonk", "house phonk", "cowbell"],
     "synthwave": ["synthwave", "retrowave", "outrun", "synth-wave", "retro synth"],
+    "garage": ["uk garage", "garage", "2-step", "2step", "two-step", "two step", "speed garage", "garage drums", "garage beat"],
+    "amapiano": ["amapiano", "amapiano", "log drum", "logdrum", "amapiano beat"],
+    "afro_house": ["afro house", "afrohouse", "afro-house", "afro house beat"],
+    "jungle": ["jungle", "jungle drums", "amen break"],
+    "grime": ["grime", "grime beat", "eskibeat", "eski beat", "eski"],
     "lofi_keys": ["lofi", "lo-fi", "chillhop", "lofi keys", "dusty keys"],
     "other": ["fx", "effects", "riser", "downlifter", "impact", "sfx"],
 }
 
 
 _QUALIFIED_KINDS = (
-    "tropical", "future", "dubstep", "edm", "house", "deep_house", "techno",
+    "tropical", "future", "dubstep", "edm", "deep_house", "afro_house", "house", "techno",
     "trance", "trap", "dnb", "hardstyle", "phonk", "synthwave",
+    "garage", "amapiano", "jungle", "grime",
     "808", "acid", "reese", "choir",
     "supersaw", "square_lead", "pluck", "pad", "arp",
 )
@@ -199,7 +213,8 @@ def extract_wave(prompt: str) -> str | None:
 
 
 _GROOVE_KINDS = {"tropical", "future", "dubstep", "edm", "house", "deep_house",
-                 "techno", "trance", "trap", "dnb", "hardstyle", "phonk", "synthwave"}
+                 "techno", "trance", "trap", "dnb", "hardstyle", "phonk", "synthwave",
+                 "garage", "amapiano", "afro_house", "jungle", "grime"}
 
 
 def extract_instrument(prompt: str) -> str | None:
@@ -249,8 +264,10 @@ def extract_instruments(prompt: str) -> list[str]:
     )
     # "synthwave" / "house" kits contain "synth" as a substring — not a warm synth
     synth_scan = re.sub(
-        r"\b(?:tropical|future|futuristic|dubstep|edm|big(?:-| )?room|house|techno|trance|trap|dnb|jungle|hardstyle|phonk|synthwave|retrowave|outrun)\b", " ", lower
+        r"\b(?:tropical|future|futuristic|dubstep|edm|big(?:-| )?room|house|techno|trance|trap|dnb|jungle|hardstyle|phonk|synthwave|retrowave|outrun|garage|amapiano|afro(?:-| )?house|grime)\b", " ", lower
     )
+    # "amapiano" contains the substring "piano" — not an acoustic piano
+    piano_scan = re.sub(r"amapiano", " ", lower)
     for stem, keywords in _INSTRUMENT_KEYWORDS.items():
         if stem in found:
             continue
@@ -262,6 +279,8 @@ def extract_instruments(prompt: str) -> list[str]:
             scan = bass_scan
         elif stem == "synth":
             scan = synth_scan
+        elif stem == "piano":
+            scan = piano_scan
         else:
             scan = lower
         for kw in keywords:
@@ -283,12 +302,14 @@ def extract_instruments(prompt: str) -> list[str]:
     if "synth" in found and any(k in found for k in _QUALIFIED_KINDS):
         synth_tokens = len(re.findall(r"synth", lower))
         qual_tokens = len(
-            re.findall(r"(?:tropical|future|futuristic|dubstep|edm|big(?:-| )?room|house|techno|trance|trap|dnb|hardstyle|phonk|synthwave)(?:\s+(?:edm|bass))?\s+synth", lower)
+            re.findall(r"(?:tropical|future|futuristic|dubstep|edm|big(?:-| )?room|house|techno|trance|trap|dnb|jungle|hardstyle|phonk|synthwave|garage|amapiano|afro(?:-| )?house|grime)(?:\s+(?:edm|bass))?\s+synth", lower)
         )
         if synth_tokens <= qual_tokens:
             found.remove("synth")
-    # "deep house" is one kind, not house + deep_house
+    # "deep house" / "afro house" are one kind each, not house + deep_house
     if "house" in found and "deep_house" in found:
+        found.remove("house")
+    if "house" in found and "afro_house" in found:
         found.remove("house")
     return found
 
@@ -392,6 +413,11 @@ STYLE_KEYWORDS = {
     "hardstyle": ["hardstyle", "hard style", "rawstyle"],
     "phonk": ["phonk style", "drift phonk"],
     "synthwave": ["synthwave", "retrowave", "outrun style", "synth-wave"],
+    "garage": ["uk garage", "garage style", "2-step", "2step", "speed garage"],
+    "amapiano": ["amapiano", "amapiano style", "log drum"],
+    "afro_house": ["afro house", "afrohouse", "afro-house"],
+    "jungle": ["jungle style", "amen break"],
+    "grime": ["grime", "eskibeat", "eski beat"],
     "tropical": ["tropical", "tropical edm", "tropical house", "summer edm"],
     "edm": ["edm style", "edm drop", "festival edm", "big room", "bigroom", "big-room"],
     "futuristic": ["futuristic", "futuristic edm", "future bass", "future-bass", "future edm"],
@@ -404,14 +430,102 @@ ENHANCE_KEYWORDS = [
     "make voices clearer", "voices clearer", "enhance vocal", "clear vocal",
     "remove background noise", "remove disturbances", "denoise", "de-noise",
     "clean up voice", "vocal clarity", "reduce hiss", "remove hiss",
+    # voice-audibility phrasing ("make her voice audible", "voice more clear")
+    "make voice", "make her voice", "make his voice", "make the voice",
+    "voice clear", "voices clear", "vocal clear", "speech clear",
+    "voice audible", "vocal audible", "voices audible", "more audible",
+    "cant hear the voice", "can't hear the voice", "cannot hear the voice",
+    "hear her", "hear him", "hear the voice", "hear the vocal",
+    "background noise", "background hiss", "background sound",
+    "muffled", "muffle", "crisp vocal", "crisp voice",
+    "clean up the voice", "clean the voice", "clean the vocal",
+    "clean up vocals", "clean vocals", "clean up vocal",
+    "clear up the voice", "clear up voice",
 ]
+
+# Drum-piece keywords for selective adds ("add only snare", "kick drum").
+_DRUM_PART_KEYWORDS: dict[str, list[str]] = {
+    "kick": ["kick", "bass drum", "kick drum"],
+    "snare": ["snare", "snare drum", "rim", "rimshot", "rim shot", "clap"],
+    "hats": ["hat", "hi-hat", "hihat", "high hat", "cymbal", "ride", "crash",
+             "shaker", "open hat", "closed hat"],
+}
+
+
+def voice_flags(prompt: str) -> dict:
+    """Shared vocal-clarity params: aggression, audibility lift, mix-denoise."""
+    lower = prompt.lower()
+    voice_words = ("vocal", "voice", "voices", "speech", "speak", "sing",
+                   "dialogue", "podcast", "singer", "vocalist", "narrat")
+    noise_words = ("noise", "hiss", "disturbance", "denoise", "de-noise",
+                   "hum", "buzz", "background")
+    return {
+        "aggressive": bool(re.search(
+            r"\b(very|really|super|extremely|heavily|completely|totally|a lot|all( the)? (background )?noise|much noise)\b", lower)),
+        "level_boost": bool(re.search(
+            r"audible|can'?t hear|cannot hear|loud and clear|bring .*voice (up|forward|out)|voice.*(louder|up front)", lower)),
+        "denoise_mix": (any(k in lower for k in noise_words)
+                        and not any(k in lower for k in voice_words)),
+    }
+
+
+def extract_drum_parts(prompt: str) -> list[str] | None:
+    """Which drum pieces to synthesize. None = full kit.
+
+    - "add drums" (no specific piece named) -> None (full kit)
+    - "add only snare" / "just the kick drum" -> ["snare"] / ["kick"]
+    - "add kick and snare" -> ["kick", "snare"]
+    - "add drums without hats" -> ["kick", "snare"]
+    """
+    lower = prompt.lower()
+    if not re.search(r"\b(drum|drums|kick|snare|hat|hihat|hi-hat|cymbal|percussion|rim|rimshot|clap|ride|crash|shaker)\b", lower):
+        return None
+    found: list[str] = []
+    for part, kws in _DRUM_PART_KEYWORDS.items():
+        for kw in kws:
+            if re.search(rf"\b{re.escape(kw)}s?\b", lower):
+                found.append(part)
+                break
+    if not found:
+        return None  # generic "drums"/"percussion" -> full kit
+    # exclusions: "drums without hats", "no cymbals", "except the kick"
+    excluded = set()
+    for part, kws in _DRUM_PART_KEYWORDS.items():
+        for kw in kws:
+            if re.search(rf"(?:without|except|minus|no)\s+(?:the\s+)?{re.escape(kw)}s?\b", lower):
+                excluded.add(part)
+    found = [p for p in found if p not in excluded]
+    if not found:
+        return None
+    # "kick drum" alone (singular, no plural "drums"/"hats"/"snares") = kick only.
+    # But "kick drums" / "drums" plural with no other piece = full kit.
+    if len(found) == 1 and re.search(r"\bdrums\b", lower):
+        others_named = any(
+            kw in lower
+            for part, kws in _DRUM_PART_KEYWORDS.items() if part != found[0]
+            for kw in kws
+        )
+        if not others_named:
+            return None
+    return found
 
 
 def extract_groove(prompt: str) -> str:
     lower = prompt.lower()
     if any(k in lower for k in ["hardstyle", "rawstyle", "reverse bass"]):
         return "hardstyle"
-    if any(k in lower for k in ["drum and bass", "drum & bass", "dnb", "jungle"]):
+    if any(k in lower for k in ["uk garage", "speed garage", "2-step", "2step", "two-step", "two step"]) or re.search(r"\bgarage\b", lower):
+        return "garage"
+    if "amapiano" in lower or "log drum" in lower or "logdrum" in lower:
+        return "amapiano"
+    if any(k in lower for k in ["afro house", "afrohouse", "afro-house"]):
+        return "afro_house"
+    if any(k in lower for k in ["grime", "eskibeat", "eski"]):
+        return "grime"
+    if (any(k in lower for k in ["jungle", "amen break"])
+            or re.search(r"\bamen\b", lower)):
+        return "jungle"
+    if any(k in lower for k in ["drum and bass", "drum & bass", "dnb"]):
         return "dnb"
     if any(k in lower for k in ["trap edm", "hybrid trap"]) or ("trap" in lower and any(w in lower for w in ("drum", "kick", "snare", "hat", "cymbal", "percussion", "808"))):
         return "trap"
@@ -518,8 +632,7 @@ def classify_intent(prompt: str) -> Intent:
     if any(w in lower for w in ["add ", "generate", "create", "insert", "layer", "synthesize"]):
         # "add bass / synth / drums" must be checked before remove/isolate
         # "add techno drums" = drums with a techno groove (single add), not a combine
-        _groove_kinds = {"tropical", "future", "dubstep", "edm", "house", "deep_house",
-                         "techno", "trance", "trap", "dnb", "hardstyle", "phonk", "synthwave"}
+        _groove_kinds = _GROOVE_KINDS
         _explicit_combine = any(w in lower for w in ["both", "together", "combine", "comebin", "merge", " and ", "layer them", "mix them"])
         _percussive = any(w in lower for w in ("drum", "kick", "snare", "hat", "cymbal", "percussion", "breakbeat", "break beat"))
         if len(mentioned) >= 2:
@@ -530,7 +643,7 @@ def classify_intent(prompt: str) -> Intent:
             return Intent.ADD_INSTRUMENT
         if extract_wave(prompt):
             return Intent.ADD_INSTRUMENT
-        if any(k in lower for k in ["bass", "drum", "synth", "guitar", "piano", "keys", "pad", "strings", "tropical", "future", "futuristic", "dubstep", "wobble", "edm", "big room", "bigroom", "lead", "pluck", "supersaw", "riddim", "808", "acid", "reese", "techno", "trance", "trap", "hardstyle", "phonk", "synthwave", "dnb", "house", "brass", "sax", "trumpet", "flute", "violin", "cello", "harp", "marimba", "choir", "organ", "arp", "square"]):
+        if any(k in lower for k in ["bass", "drum", "synth", "guitar", "piano", "keys", "pad", "strings", "tropical", "future", "futuristic", "dubstep", "wobble", "edm", "big room", "bigroom", "lead", "pluck", "supersaw", "riddim", "808", "acid", "reese", "techno", "trance", "trap", "hardstyle", "phonk", "synthwave", "dnb", "house", "garage", "amapiano", "afro", "jungle", "grime", "brass", "sax", "trumpet", "flute", "violin", "cello", "harp", "marimba", "choir", "organ", "arp", "square"]):
             return Intent.ADD_INSTRUMENT
     if any(w in lower for w in ["trim", "cut", "crop", "shorten"]):
         return Intent.TRIM
@@ -552,7 +665,7 @@ def classify_intent(prompt: str) -> Intent:
         return Intent.FADE
     if any(w in lower for w in ["normalize", "volume", "loudness", "level"]):
         return Intent.NORMALIZE
-    if any(w in lower for w in ["darker", "brighter", "energetic", "calm", "mood", "feel", "tone"]):
+    if any(w in lower for w in ["darker", "brighter", "energetic", "calm", "mood", "feel"]) or re.search(r"\btone\b", lower):
         return Intent.MOOD
     if any(w in lower for w in ["speed", "tempo", "ramp"]) or re.search(
         r"\b(fast|faster|slow|slower|speed ?up|speed ?down)\b", lower
@@ -560,6 +673,15 @@ def classify_intent(prompt: str) -> Intent:
         return Intent.SPEED
     if any(w in lower for w in ["reverb", "echo", "delay", "space"]):
         return Intent.REVERB
+    if re.search(r"\breverse[sd]?\b", lower) or re.search(r"\bbackwards\b", lower):
+        if "reverse bass" not in lower:
+            return Intent.REVERSE
+    if re.search(r"\b(loop|loops|looping|repeat|repeats)\b", lower):
+        return Intent.REPEAT
+    if (re.search(r"\btranspose\b", lower) or re.search(r"\bsemitones?\b", lower)
+            or re.search(r"\bpitch\b", lower)
+            or re.search(r"\btune\s+(it\s+)?(up|down|higher|lower)\b", lower)):
+        return Intent.TRANSPOSE
     return Intent.UNKNOWN
 
 
@@ -673,6 +795,35 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
     if intent == Intent.REVERB:
         params["reverb_amount"] = 0.5
 
+    if intent == Intent.REVERSE:
+        # region already in start/end when given; absent = whole track
+        pass
+
+    if intent == Intent.REPEAT:
+        lower = prompt.lower()
+        m = re.search(r"(\d+)\s*(?:x|times)\b", lower)
+        if m:
+            params["times"] = max(2, min(8, int(m.group(1))))
+        else:
+            params["times"] = 2
+
+    if intent == Intent.TRANSPOSE:
+        lower = prompt.lower()
+        m = re.search(r"([+-]?\d+(?:\.\d+)?)\s*semitones?\b", lower)
+        if m:
+            semi = float(m.group(1))
+        else:
+            m2 = re.search(r"(?:pitch|transpose|tune)(?:\s+it)?\s+(up|down|higher|lower)\b", lower)
+            if m2:
+                semi = 2.0 if m2.group(1) in ("up", "higher") else -2.0
+            elif re.search(r"\b(higher|up)\b", lower):
+                semi = 2.0
+            elif re.search(r"\b(lower|down)\b", lower):
+                semi = -2.0
+            else:
+                semi = 2.0
+        params["semitones"] = max(-12.0, min(12.0, semi))
+
     if intent == Intent.ADD_INSTRUMENT:
         # ensure we have an instrument even if keyword was "synth" mapped to keys
         if not params.get("instrument"):
@@ -700,8 +851,18 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
                 params["instrument"] = "phonk"
             elif "synthwave" in lower or "retrowave" in lower or "outrun" in lower:
                 params["instrument"] = "synthwave"
-            elif "dnb" in lower or "drum and bass" in lower or "drum & bass" in lower or "jungle" in lower:
+            elif "dnb" in lower or "drum and bass" in lower or "drum & bass" in lower:
                 params["instrument"] = "dnb"
+            elif "jungle" in lower or re.search(r"\bamen\b", lower):
+                params["instrument"] = "jungle"
+            elif "grime" in lower or "eski" in lower:
+                params["instrument"] = "grime"
+            elif "amapiano" in lower or "log drum" in lower or "logdrum" in lower:
+                params["instrument"] = "amapiano"
+            elif "afro house" in lower or "afrohouse" in lower or "afro-house" in lower:
+                params["instrument"] = "afro_house"
+            elif "garage" in lower or "2-step" in lower or "2step" in lower:
+                params["instrument"] = "garage"
             elif re.search(r"\btrap\b", lower):
                 params["instrument"] = "trap"
             elif "trance" in lower or "psytrance" in lower:
@@ -739,6 +900,17 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
         m_bpm = re.search(r"(\d{2,3})\s*bpm", prompt.lower())
         if m_bpm:
             params["target_bpm"] = float(m_bpm.group(1))
+        # selective drum pieces ("add only snare", "add a kick drum")
+        if params.get("instrument") == "drums":
+            parts = extract_drum_parts(prompt)
+            if parts:
+                params["drum_parts"] = parts
+        # combined request from the other direction: clarify the voice first
+        # (reachable via the LLM path; the regex classifier already prefers
+        # ENHANCE_VOCALS when enhance keywords are present)
+        if any(k in prompt.lower() for k in ENHANCE_KEYWORDS):
+            params["also_enhance"] = True
+            params.update(voice_flags(prompt))
 
     if intent == Intent.STYLE:
         style = extract_style(prompt)
@@ -748,8 +920,32 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
 
     if intent == Intent.ENHANCE_VOCALS:
         lower = prompt.lower()
-        params["denoise"] = any(k in lower for k in ["noise", "hiss", "disturbance", "denoise", "clean"])
+        params["denoise"] = any(k in lower for k in ["noise", "hiss", "disturbance", "denoise", "clean", "audible", "clear", "hear", "crisp", "muffl"])
         params["clarity"] = True
+        params.update(voice_flags(prompt))
+        # Combined request ("add drums + make the voice clear"): voice first,
+        # then layer the instrument quietly so the voice stays on top.
+        # NB: voice words ("voice"/"vocal") name the enhance target, not the
+        # thing to add — so skip them when picking the added instrument.
+        if any(w in lower for w in ["add ", "generate", "create", "insert", "layer", "synthesize"]):
+            mentioned = extract_instruments(prompt)
+            add_inst = next((i for i in mentioned if i not in ("vocals", "choir")), None)
+            if add_inst is None:
+                single = extract_instrument(prompt)
+                add_inst = single if single not in ("vocals", None) else None
+            if add_inst and add_inst != "vocals":
+                params["add_instrument"] = add_inst
+                params["add_groove"] = extract_groove(prompt)
+                if add_inst == "drums":
+                    parts = extract_drum_parts(prompt)
+                    if parts:
+                        params["drum_parts"] = parts
+                wave = extract_wave(prompt)
+                if wave:
+                    params["add_wave"] = wave
+                m_bpm = re.search(r"(\d{2,3})\s*bpm", lower)
+                if m_bpm:
+                    params["add_target_bpm"] = float(m_bpm.group(1))
 
     if intent == Intent.COMBINE:
         params["instruments"] = extract_instruments(prompt) or ["drums", "bass"]
@@ -763,6 +959,18 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
         m_bpm = re.search(r"(\d{2,3})\s*bpm", prompt.lower())
         if m_bpm:
             params["target_bpm"] = float(m_bpm.group(1))
+        # selective drum piece inside a combo ("add snare and bass")
+        if params["instruments"] == ["drums"]:
+            parts = extract_drum_parts(prompt)
+            if parts:
+                params["drum_parts"] = parts
+        # voice-clarity half of the combo ("...and clean up the voice"):
+        # clarify first, then layer (voice-first chaining in execute_plan)
+        if any(k in prompt.lower() for k in ENHANCE_KEYWORDS):
+            params["also_enhance"] = True
+            params.update(voice_flags(prompt))
+            params["denoise"] = True
+            params["clarity"] = True
 
     if intent == Intent.MIX:
         gains = extract_mix_gains(prompt)

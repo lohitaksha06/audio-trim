@@ -116,6 +116,31 @@ GENRE_TUNING_ACTIONS: dict[str, list[str]] = {
         "Add a supersaw lead",
         "Convert to big-room festival style",
     ],
+    "garage": [
+        "Add a shuffled 2-step garage beat",
+        "Swing the hi-hats",
+        "Add a warpy sub bass",
+    ],
+    "amapiano": [
+        "Add a log-drum bassline",
+        "Drive the shaker groove",
+        "Soften the kick four-on-the-floor",
+    ],
+    "afro_house": [
+        "Add syncopated conga percussion",
+        "Deepen the four-on-the-floor groove",
+        "Add warm chord chops",
+    ],
+    "jungle": [
+        "Chop up the break",
+        "Add a fast jungle break",
+        "Layer a heavy sub underneath",
+    ],
+    "grime": [
+        "Make the beat half-time and stark",
+        "Add an eski square lead",
+        "Boom the kick on the one",
+    ],
 }
 
 _ARTIFACT: dict[str, Any] | None = None

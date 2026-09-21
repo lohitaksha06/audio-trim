@@ -93,6 +93,16 @@ export interface UnderstandResponse {
     duration_seconds: number;
   };
   genre?: GenreInfo | null;
+  rhythm?: {
+    tempo_bpm: number;
+    beat_count: number;
+    four_on_floor: number;
+    halftime: number;
+    swing: number;
+    auto_groove: string;
+    groove_confidence: number;
+    groove_source: string;
+  } | null;
 }
 
 export interface JobResponse {

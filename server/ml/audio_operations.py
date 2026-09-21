@@ -89,10 +89,17 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
         output_path = convert_file(audio_path, target_format)
         metadata["format"] = target_format
     elif plan.intent == Intent.ADD_INSTRUMENT:
+        # voice-first: clarify the vocal before layering (combined request
+        # arriving via the LLM path, or "add X and make the voice clear").
+        if plan.params.get("also_enhance"):
+            y, enh_meta = _enhance_voice(audio_path, y, sr, plan.params)
+            metadata.update(enh_meta)
         target = plan.params.get("instrument", "other")
         y, groove_meta, layer = _add_instrument(y, sr, target, plan.params)
         output_path = _save_wav(y, sr)
         metadata["added_instrument"] = target
+        if plan.params.get("drum_parts"):
+            metadata["drum_parts"] = plan.params["drum_parts"]
         if plan.params.get("wave"):
             metadata["wave"] = plan.params["wave"]
         metadata.update(groove_meta)
@@ -100,13 +107,22 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
             layer_path_out = _save_wav(layer[np.newaxis, :], sr)
             metadata["layer_kind"] = f"{target}_only"
     elif plan.intent == Intent.COMBINE:
+        # voice-first: clarify before layering when the combo includes it
+        # ("add bass and clean up the voice").
+        voice_first = bool(plan.params.get("also_enhance"))
+        if voice_first:
+            y, enh_meta = _enhance_voice(audio_path, y, sr, plan.params)
+            metadata.update(enh_meta)
         instruments = plan.params.get("instruments") or ["drums", "bass"]
         stems = {}
         total_hits = 0
         tempo_seen = 0.0
         beats_seen = 0
         for inst in instruments:
-            y, gm, layer = _add_instrument(y, sr, inst, {**plan.params, "instrument": inst})
+            layer_params = {**plan.params, "instrument": inst}
+            if voice_first:
+                layer_params["mix_gain"] = 0.35
+            y, gm, layer = _add_instrument(y, sr, inst, layer_params)
             total_hits += int(gm.get("hits", 0))
             tempo_seen = float(gm.get("tempo_bpm", tempo_seen))
             beats_seen = max(beats_seen, int(gm.get("beat_count", 0)))
@@ -129,14 +145,50 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
         output_path = _save_wav(y, sr)
         metadata.update(mix_meta)
     elif plan.intent == Intent.ENHANCE_VOCALS:
-        y = _enhance_vocals(y, sr, plan.params)
-        output_path = _save_wav(y, sr)
-        metadata["enhanced"] = "vocals"
+        # voice first: isolate/polish/lift the vocal (or denoise the mix),
+        # before anything else is layered.
+        y, enh_meta = _enhance_voice(audio_path, y, sr, plan.params)
+        metadata.update(enh_meta)
+        # combined request ("...add drums..."): layer the instrument quietly
+        # underneath so the clarified voice stays on top and audible.
+        added = plan.params.get("add_instrument")
+        if added:
+            add_params = dict(plan.params)
+            add_params["instrument"] = added
+            add_params["groove"] = plan.params.get("add_groove", "default")
+            add_params["mix_gain"] = 0.35
+            if plan.params.get("add_target_bpm"):
+                add_params["target_bpm"] = plan.params["add_target_bpm"]
+            if plan.params.get("add_wave"):
+                add_params["wave"] = plan.params["add_wave"]
+            y, groove_meta, layer = _add_instrument(y, sr, added, add_params)
+            output_path = _save_wav(y, sr)
+            metadata["added_instrument"] = added
+            metadata.update(groove_meta)
+            if plan.params.get("drum_parts"):
+                metadata["drum_parts"] = plan.params["drum_parts"]
+            if layer is not None:
+                layer_path_out = _save_wav(layer[np.newaxis, :], sr)
+                metadata["layer_kind"] = f"{added}_only"
+        else:
+            output_path = _save_wav(y, sr)
     elif plan.intent == Intent.STYLE:
         style = plan.params.get("style", "house")
         y, style_meta = _apply_style(y, sr, style, plan.params)
         output_path = _save_wav(y, sr)
         metadata.update(style_meta)
+    elif plan.intent == Intent.REVERSE:
+        y, rev_meta = _reverse_audio(y, sr, plan.params)
+        output_path = _save_wav(y, sr)
+        metadata.update(rev_meta)
+    elif plan.intent == Intent.REPEAT:
+        y, rep_meta = _repeat_section(y, sr, plan.params)
+        output_path = _save_wav(y, sr)
+        metadata.update(rep_meta)
+    elif plan.intent == Intent.TRANSPOSE:
+        y, tr_meta = _transpose_audio(y, sr, plan.params)
+        output_path = _save_wav(y, sr)
+        metadata.update(tr_meta)
     elif plan.intent == Intent.MIX_STEM:
         stem_src = plan.params.get("stem_path")
         if not stem_src:
@@ -169,6 +221,64 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
         result["metadata"] = metadata
 
     return result
+
+
+def _reverse_audio(y: np.ndarray, sr: int, params: dict) -> tuple[np.ndarray, dict]:
+    """Flip a range (or the whole track) backwards."""
+    dur = y.shape[1] / sr
+    start = float(params.get("start", 0.0))
+    end = params.get("end")
+    end = float(end) if end is not None else dur
+    start = max(0.0, min(start, dur))
+    end = max(start, min(end, dur))
+    s, e = int(start * sr), int(end * sr)
+    y[:, s:e] = y[:, s:e][:, ::-1]
+    return y, {"reversed_start": round(start, 3), "reversed_end": round(end, 3)}
+
+
+def _repeat_section(y: np.ndarray, sr: int, params: dict) -> tuple[np.ndarray, dict]:
+    """Loop a section: total ``times`` plays back-to-back (2-8)."""
+    dur = y.shape[1] / sr
+    start = float(params.get("start", 0.0))
+    end = params.get("end")
+    end = float(end) if end is not None else dur
+    start = max(0.0, min(start, dur))
+    end = max(start, min(end, dur))
+    times = int(params.get("times", 2))
+    times = max(2, min(8, times))
+    s, e = int(start * sr), int(end * sr)
+    if e <= s:
+        return y, {"repeated": False}
+    seg = y[:, s:e]
+    # tiny crossfade at joints to avoid clicks
+    xf = min(int(0.01 * sr), seg.shape[1] // 4)
+    out = y[:, :e]
+    for _ in range(times - 1):
+        if xf > 0 and out.shape[1] >= xf:
+            tail = out[:, -xf:].astype(np.float32)
+            head = seg[:, :xf].astype(np.float32)
+            ramp = np.linspace(0, 1, xf, dtype=np.float32)
+            blend = tail * (1 - ramp) + head * ramp
+            out = np.concatenate([out[:, :-xf], blend, seg[:, xf:]], axis=1)
+        else:
+            out = np.concatenate([out, seg], axis=1)
+    out = np.concatenate([out, y[:, e:]], axis=1)
+    return np.clip(out, -1, 1).astype(np.float32), {
+        "repeated_start": round(start, 3), "repeated_end": round(end, 3),
+        "times": times}
+
+
+def _transpose_audio(y: np.ndarray, sr: int, params: dict) -> tuple[np.ndarray, dict]:
+    """Pitch-shift by semitones without changing tempo (phase vocoder)."""
+    semi = max(-12.0, min(12.0, float(params.get("semitones", 2.0))))
+    steps = semi
+    out = np.zeros_like(y)
+    for ch in range(y.shape[0]):
+        out[ch] = librosa.effects.pitch_shift(y[ch].astype(np.float32), sr=sr, n_steps=steps)
+    peak = float(np.max(np.abs(out)))
+    if peak > 1e-9:
+        out = (out / peak * 0.9).astype(np.float32)
+    return out, {"semitones": round(float(semi), 2)}
 
 
 def _save_wav(y: np.ndarray, sr: int) -> str:
@@ -293,27 +403,41 @@ def _mood_adjust(y: np.ndarray, sr: int, params: dict) -> np.ndarray:
 
 
 def _detect_beats(y: np.ndarray, sr: int) -> tuple[float, list[float]]:
-    """Detect tempo + beat times. Falls back to 120 BPM grid (deterministic)."""
-    mono = y[0] if y.ndim > 1 else y
+    """Detect tempo + beat times via the rhythm analyzer (cached per audio).
+
+    The rhythm import stays inside the function so server startup and
+    non-rhythm requests pay nothing; the estimator only loads when a user
+    actually asks for beat-synced work.
+    """
     try:
-        tempo, beats = librosa.beat.beat_track(y=mono, sr=sr, units="time")
-        tempo_f = float(np.atleast_1d(tempo)[0])
-        if np.isnan(tempo_f) or tempo_f < 40 or tempo_f > 220:
-            raise ValueError("bad tempo")
-        beat_list = [float(b) for b in np.atleast_1d(beats)]
-        if len(beat_list) >= 2:
-            # layered mixes lure the tracker onto hats (2x tempo) — fold back
-            # to a musical grid so chained layers don't get frantic
-            while tempo_f > 180 and len(beat_list) >= 4:
-                tempo_f /= 2
-                beat_list = beat_list[::2]
-            return tempo_f, beat_list
+        res = _rhythm_of(y, sr)
+        return float(res["tempo_bpm"]), [float(b) for b in res["beats"]]
     except Exception:
         pass
     # fallback grid: 120 BPM from 0
-    dur = y.shape[-1] / sr if y.ndim > 1 else len(mono) / sr
+    mono = y[0] if y.ndim > 1 else y
+    dur = len(mono) / sr
     step = 0.5
     return 120.0, [round(i * step, 4) for i in range(int(dur / step))]
+
+
+_BEAT_CACHE: dict = {}
+
+
+def _rhythm_of(y: np.ndarray, sr: int) -> dict:
+    """Full rhythm read (tempo, beats, auto-groove...), cached by content."""
+    from server.ml.rhythm import analyze_rhythm, cache_key
+
+    key = cache_key(y, sr)
+    res = _BEAT_CACHE.get(key)
+    if res is None:
+        a = np.asarray(y)
+        dur = float(a.shape[-1] / sr)
+        res = analyze_rhythm(a, sr, full_duration=dur)
+        if len(_BEAT_CACHE) >= 4:
+            _BEAT_CACHE.pop(next(iter(_BEAT_CACHE)))
+        _BEAT_CACHE[key] = res
+    return res
 
 
 def _detect_key_root(y: np.ndarray, sr: int) -> float:
@@ -350,7 +474,17 @@ def _hat_hit(sr: int, amp: float = 0.3, dur: float = 0.04) -> np.ndarray:
     return (amp * noise).astype(np.float32)
 
 
+# Aliased base hit generators so _drum_pattern can wrap them (selective parts)
+# without Python's conditional-def scoping trap (a conditional def would leave
+# the name unbound when the condition is False).
+_BASE_KICK_HIT = _kick_hit
+_BASE_SNARE_HIT = _snare_hit
+_BASE_HAT_HIT = _hat_hit
+
+
 def _place(gen: np.ndarray, sr: int, at_sec: float, hit: np.ndarray) -> bool:
+    if not np.any(hit):
+        return False  # silenced drum family (selective parts) — nothing to add
     s = int(at_sec * sr)
     if s >= len(gen):
         return False
@@ -361,10 +495,38 @@ def _place(gen: np.ndarray, sr: int, at_sec: float, hit: np.ndarray) -> bool:
     return True
 
 
+def _crash_hit(sr: int, amp: float = 0.22) -> np.ndarray:
+    n = int(1.0 * sr)
+    rng = np.random.default_rng(13)
+    noise = rng.standard_normal(n).astype(np.float32) * np.exp(-np.arange(n) / sr * 4)
+    return (amp * noise).astype(np.float32)
+
+
 def _drum_pattern(
-    tempo: float, beats: list[float], dur: float, groove: str, sr: int
+    tempo: float, beats: list[float], dur: float, groove: str, sr: int,
+    parts: list[str] | None = None, swing: float = 0.0,
 ) -> tuple[np.ndarray, int]:
     gen = np.zeros(int(dur * sr), dtype=np.float32)
+    # Selective drum pieces ("add only snare"): wrap the hit generators so the
+    # excluded families synthesize silence — every pattern branch below (full
+    # kit, trap, house, ...) then automatically plays only the requested
+    # pieces. parts=None = full kit. (Unconditional defs: always bound.)
+    _want = set(parts) if parts else {"kick", "snare", "hats"}
+
+    def _kick_hit(sr: int, amp: float = 0.9) -> np.ndarray:  # noqa: F811
+        if "kick" not in _want:
+            return np.zeros(int(0.14 * sr), dtype=np.float32)
+        return _BASE_KICK_HIT(sr, amp)
+
+    def _snare_hit(sr: int, amp: float = 0.55) -> np.ndarray:  # noqa: F811
+        if "snare" not in _want:
+            return np.zeros(int(0.16 * sr), dtype=np.float32)
+        return _BASE_SNARE_HIT(sr, amp)
+
+    def _hat_hit(sr: int, amp: float = 0.3, dur: float = 0.04) -> np.ndarray:  # noqa: F811
+        if "hats" not in _want:
+            return np.zeros(max(1, int(dur * sr)), dtype=np.float32)
+        return _BASE_HAT_HIT(sr, amp, dur)
     beat_sec = 60.0 / max(tempo, 40.0)
     # extend grid beyond detected beats so tails get drums
     grid = list(beats)
@@ -437,6 +599,8 @@ def _drum_pattern(
             if bar_pos == 2:
                 hits += _place(gen, sr, b, _snare_hit(sr, 0.7))
                 hits += _place(gen, sr, b, _kick_hit(sr, 0.4))
+            if bar_pos == 3:  # pickup kick rolling into the next bar
+                hits += _place(gen, sr, b + beat_sec * 0.75, _kick_hit(sr, 0.5))
             hits += _place(gen, sr, b + beat_sec / 2, _hat_hit(sr, 0.18))
         elif groove in ("big_room", "bigroom", "festival"):
             # big-room EDM: hard four-on-floor + offbeat open hats + clap stack
@@ -498,16 +662,19 @@ def _drum_pattern(
                 hits += _place(gen, sr, b, _snare_hit(sr, 0.55))
             hits += _place(gen, sr, b + beat_sec / 2, _hat_hit(sr, 0.13, dur=0.03))
         elif groove == "phonk":
-            # drift phonk: swung kick, snare 2 & 4, cowbell ping pattern
+            # drift phonk: swung kick, snare 2 & 4, cowbell motif that moves
+            sw = 0.5 + 0.17 * max(0.0, min(1.0, swing)) if swing > 0 else 2 / 3
             if bar_pos in (0, 2) or (i % 8 == 6):
                 hits += _place(gen, sr, b, _kick_hit(sr, 0.85))
             if bar_pos in (1, 3):
                 hits += _place(gen, sr, b, snare)
-            hits += _place(gen, sr, b + beat_sec * 2 / 3, _hat_hit(sr, 0.16))
-            if i % 2 == 0:  # cowbell-ish ping: short high sine + click
+            hits += _place(gen, sr, b + beat_sec * sw, _hat_hit(sr, 0.16))
+            if i % 2 == 0 and "hats" in _want:  # cowbell motif: short high sine + click
+                motif = (840.0, 660.0, 990.0, 740.0)
+                bell_f = motif[(i // 2) % len(motif)]
                 n = int(0.09 * sr)
                 tt = np.arange(n) / sr
-                bell = (0.3 * np.sin(2 * np.pi * 840 * tt) * np.exp(-tt * 30)).astype(np.float32)
+                bell = (0.3 * np.sin(2 * np.pi * bell_f * tt) * np.exp(-tt * 30)).astype(np.float32)
                 hits += _place(gen, sr, b + beat_sec / 2, bell)
         elif groove == "synthwave":
             # retro gated: soft 4-floor, big snare 2 & 4, hats 8ths
@@ -515,11 +682,77 @@ def _drum_pattern(
             hits += _place(gen, sr, b + beat_sec / 2, _hat_hit(sr, 0.15))
             if bar_pos in (1, 3):
                 hits += _place(gen, sr, b, _snare_hit(sr, 0.65))
+        elif groove == "garage":
+            # UKG 2-step: kick on 1, swung skipped snare, shuffling hats.
+            # The swing comes from the song when matched, else a 2-step lilt.
+            sw = 0.5 + 0.17 * max(0.0, min(1.0, swing)) if swing > 0 else 0.62
+            if bar_pos == 0:
+                hits += _place(gen, sr, b, _kick_hit(sr, 0.9))
+            if bar_pos == 2:
+                # syncopated extra kick, the 2-step skip
+                hits += _place(gen, sr, b + beat_sec * 0.7, _kick_hit(sr, 0.6))
+            if bar_pos in (1, 3):
+                hits += _place(gen, sr, b, _snare_hit(sr, 0.55))
+            hits += _place(gen, sr, b + beat_sec * sw, _hat_hit(sr, 0.16))
+            hits += _place(gen, sr, b + beat_sec * 0.25, _hat_hit(sr, 0.11, dur=0.03))
+            if bar_pos == 3:
+                hits += _place(gen, sr, b + beat_sec * sw, _hat_hit(sr, 0.2, dur=0.1))
+        elif groove == "amapiano":
+            # soft four-floor + driving shaker 16ths + light clap 2 & 4
+            hits += _place(gen, sr, b, _kick_hit(sr, 0.7))
+            for off in (0.25, 0.5, 0.75):
+                hits += _place(gen, sr, b + beat_sec * off, _hat_hit(sr, 0.17, dur=0.03))
+            hits += _place(gen, sr, b + beat_sec / 2, open_hat)
+            if bar_pos in (1, 3):
+                hits += _place(gen, sr, b, _snare_hit(sr, 0.4))
+        elif groove == "afro_house":
+            # deep four-floor + conga-ish syncopation + shaker bed
+            vel = 0.85
+            hits += _place(gen, sr, b, _kick_hit(sr, vel))
+            hits += _place(gen, sr, b + beat_sec / 2, open_hat)
+            # conga slaps: low-mid toms on the "and"s (percussion family)
+            if "snare" in _want:
+                for off, amp in ((0.25, 0.35), (0.75, 0.4)):
+                    n = int(0.12 * sr)
+                    tt = np.arange(n) / sr
+                    tom = (amp * np.sin(2 * np.pi * 190 * tt) * np.exp(-tt * 22)).astype(np.float32)
+                    hits += _place(gen, sr, b + beat_sec * off, tom)
+            if bar_pos in (1, 3):
+                hits += _place(gen, sr, b, _snare_hit(sr, 0.4))
+            hits += _place(gen, sr, b + beat_sec * 0.5, _hat_hit(sr, 0.13, dur=0.03))
+        elif groove == "jungle":
+            # chopped Amen: busy kick/snare interplay + rolling 16th hats
+            if bar_pos in (0, 2) or (i % 8 == 3) or (i % 8 == 6):
+                hits += _place(gen, sr, b, _kick_hit(sr, 0.8))
+            if bar_pos in (1, 3) or (i % 8 == 7):
+                hits += _place(gen, sr, b, _snare_hit(sr, 0.6))
+            for off in (0.25, 0.5, 0.75):
+                hits += _place(gen, sr, b + beat_sec * off, _hat_hit(sr, 0.15, dur=0.03))
+        elif groove == "grime":
+            # eski half-time: booming kick on 1, stark snare on 3, icy sparse hats
+            if bar_pos == 0:
+                hits += _place(gen, sr, b, _kick_hit(sr, 0.95))
+            if i % 8 == 5:
+                hits += _place(gen, sr, b, _kick_hit(sr, 0.55))
+            if bar_pos == 2:
+                hits += _place(gen, sr, b, _snare_hit(sr, 0.65))
+            hits += _place(gen, sr, b + beat_sec / 2, _hat_hit(sr, 0.14, dur=0.03))
         else:  # default pop: kick on beats, hats 8ths, snare 2 & 4
             hits += _place(gen, sr, b, kick)
             hits += _place(gen, sr, b + beat_sec / 2, hat)
             if bar_pos in (1, 3):
                 hits += _place(gen, sr, b, snare)
+    # crash on phrase starts (every 4 bars) for the big electronic feels —
+    # hats-family, so selective kick/snare-only adds stay clean.
+    if groove in ("big_room", "bigroom", "festival", "house", "deep_house",
+                  "tech_house", "techno", "trance", "dubstep", "wobble",
+                  "phonk", "synthwave", "future", "futuristic", "future_bass",
+                  "garage", "amapiano", "afro_house", "jungle", "grime",
+                  "default") and "hats" in _want:
+        crash = _crash_hit(sr)
+        for j in range(0, len(grid), 16):
+            if grid[j] < dur:
+                hits += _place(gen, sr, grid[j], crash)
     return gen, hits
 
 
@@ -963,6 +1196,103 @@ def _synth_layer(kind: str, tempo: float, beats: list[float], dur: float, sr: in
                 env = np.minimum(1.0, seg * 8) * np.exp(-seg * 0.6)
             gen[s:e] += (0.4 * tone * env).astype(np.float32)
             hits += 1
+    elif kind == "garage":
+        # warpy 2-step: deep sub pulse on 1 + sparse detuned pluck stabs
+        for i, b in enumerate(beats):
+            if i % 2 == 0:
+                s = int(b * sr)
+                e = min(s + int(beat_sec * 0.8 * sr), n)
+                tt = np.arange(e - s) / sr
+                f = root * (1.0 if i % 4 == 0 else 1.5)
+                tone = np.sin(2 * np.pi * f * tt) + 0.4 * np.sin(2 * np.pi * f * 1.005 * tt)
+                gen[s:e] += (0.4 * tone * np.minimum(1.0, tt * 50) * np.exp(-tt * 3)).astype(np.float32)
+                hits += 1
+            if i % 4 == 3:
+                s = int((b + beat_sec * 0.7) * sr)
+                e = min(s + int(0.2 * sr), n)
+                if e > s:
+                    seg = np.arange(e - s) / sr
+                    f = triad[i % len(triad)] * 2
+                    gen[s:e] += (0.3 * _saw([f, f * 1.008], seg) * np.exp(-seg * 10)).astype(np.float32)
+                    hits += 1
+    elif kind == "amapiano":
+        # log drum: hollow percussive bass melody + soft shaker bed
+        for i, b in enumerate(beats):
+            if i % 2 == 0:
+                s = int(b * sr)
+                e = min(s + int(beat_sec * 0.9 * sr), n)
+                if e > s:
+                    tt = np.arange(e - s) / sr
+                    f = root * (1.0, 1.189, 1.335, 1.498)[(i // 2) % 4]
+                    glide = f * (0.8 + 0.2 * np.minimum(1.0, tt * 25))
+                    phase = 2 * np.pi * np.cumsum(glide) / sr
+                    tone = np.sin(phase) + 0.35 * np.sin(phase * 2.0)
+                    gen[s:e] += (0.5 * tone * np.minimum(1.0, tt * 90) * np.exp(-tt * 4)).astype(np.float32)
+                    hits += 1
+        t = np.arange(n) / sr
+        step16 = beat_sec / 4
+        tt = 0.0
+        while tt < dur:
+            s = int(tt * sr)
+            e = min(s + int(0.06 * sr), n)
+            seg = np.arange(e - s) / sr
+            rng = np.random.default_rng(int(tt * 100) % (2 ** 31))
+            gen[s:e] += (0.1 * rng.standard_normal(e - s) * np.exp(-seg * 90)).astype(np.float32)
+            tt += step16
+    elif kind == "afro_house":
+        # deep percussion bed: conga pattern + warm chord chops
+        for i, b in enumerate(beats):
+            for off, fmult in ((0.25, 1.0), (0.5, 1.335), (0.75, 1.0)):
+                s = int((b + beat_sec * off) * sr)
+                e = min(s + int(0.18 * sr), n)
+                if e > s:
+                    seg = np.arange(e - s) / sr
+                    f = root * 2.0 * fmult
+                    gen[s:e] += (0.32 * np.sin(2 * np.pi * f * seg) * np.exp(-seg * 14)).astype(np.float32)
+                    hits += 1
+            if i % 2 == 1:
+                s = int((b + beat_sec * 0.5) * sr)
+                e = min(s + int(0.24 * sr), n)
+                if e > s:
+                    seg = np.arange(e - s) / sr
+                    gen[s:e] += (0.3 * _saw(triad[:3], seg) * np.exp(-seg * 9)).astype(np.float32)
+                    hits += 1
+    elif kind == "jungle":
+        # chopped break bass: rolling sub + ragga-style skank chops
+        for i, b in enumerate(beats):
+            if i % 2 == 0:
+                s = int(b * sr)
+                e = min(s + int(beat_sec * 0.7 * sr), n)
+                tt = np.arange(e - s) / sr
+                f = root
+                tone = np.sin(2 * np.pi * f * tt) + np.sin(2 * np.pi * f * 1.007 * tt)
+                gen[s:e] += (0.32 * tone * np.minimum(1.0, tt * 40) * np.exp(-tt * 3)).astype(np.float32)
+                hits += 1
+            if i % 4 in (1, 3):
+                s = int((b + beat_sec * 0.5) * sr)
+                e = min(s + int(0.16 * sr), n)
+                if e > s:
+                    seg = np.arange(e - s) / sr
+                    f = triad[i % len(triad)] * 2
+                    gen[s:e] += (0.3 * _square([f], seg) * np.exp(-seg * 11)).astype(np.float32)
+                    hits += 1
+    elif kind == "grime":
+        # eski: harsh square blips + deep sub drops on the 1
+        for i, b in enumerate(beats):
+            if i % 4 == 0:
+                s = int(b * sr)
+                e = min(s + int(beat_sec * 1.2 * sr), n)
+                tt = np.arange(e - s) / sr
+                gen[s:e] += (0.4 * np.sin(2 * np.pi * root * tt) * np.minimum(1.0, tt * 40) * np.exp(-tt * 2.5)).astype(np.float32)
+                hits += 1
+            if i % 2 == 0:
+                s = int((b + beat_sec * 0.5) * sr)
+                e = min(s + int(0.14 * sr), n)
+                if e > s:
+                    seg = np.arange(e - s) / sr
+                    f = triad[(i * 3) % len(triad)] * 4
+                    gen[s:e] += (0.28 * np.sign(np.sin(2 * np.pi * f * seg)) * np.exp(-seg * 12)).astype(np.float32)
+                    hits += 1
     else:  # generic warm synth: pad + gentle arp
         t = np.arange(n) / sr
         pad = _saw(triad[:3], t) * 0.28 * np.minimum(1.0, t / 2.0)
@@ -988,14 +1318,33 @@ def _add_instrument(
 ) -> tuple[np.ndarray, dict, np.ndarray | None]:
     """Beat-synced instrument layer. Returns (mixed_audio, metadata, layer_mono).
 
-    The layer is normalized hot (0.9 peak) and mixed loud (0.6) with a final
-    master normalize, so added drums/bass are clearly audible — not buried.
+    The layer is normalized hot (0.9 peak) and mixed loud (mix_gain, default
+    0.6) with a final master normalize, so added drums/bass are clearly
+    audible — not buried. params["drum_parts"] (subset of kick/snare/hats)
+    synthesizes only those pieces; None = full kit.
     """
     params = params or {}
     groove = params.get("groove", "default")
     n = y.shape[1]
     dur = n / sr
     tempo, beats = _detect_beats(y, sr)
+    # "add drums" with no style named: listen to the song and match its feel
+    # (house/phonk/dubstep/...) instead of adding blindly. Prompt-named
+    # grooves always win; this only fills the default.
+    auto_meta: dict = {}
+    swing = 0.0
+    if instrument == "drums" and groove == "default":
+        try:
+            res = _rhythm_of(y, sr)
+            auto = res.get("auto_groove", "default")
+            if auto and auto != "default":
+                groove = auto
+            swing = float(res.get("swing", 0.0))
+            auto_meta = {"auto_groove": groove,
+                         "groove_confidence": res.get("groove_confidence"),
+                         "groove_source": res.get("groove_source")}
+        except Exception:
+            pass
     if params.get("target_bpm"):
         try:
             tempo = float(params["target_bpm"])
@@ -1007,7 +1356,8 @@ def _add_instrument(
     hits = 0
 
     if instrument == "drums":
-        gen, hits = _drum_pattern(tempo, beats, dur, groove, sr)
+        gen, hits = _drum_pattern(tempo, beats, dur, groove, sr,
+                                  parts=params.get("drum_parts"), swing=swing)
     elif instrument == "bass":
         root = _detect_key_root(y, sr)
         gen = _bass_line(tempo, beats, dur, sr, groove, root)
@@ -1050,7 +1400,8 @@ def _add_instrument(
     elif instrument in ("synth", "tropical", "future", "futuristic", "future_bass",
                          "dubstep", "wobble", "edm", "big_room", "bigroom", "festival",
                          "house", "deep_house", "tech_house", "techno", "trance",
-                         "trap", "dnb", "hardstyle", "phonk", "synthwave"):
+                         "trap", "dnb", "hardstyle", "phonk", "synthwave",
+                         "garage", "amapiano", "afro_house", "jungle", "grime"):
         # segregated synth / EDM kits — each gets its own timbre (multi-add ready)
         kind = instrument
         if kind in ("futuristic", "future_bass"):
@@ -1075,7 +1426,9 @@ def _add_instrument(
                       "tech_house": "house", "techno": "techno",
                       "trance": "trance", "trap": "trap", "dnb": "dnb",
                       "hardstyle": "hardstyle", "phonk": "phonk",
-                      "synthwave": "synthwave"}.get(kind, groove)
+                      "synthwave": "synthwave", "garage": "garage",
+                      "amapiano": "amapiano", "afro_house": "afro_house",
+                      "jungle": "jungle", "grime": "grime"}.get(kind, groove)
     else:
         t = np.arange(n) / sr
         gen = 0.15 * np.sin(2 * np.pi * 220.0 * t) + 0.08 * np.sin(2 * np.pi * 330.0 * t)
@@ -1086,8 +1439,15 @@ def _add_instrument(
     else:
         return y, {"tempo_bpm": round(float(tempo), 1), "beat_count": len(beats), "groove": groove, "hits": 0}, None
     layer = gen.copy()
+    # mix_gain lets voice-first chains layer drums quietly under the vocal
+    # instead of burying it (default hot mix keeps standalone adds punchy).
+    try:
+        layer_gain = float(params.get("mix_gain", 0.6))
+    except (TypeError, ValueError):
+        layer_gain = 0.6
+    layer_gain = min(1.0, max(0.05, layer_gain))
     for ch in range(y.shape[0]):
-        y[ch] = y[ch] * 0.8 + gen * 0.6
+        y[ch] = y[ch] * 0.8 + gen * layer_gain
     master = float(np.max(np.abs(y)))
     if master > 1e-9:
         y = (y / master * 0.9).astype(np.float32)
@@ -1097,6 +1457,7 @@ def _add_instrument(
         "groove": groove,
         "hits": hits,
     }
+    meta.update(auto_meta)
     return y, meta, layer
 
 
@@ -1284,8 +1645,148 @@ def _rebalance_mix(
                  "note": f"EQ-balance approximation ({stem_error}); separate into stems for surgical moves."}
 
 
+def _spectral_subtract(y: np.ndarray, sr: int, strength: float = 1.0,
+                       floor: float = 0.08) -> np.ndarray:
+    """Per-file noise removal: learn the noise profile from the quietest 10%
+    of frames, subtract it, keep the phase. ``strength`` 1.0 = normal,
+    1.5 = aggressive ("remove ALL background noise")."""
+    out = np.zeros_like(y)
+    for ch in range(y.shape[0]):
+        S = librosa.stft(y[ch])
+        mag = np.abs(S) + 1e-12
+        phase = S / mag
+        frame_e = np.mean(mag, axis=0)
+        med_e = float(np.median(frame_e))
+        # true noise floor needs real pauses/breaths: frames well below median.
+        # Continuous signal (no pauses) -> go gentle so tone isn't eaten.
+        genuine_quiet = frame_e[frame_e < 0.5 * med_e]
+        eff_strength = strength
+        if len(genuine_quiet) >= 4:
+            prof_frames = mag[:, frame_e < 0.5 * med_e]
+        else:
+            q = max(4, int(len(frame_e) * 0.10))
+            prof_frames = mag[:, np.argpartition(frame_e, q)[:q]]
+            eff_strength = strength * 0.25
+        profile = np.mean(prof_frames, axis=1, keepdims=True)
+        clean = mag - eff_strength * profile
+        clean = np.maximum(clean, floor * mag)
+        # temporal smoothing of the mask tames "musical noise" warble
+        mask = clean / mag
+        if mask.shape[1] >= 3:
+            ker = np.ones(3, dtype=np.float32) / 3
+            mask = np.apply_along_axis(lambda r: np.convolve(r, ker, mode="same"), 1, mask)
+            clean = mask * mag
+        out[ch] = librosa.istft((clean * phase).astype(np.complex64),
+                                length=y.shape[1])
+    peak = float(np.max(np.abs(out)))
+    if peak > 1e-9:
+        out = (out / peak * 0.9).astype(np.float32)
+    return out
+
+
+def _denoise_mix(y: np.ndarray, sr: int, aggressive: bool = False) -> np.ndarray:
+    """Whole-mix background-noise removal (no voice named in the request)."""
+    y = _spectral_subtract(y, sr, strength=1.5 if aggressive else 1.2,
+                           floor=0.03 if aggressive else 0.08)
+    return y
+
+
+def _polish_vocal(v: np.ndarray, sr: int, aggressive: bool = False) -> np.ndarray:
+    """EQ + denoise for an isolated vocal stem: rumble cut, mud cut,
+    presence + air lift, de-ess, hiss tame, learned-profile subtraction."""
+    v = np.asarray(v, dtype=np.float32)
+    if v.ndim == 1:
+        v = v[np.newaxis, :]
+    # denoise first so the EQ lifts voice, not hiss
+    v = _spectral_subtract(v, sr, strength=1.5 if aggressive else 1.0,
+                           floor=0.05 if aggressive else 0.1)
+    out = np.zeros_like(v)
+    for ch in range(v.shape[0]):
+        S = librosa.stft(v[ch])
+        freqs = librosa.fft_frequencies(sr=sr)
+        gain = np.ones(len(freqs))
+        rumble = 100.0 if aggressive else 80.0
+        gain[freqs < rumble] = 0.05
+        gain[(freqs >= 250) & (freqs <= 450)] = 0.8  # mud cut
+        gain[(freqs >= 2000) & (freqs <= 5000)] = 2.0 if aggressive else 1.7
+        gain[(freqs > 5500) & (freqs <= 8000)] = 0.85  # de-ess
+        gain[(freqs >= 10000) & (freqs <= 14000)] = 1.25  # air
+        gain[freqs > 14000] = 0.5
+        out[ch] = librosa.istft(S * gain[:, np.newaxis], length=v.shape[1])
+    peak = float(np.max(np.abs(out)))
+    if peak > 1e-9:
+        out = (out / peak * 0.9).astype(np.float32)
+    return out
+
+
+def _enhance_voice(audio_path: str, y: np.ndarray, sr: int,
+                   params: dict | None = None) -> tuple[np.ndarray, dict]:
+    """Voice-first enhancement. Returns (audio, metadata).
+
+    - ``denoise_mix`` (no voice named): learned-profile subtraction on the mix.
+    - otherwise: isolate the vocal stem (Demucs), polish + lift it, remix over
+      the accompaniment. Falls back to mix EQ when separation is unavailable.
+    """
+    params = params or {}
+    aggressive = bool(params.get("aggressive"))
+    meta: dict = {"aggressive": aggressive}
+
+    if params.get("denoise_mix"):
+        y = _denoise_mix(y, sr, aggressive)
+        meta["method"] = "mix_denoise"
+        meta["enhanced"] = "mix"
+        return y, meta
+
+    vocal_db = 4.0 + (2.0 if aggressive else 0.0) + (2.0 if params.get("level_boost") else 0.0)
+    try:
+        separator = SourceSeparator()
+        stems = separator.separate(audio_path)
+        if "vocals" not in stems:
+            raise RuntimeError("no vocals stem")
+        n = y.shape[1]
+        v, _ = librosa.load(stems["vocals"], sr=sr, mono=False)
+        if v.ndim == 1:
+            v = v[np.newaxis, :]
+        v = v[:, :n] if v.shape[1] >= n else np.pad(v, ((0, 0), (0, n - v.shape[1])))
+        acc = np.zeros_like(y)
+        for name, path in stems.items():
+            if name == "vocals":
+                continue
+            s, _ = librosa.load(path, sr=sr, mono=True)
+            if len(s) < n:
+                s = np.pad(s, (0, n - len(s)))
+            acc += s[:n].astype(np.float32)  # broadcasts over channels
+        v = _polish_vocal(v, sr, aggressive)
+        if v.shape[0] == 1 and y.shape[0] > 1:
+            v = np.stack([v[0]] * y.shape[0]).astype(np.float32)
+        mix = acc + v * _db_to_lin(vocal_db)
+        peak = float(np.max(np.abs(mix)))
+        if peak > 1e-9:
+            mix = (mix / peak * 0.9).astype(np.float32)
+        meta["method"] = "stem_remix"
+        meta["enhanced"] = "vocals"
+        meta["vocal_boost_db"] = round(vocal_db, 1)
+        return mix, meta
+    except Exception as e:
+        meta["stem_error"] = str(e)[:160]
+        y = _enhance_vocals(y, sr, params)
+        if params.get("level_boost"):
+            y = _apply_gain(y, 2.0)
+            peak = float(np.max(np.abs(y)))
+            if peak > 1e-9:
+                y = (y / peak * 0.9).astype(np.float32)
+        meta["method"] = "eq_fallback"
+        meta["enhanced"] = "vocals"
+        return y, meta
+
+
 def _enhance_vocals(y: np.ndarray, sr: int, params: dict | None = None) -> np.ndarray:
-    """Vocal clarity: HP <80 Hz, presence 2-5 kHz, spectral gate denoise."""
+    """Vocal clarity: HP <80 Hz, presence 2-5 kHz, spectral gate denoise.
+
+    Tuned voice-first: a stronger presence lift (+4.6 dB) and a lower gate
+    floor so background noise/hiss drops away while the lead vocal (male or
+    female fundamental + harmonics) stays intact and audible.
+    """
     params = params or {}
     out = np.zeros_like(y)
     for ch in range(y.shape[0]):
@@ -1294,13 +1795,13 @@ def _enhance_vocals(y: np.ndarray, sr: int, params: dict | None = None) -> np.nd
         gain = np.ones(len(freqs))
         gain[freqs < 80] = 0.05  # rumble cut
         band = (freqs >= 2000) & (freqs <= 5000)
-        gain[band] = 1.5  # presence
-        gain[freqs > 12000] = 0.6  # hiss tame
+        gain[band] = 1.7  # presence: consonants + vocal edge
+        gain[freqs > 12000] = 0.5  # hiss tame
         S_enh = S * gain[:, np.newaxis]
         frame_rms = np.sqrt(np.mean(np.abs(S_enh) ** 2, axis=0) + 1e-12)
         if params.get("denoise", True):
             thresh = np.median(frame_rms) * 0.25
-            mask = np.clip((frame_rms - thresh) / (thresh + 1e-9), 0.25, 1.0)
+            mask = np.clip((frame_rms - thresh) / (thresh + 1e-9), 0.15, 1.0)
             S_enh = S_enh * mask[np.newaxis, :]
         rec = librosa.istft(S_enh, length=y.shape[1])
         out[ch] = rec
@@ -1436,7 +1937,7 @@ def _apply_style(y: np.ndarray, sr: int, style: str, params: dict | None = None)
         bell = bell / (np.max(np.abs(bell)) + 1e-9) * 0.45
         for ch in range(y.shape[0]):
             y[ch] = np.clip(y[ch] * 0.8 + drums * 0.5 + bell * 0.5, -1, 1)
-    elif "dnb" in style_l or "drum_and_bass" in style_l or "jungle" in style_l:
+    elif "dnb" in style_l or "drum_and_bass" in style_l:
         groove = "dnb" if groove == "default" else groove
         drums, _ = _drum_pattern(tempo, beats, dur, "dnb", sr)
         drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.5
@@ -1445,6 +1946,52 @@ def _apply_style(y: np.ndarray, sr: int, style: str, params: dict | None = None)
         reese = reese / (np.max(np.abs(reese)) + 1e-9) * 0.45
         for ch in range(y.shape[0]):
             y[ch] = np.clip(y[ch] * 0.78 + drums * 0.55 + reese * 0.5, -1, 1)
+    elif "jungle" in style_l or "amen break" in style_l or style_l.strip() == "amen":
+        groove = "jungle" if groove == "default" else groove
+        drums, _ = _drum_pattern(tempo, beats, dur, "jungle", sr)
+        drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.5
+        root = _detect_key_root(y, sr)
+        chop, _ = _synth_layer("jungle", tempo, beats, dur, sr, root)
+        chop = chop / (np.max(np.abs(chop)) + 1e-9) * 0.45
+        for ch in range(y.shape[0]):
+            y[ch] = np.clip(y[ch] * 0.78 + drums * 0.55 + chop * 0.5, -1, 1)
+    elif "grime" in style_l or "eski" in style_l:
+        groove = "grime" if groove == "default" else groove
+        drums, _ = _drum_pattern(tempo, beats, dur, "grime", sr)
+        drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.45
+        root = _detect_key_root(y, sr)
+        eski, _ = _synth_layer("grime", tempo, beats, dur, sr, root)
+        eski = eski / (np.max(np.abs(eski)) + 1e-9) * 0.4
+        for ch in range(y.shape[0]):
+            y[ch] = np.clip(y[ch] * 0.8 + drums * 0.5 + eski * 0.45, -1, 1)
+    elif "garage" in style_l or "2-step" in style_l or "2step" in style_l:
+        groove = "garage" if groove == "default" else groove
+        drums, _ = _drum_pattern(tempo, beats, dur, "garage", sr)
+        drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.4
+        root = _detect_key_root(y, sr)
+        warp, _ = _synth_layer("garage", tempo, beats, dur, sr, root)
+        warp = warp / (np.max(np.abs(warp)) + 1e-9) * 0.45
+        for ch in range(y.shape[0]):
+            y[ch] = np.clip(y[ch] * 0.8 + drums * 0.45 + warp * 0.5, -1, 1)
+    elif "amapiano" in style_l or "log drum" in style_l or "logdrum" in style_l:
+        groove = "amapiano" if groove == "default" else groove
+        drums, _ = _drum_pattern(tempo, beats, dur, "amapiano", sr)
+        drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.35
+        root = _detect_key_root(y, sr)
+        logd, _ = _synth_layer("amapiano", tempo, beats, dur, sr, root)
+        logd = logd / (np.max(np.abs(logd)) + 1e-9) * 0.5
+        for ch in range(y.shape[0]):
+            y[ch] = np.clip(y[ch] * 0.8 + drums * 0.4 + logd * 0.55, -1, 1)
+    elif "afro house" in style_l or "afrohouse" in style_l or "afro-house" in style_l:
+        groove = "afro_house" if groove == "default" else groove
+        drums, _ = _drum_pattern(tempo, beats, dur, "afro_house", sr)
+        drums = drums / (np.max(np.abs(drums)) + 1e-9) * 0.4
+        root = _detect_key_root(y, sr)
+        perc, _ = _synth_layer("afro_house", tempo, beats, dur, sr, root)
+        perc = perc / (np.max(np.abs(perc)) + 1e-9) * 0.45
+        for ch in range(y.shape[0]):
+            y[ch] = np.clip(y[ch] * 0.8 + drums * 0.45 + perc * 0.5, -1, 1)
+        y = _add_reverb(y, sr)
     elif "hardstyle" in style_l or "rawstyle" in style_l:
         groove = "hardstyle" if groove == "default" else groove
         drums, _ = _drum_pattern(tempo, beats, dur, "hardstyle", sr)
