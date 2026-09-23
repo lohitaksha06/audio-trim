@@ -1,15 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Nav from "@/components/Nav";
+import { getCatalog, type CatalogResponse } from "@/services/api";
 
 const SECTIONS: { title: string; hint: string; prompts: string[] }[] = [
   {
+    title: "Voice clarity & noise removal",
+    hint: "The AI isolates your vocal stem, polishes it and lifts it over the music (+4 to +6 dB). Name background noise to strip it.",
+    prompts: [
+      "Make her voice clear and audible",
+      "Make voices clearer and remove background noise",
+      "Remove background noise",
+      "Remove ALL background noise, it is very noisy",
+      "Enhance vocals and denoise",
+      "Add drums and make the voice more clear",
+    ],
+  },
+  {
     title: "Add instruments (beat-synced)",
-    hint: "AI detects your song's BPM, beats and key, then plays along. Name a groove or a BPM to steer it.",
+    hint: "AI detects your song's BPM, beats and key, then plays along. Say 'add drums' with no style and it matches your song's feel automatically.",
     prompts: [
       "Add drums",
+      "Add drums that match the song",
+      "Add only snare",
+      "Add a kick drum",
+      "Add kick and snare without hats",
       "Add funky drums following the groove",
       "Add four-on-the-floor drums",
       "Add swing drums",
@@ -37,6 +54,12 @@ const SECTIONS: { title: string; hint: string; prompts: string[] }[] = [
       "Add dubstep wobble",
       "Add futuristic synth",
       "Add tropical synth",
+      "Add uk garage drums",
+      "Add a 2-step beat",
+      "Add amapiano drums",
+      "Add an afro house groove",
+      "Add a jungle break",
+      "Add a grime beat",
     ],
   },
   {
@@ -53,6 +76,17 @@ const SECTIONS: { title: string; hint: string; prompts: string[] }[] = [
     ],
   },
   {
+    title: "Separated stems",
+    hint: "Demucs splits any song into 4 stems. Isolate one, remove one, or rebalance them.",
+    prompts: [
+      "Separate into stems",
+      "Keep only the vocals",
+      "Extract just the bass",
+      "Remove the drums",
+      "Remove the kick drum from 2:30 to 3:45",
+    ],
+  },
+  {
     title: "Mix Lab — prioritize sounds",
     hint: "Drums louder, vocals lower? Open Mix Lab for faders — or type it. True stem remix when separation works, EQ-balance otherwise.",
     prompts: [
@@ -63,10 +97,21 @@ const SECTIONS: { title: string; hint: string; prompts: string[] }[] = [
     ],
   },
   {
+    title: "New edits: reverse, loop, transpose",
+    hint: "Flip it backwards, loop a section, or change pitch without changing tempo (±12 semitones).",
+    prompts: [
+      "Reverse it",
+      "Reverse from 0:05 to 0:20",
+      "Loop the chorus 3 times",
+      "Repeat the intro",
+      "Pitch it up 2 semitones",
+      "Transpose down 3 semitones",
+    ],
+  },
+  {
     title: "Optimize my song",
     hint: "Mix Doctor measures clipping, dynamics and spectral balance, then gives one-click fixes. Also in Mix Lab → 'Check my mix'.",
     prompts: [
-      "Make voices clearer and remove background noise",
       "Normalize the volume",
       "Make it brighter",
       "Make the bass louder",
@@ -87,8 +132,6 @@ const SECTIONS: { title: string; hint: string; prompts: string[] }[] = [
     title: "Fix & clean",
     hint: "Presence lift, hiss/rumble cut and spectral-gate denoise. Say what you can't hear to turn it up.",
     prompts: [
-      "Make voices clearer and remove background noise",
-      "Enhance vocals and denoise",
       "I cant hear the drums",
       "Make the bass louder",
       "Remove that cymbal crash at 1:23 and fill smoothly",
@@ -103,6 +146,11 @@ const SECTIONS: { title: string; hint: string; prompts: string[] }[] = [
       "Convert to trance style",
       "Convert to hardstyle style",
       "Convert to synthwave style",
+      "Convert to garage style",
+      "Convert to amapiano style",
+      "Convert to afro house style",
+      "Convert to jungle style",
+      "Convert to grime style",
       "Make it tropical edm style",
       "Make it lofi",
     ],
@@ -118,12 +166,9 @@ const SECTIONS: { title: string; hint: string; prompts: string[] }[] = [
     ],
   },
   {
-    title: "Stems & mix",
-    hint: "Demucs separation, stem isolation, fades and loudness.",
+    title: "Polish & space",
+    hint: "Fades, loudness, mood lighting and room sound.",
     prompts: [
-      "Separate into stems",
-      "Keep only the vocals",
-      "Extract just the bass",
       "Fade in and out",
       "Normalize the volume",
       "Add reverb",
@@ -138,11 +183,21 @@ const SECTIONS: { title: string; hint: string; prompts: string[] }[] = [
   },
 ];
 
-const GROOVES = ["default", "four_on_floor", "funky", "swing", "half_time", "double_time", "tropical", "future", "dubstep", "big_room", "deep_house", "tech_house", "techno", "trance", "trap", "dnb", "hardstyle", "phonk", "synthwave"];
-const STYLES = ["house", "deep_house", "techno", "trance", "trap", "dnb", "hardstyle", "phonk", "synthwave", "tropical", "edm", "futuristic", "dubstep", "lofi", "acoustic"];
+const FALLBACK_GROOVES = ["default", "four_on_floor", "funky", "swing", "half_time", "double_time", "tropical", "future", "dubstep", "big_room", "deep_house", "tech_house", "techno", "trance", "trap", "dnb", "hardstyle", "phonk", "synthwave", "garage", "amapiano", "afro_house", "jungle", "grime"];
+const STYLES = ["house", "deep_house", "techno", "trance", "trap", "dnb", "hardstyle", "phonk", "synthwave", "tropical", "edm", "futuristic", "dubstep", "lofi", "acoustic", "garage", "amapiano", "afro_house", "jungle", "grime"];
+
+const STEM_INFO: { name: string; contains: string }[] = [
+  { name: "vocals", contains: "Lead vocal, speech, choir lead — isolated with Demucs" },
+  { name: "drums", contains: "Kick, snare, hats, cymbals, full kit and breaks" },
+  { name: "bass", contains: "Bass guitar, 808s, sub and low synth bass" },
+  { name: "other", contains: "Everything else: keys, guitars, synths, pads, FX" },
+];
+
+const FAMILY_ORDER = ["voice", "rhythm", "bass", "percussion", "strings", "keys", "orchestral", "synth", "edm", "fx"];
 
 export default function GuidePage() {
   const [copied, setCopied] = useState<string | null>(null);
+  const [catalog, setCatalog] = useState<CatalogResponse | null>(null);
   const copy = async (p: string) => {
     try {
       await navigator.clipboard.writeText(p);
@@ -150,6 +205,25 @@ export default function GuidePage() {
       setTimeout(() => setCopied(null), 1200);
     } catch { /* clipboard unavailable */ }
   };
+
+  useEffect(() => {
+    let live = true;
+    getCatalog().then((c) => { if (live) setCatalog(c); }).catch(() => { /* offline: static lists */ });
+    return () => { live = false; };
+  }, []);
+
+  const grouped = useMemo(() => {
+    if (!catalog) return null;
+    const groups = new Map<string, CatalogResponse["instruments"]>();
+    for (const inst of catalog.instruments) {
+      if (inst.id === "vocals") continue; // vocals can't be synthesized; listed under stems
+      if (!groups.has(inst.family)) groups.set(inst.family, []);
+      groups.get(inst.family)!.push(inst);
+    }
+    return FAMILY_ORDER.filter((f) => groups.has(f)).map((f) => ({ family: f, items: groups.get(f)! }));
+  }, [catalog]);
+
+  const grooves = catalog?.grooves?.length ? catalog.grooves : FALLBACK_GROOVES;
 
   return (
     <div className="flex min-h-screen flex-col bg-black">
@@ -172,9 +246,59 @@ export default function GuidePage() {
             </ul>
           </div>
 
+          <div className="mt-8 rounded-2xl border border-neon-purple/20 bg-neon-purple/[0.04] p-4 sm:p-5">
+            <h2 className="text-base sm:text-lg font-semibold text-white">Separated stems — what&apos;s inside your song</h2>
+            <p className="mt-1 text-xs sm:text-sm text-white/40">
+              Upload anything and Demucs splits it into 4 stems. Isolate one, remove one, or rebalance them with Mix Lab.
+            </p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {STEM_INFO.map((s) => (
+                <div key={s.name} className="rounded-xl border border-white/10 bg-black/40 p-3">
+                  <div className="text-sm font-semibold text-neon-purple">{s.name}</div>
+                  <div className="mt-0.5 text-xs text-white/50">{s.contains}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5">
+            <h2 className="text-base sm:text-lg font-semibold text-white">
+              Instruments you can add {catalog ? <span className="text-xs font-normal text-white/30">· live from your backend</span> : <span className="text-xs font-normal text-white/30">· connecting…</span>}
+            </h2>
+            <p className="mt-1 text-xs sm:text-sm text-white/40">
+              Beat-, key- and tempo-matched to your track. Click one to copy its prompt.
+            </p>
+            {grouped ? (
+              <div className="mt-3 space-y-4">
+                {grouped.map((g) => (
+                  <div key={g.family}>
+                    <div className="text-xs font-semibold tracking-widest text-white/40 uppercase">{g.family}</div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {g.items.map((inst) => {
+                        const prompt = `Add ${inst.name}`;
+                        return (
+                          <button
+                            key={inst.id}
+                            onClick={() => copy(prompt)}
+                            title={inst.blurb}
+                            className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs sm:text-sm text-white/60 transition-colors hover:border-neon-blue/40 hover:text-neon-blue"
+                          >
+                            {copied === prompt ? "Copied!" : `${inst.name} — ${inst.blurb}`}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-white/30">Start the backend to browse all {`45+`} instruments live — the prompt lists below work regardless.</p>
+            )}
+          </div>
+
           <div className="mt-4 flex flex-wrap gap-2">
             <span className="text-xs text-white/30 py-1">Grooves:</span>
-            {GROOVES.map((g) => (
+            {grooves.map((g) => (
               <span key={g} className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-white/50">{g}</span>
             ))}
           </div>

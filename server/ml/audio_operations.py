@@ -1645,6 +1645,150 @@ def _rebalance_mix(
                  "note": f"EQ-balance approximation ({stem_error}); separate into stems for surgical moves."}
 
 
+def _suppress_disturbances(
+    y: np.ndarray, sr: int, aggressive: bool = False
+) -> tuple[np.ndarray, int]:
+    """Tame loud non-stationary intrusions spectral subtraction misses.
+
+    Quiet-profile subtraction only learns *stationary* background (hiss/hum):
+    a car horn, drill burst or door slam is louder than the voice, so it is
+    never in the quiet frames and survives. This stage hunts two signatures:
+
+    1. broadband bursts (drill/clatter/slam): frame energy spikes vs a ~1 s
+       rolling median *with* elevated high-frequency content;
+    2. tonal intrusions (horn/siren: a narrow peak 200-2500 Hz that persists
+       0.25-2 s while surrounding frames differ).
+
+    Burst frames get a smooth broadband dip; tonal bins get a selective notch.
+    Returns (audio, n_events). Gentle by design — voice harmonics are
+    broadband-stable and rarely trigger either detector.
+    """
+    out = np.zeros_like(y)
+    n_events = 0
+    spike_k = 2.5 if aggressive else 3.5
+    dip = 0.12 if aggressive else 0.25
+    for ch in range(y.shape[0]):
+        S = librosa.stft(y[ch])
+        mag = np.abs(S) + 1e-12
+        freqs = librosa.fft_frequencies(sr=sr)
+        n_frames = mag.shape[1]
+        if n_frames < 8:
+            out[ch] = y[ch]
+            continue
+        frame_e = np.mean(mag, axis=0)
+        hf = np.sum(mag[freqs >= 4000], axis=0) / (np.sum(mag, axis=0) + 1e-12)
+        # rolling median baseline (~1 s window) so slow fades don't trigger
+        win = max(9, min(n_frames, int(sr / 512)))
+        pad = win // 2
+        padded = np.pad(frame_e, (pad, pad), mode="edge")
+        roll_med = np.median(
+            np.lib.stride_tricks.sliding_window_view(padded, win), axis=1
+        ) + 1e-12
+        hf_med = max(float(np.median(hf)), 0.01)
+        hf_abs = hf  # broadband loud events carry real HF energy; voice doesn't
+        # NOTE: no pure-energy bypass — speech onsets after a pause also
+        # spike energy but carry no HF, and must never be gated. Tonal
+        # events are handled by the notch path below, not here.
+        burst = (frame_e > spike_k * roll_med) & (hf > 1.8 * hf_med)
+        # drill-type events: only modestly louder than music, but HF-rich
+        burst |= (frame_e > 1.4 * roll_med) & (hf_abs > 0.12) & (hf > 5.0 * hf_med)
+        # smooth attack/release: spread by 2 frames so gating doesn't click
+        burst_sm = burst.copy()
+        for _ in range(2):
+            burst_sm[1:] |= burst_sm[:-1]
+            burst_sm[:-1] |= burst_sm[1:]
+        gain = np.ones(n_frames, dtype=np.float32)
+        # tonal intrusion notch (horn/siren): narrow peak 200-2500 Hz that
+        # stands far above its ±15-frame neighborhood and persists ±3 frames.
+        # Independent of the burst gate — a horn over a pause has no HF
+        # content and may not spike broadband energy, but its peak-to-neighbor
+        # ratio is huge. Voice vowels rarely trigger: their harmonics lift
+        # the whole band median, keeping the ratio below threshold.
+        band = (freqs >= 200) & (freqs <= 2500)
+        band_idx = np.where(band)[0]
+        tonal_hit = np.zeros(n_frames, dtype=bool)
+        if len(band_idx) and n_frames >= 31:
+            notch = np.ones_like(mag)
+            pk_ratio = 8.0
+            band_freqs = freqs[band_idx]
+            for f in range(15, n_frames - 15):
+                col = mag[band_idx, f].copy()
+                neigh = float(np.median(mag[band_idx, f - 15:f + 16]))
+                persist = float(np.min([
+                    np.max(mag[band_idx, max(0, f + d)]) for d in (-3, 3)
+                ]))
+                # a horn/siren can stack several tones (400+500 Hz): notch
+                # every persistent peak, not just the tallest — unless it
+                # carries voice-like harmonic support (energy at 2x/3x),
+                # which vetoes the notch so sung vowels survive.
+                for _ in range(3):
+                    pk = int(np.argmax(col))
+                    peak_v = float(col[pk])
+                    if not (peak_v > pk_ratio * neigh and persist > 5.0 * neigh):
+                        break
+                    f0 = float(band_freqs[pk])
+                    harmonic = False
+                    for mult in (2, 3):
+                        if f0 * mult > 2500.0:
+                            break
+                        j = int(np.argmin(np.abs(band_freqs - f0 * mult)))
+                        if float(col[j]) > 0.15 * peak_v:
+                            harmonic = True
+                            break
+                    if harmonic:
+                        col[pk - 2:pk + 3] = 0.0
+                        continue
+                    tonal_hit[f] = True
+                    lo = max(band_idx[0], band_idx[pk] - 2)
+                    hi = min(band_idx[-1], band_idx[pk] + 2)
+                    notch[lo:hi + 1, max(0, f - 1):f + 2] = 0.08 if aggressive else 0.15
+                    col[pk - 2:pk + 3] = 0.0
+            mag = mag * notch
+        hit = burst_sm | tonal_hit
+        gain = np.where(burst_sm, dip, 1.0).astype(np.float32)
+        # tonal-only frames get a milder dip on top of the notch
+        gain = np.where(tonal_hit & ~burst_sm, 0.6 if aggressive else 0.7, gain)
+        # count contiguous hit regions as events
+        idx = np.where(hit)[0]
+        if len(idx):
+            n_events = max(n_events, int(1 + np.sum(np.diff(idx) > 4)))
+        S_clean = mag * (S / (np.abs(S) + 1e-12)) * gain[np.newaxis, :]
+        out[ch] = librosa.istft(S_clean.astype(np.complex64), length=y.shape[1])
+    peak = float(np.max(np.abs(out)))
+    if peak > 1e-9:
+        out = (out / peak * 0.9).astype(np.float32)
+    return out, n_events
+
+
+def _compress_vocal(v: np.ndarray, sr: int, aggressive: bool = False) -> np.ndarray:
+    """Gentle upward compression so quiet words stay audible.
+
+    Per-frame RMS vs global median: lift quiet frames (up to +6 dB),
+    lightly tame loud peaks. Smoothed so there is no pumping. This is what
+    makes "make me louder" work on uneven speech, where a flat +dB lift
+    would just clip the loud parts.
+    """
+    v = np.asarray(v, dtype=np.float32)
+    out = np.zeros_like(v)
+    hop = 512
+    ceil = 2.0 if aggressive else 1.6
+    for ch in range(v.shape[0]):
+        rms = librosa.feature.rms(y=v[ch], hop_length=hop)[0] + 1e-12
+        med = float(np.median(rms))
+        raw = np.clip(med / rms, 0.7, ceil)
+        ker = np.ones(5, dtype=np.float32) / 5
+        sm = np.convolve(raw, ker, mode="same")
+        # expand frame gains to samples
+        g = np.repeat(sm, hop)[: v.shape[1]]
+        if len(g) < v.shape[1]:
+            g = np.pad(g, (0, v.shape[1] - len(g)), mode="edge")
+        out[ch] = (v[ch] * g).astype(np.float32)
+    peak = float(np.max(np.abs(out)))
+    if peak > 1e-9:
+        out = (out / peak * 0.9).astype(np.float32)
+    return out
+
+
 def _spectral_subtract(y: np.ndarray, sr: int, strength: float = 1.0,
                        floor: float = 0.08) -> np.ndarray:
     """Per-file noise removal: learn the noise profile from the quietest 10%
@@ -1684,22 +1828,35 @@ def _spectral_subtract(y: np.ndarray, sr: int, strength: float = 1.0,
     return out
 
 
-def _denoise_mix(y: np.ndarray, sr: int, aggressive: bool = False) -> np.ndarray:
-    """Whole-mix background-noise removal (no voice named in the request)."""
+def _denoise_mix(y: np.ndarray, sr: int, aggressive: bool = False) -> tuple[np.ndarray, int]:
+    """Whole-mix background-noise removal (no voice named in the request).
+
+    Two stages: transient/disturbance suppression first (horns, drills —
+    too loud for profile subtraction), then learned-profile subtraction
+    for stationary hiss/hum. Returns (audio, n_disturbances).
+    """
+    y, n_events = _suppress_disturbances(y, sr, aggressive)
     y = _spectral_subtract(y, sr, strength=1.5 if aggressive else 1.2,
                            floor=0.03 if aggressive else 0.08)
-    return y
+    return y, n_events
 
 
-def _polish_vocal(v: np.ndarray, sr: int, aggressive: bool = False) -> np.ndarray:
+def _polish_vocal(v: np.ndarray, sr: int, aggressive: bool = False) -> tuple[np.ndarray, int]:
     """EQ + denoise for an isolated vocal stem: rumble cut, mud cut,
-    presence + air lift, de-ess, hiss tame, learned-profile subtraction."""
+    presence + air lift, de-ess, hiss tame, learned-profile subtraction.
+
+    Disturbance suppression runs on the stem too — horns/sirens often leak
+    into the Demucs vocals stem, and boosting the stem without taming them
+    would make them louder. Ends with upward compression so quiet words
+    stay audible. Returns (audio, n_disturbances).
+    """
     v = np.asarray(v, dtype=np.float32)
     if v.ndim == 1:
         v = v[np.newaxis, :]
     # denoise first so the EQ lifts voice, not hiss
     v = _spectral_subtract(v, sr, strength=1.5 if aggressive else 1.0,
                            floor=0.05 if aggressive else 0.1)
+    v, n_events = _suppress_disturbances(v, sr, aggressive)
     out = np.zeros_like(v)
     for ch in range(v.shape[0]):
         S = librosa.stft(v[ch])
@@ -1713,10 +1870,11 @@ def _polish_vocal(v: np.ndarray, sr: int, aggressive: bool = False) -> np.ndarra
         gain[(freqs >= 10000) & (freqs <= 14000)] = 1.25  # air
         gain[freqs > 14000] = 0.5
         out[ch] = librosa.istft(S * gain[:, np.newaxis], length=v.shape[1])
+    out = _compress_vocal(out, sr, aggressive)
     peak = float(np.max(np.abs(out)))
     if peak > 1e-9:
         out = (out / peak * 0.9).astype(np.float32)
-    return out
+    return out, n_events
 
 
 def _enhance_voice(audio_path: str, y: np.ndarray, sr: int,
@@ -1732,9 +1890,10 @@ def _enhance_voice(audio_path: str, y: np.ndarray, sr: int,
     meta: dict = {"aggressive": aggressive}
 
     if params.get("denoise_mix"):
-        y = _denoise_mix(y, sr, aggressive)
+        y, n_events = _denoise_mix(y, sr, aggressive)
         meta["method"] = "mix_denoise"
         meta["enhanced"] = "mix"
+        meta["disturbances_removed"] = n_events
         return y, meta
 
     vocal_db = 4.0 + (2.0 if aggressive else 0.0) + (2.0 if params.get("level_boost") else 0.0)
@@ -1756,7 +1915,7 @@ def _enhance_voice(audio_path: str, y: np.ndarray, sr: int,
             if len(s) < n:
                 s = np.pad(s, (0, n - len(s)))
             acc += s[:n].astype(np.float32)  # broadcasts over channels
-        v = _polish_vocal(v, sr, aggressive)
+        v, n_events = _polish_vocal(v, sr, aggressive)
         if v.shape[0] == 1 and y.shape[0] > 1:
             v = np.stack([v[0]] * y.shape[0]).astype(np.float32)
         mix = acc + v * _db_to_lin(vocal_db)
@@ -1766,10 +1925,16 @@ def _enhance_voice(audio_path: str, y: np.ndarray, sr: int,
         meta["method"] = "stem_remix"
         meta["enhanced"] = "vocals"
         meta["vocal_boost_db"] = round(vocal_db, 1)
+        meta["disturbances_removed"] = n_events
         return mix, meta
     except Exception as e:
         meta["stem_error"] = str(e)[:160]
+        # fallback without Demucs: tame bursts first (else the presence lift
+        # amplifies horns/drills), then EQ, then compress + lift for audibility.
+        y, n_events = _suppress_disturbances(y, sr, aggressive)
+        meta["disturbances_removed"] = n_events
         y = _enhance_vocals(y, sr, params)
+        y = _compress_vocal(y, sr, aggressive)
         if params.get("level_boost"):
             y = _apply_gain(y, 2.0)
             peak = float(np.max(np.abs(y)))

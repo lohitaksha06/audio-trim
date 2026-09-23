@@ -2,9 +2,39 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSettings } from "@/utils/settings";
 
 interface SidebarProps {
   onPromptSelect: (prompt: string) => void;
+}
+
+function Toggle({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className={`h-5 w-9 shrink-0 rounded-full relative transition-colors focus:outline-none focus:ring-2 focus:ring-neon-blue/50 ${
+        checked ? "bg-neon-blue/40" : "bg-white/15"
+      }`}
+    >
+      <span
+        className={`absolute top-0.5 h-4 w-4 rounded-full transition-all ${
+          checked ? "left-[18px] bg-neon-blue" : "left-0.5 bg-white/60"
+        }`}
+      />
+    </button>
+  );
 }
 
 const FEATURE_CATEGORIES = [
@@ -100,15 +130,17 @@ const FEATURE_CATEGORIES = [
   },
 ];
 
-export default function Sidebar({ onPromptSelect: _ }: SidebarProps) {
+export default function Sidebar({}: SidebarProps) {
   const pathname = usePathname();
+  const [settings, updateSettings] = useSettings();
+  const guideActive = pathname === "/guide";
 
   return (
     <aside className="w-64 lg:w-72 shrink-0 h-full flex flex-col backdrop-blur-2xl bg-white/[0.03] border-r border-white/[0.08] shadow-[4px_0_24px_rgba(0,0,0,0.4)]">
       {/* Header */}
       <div className="p-4 border-b border-white/[0.06]">
-        <h2 className="text-sm font-semibold text-white/90 tracking-wide">Features</h2>
-        <p className="mt-1 text-xs text-white/30">Select a feature</p>
+        <h2 className="text-sm font-semibold text-white tracking-wide">Features</h2>
+        <p className="mt-1 text-xs text-white/55">Select a feature</p>
       </div>
 
       {/* Feature list */}
@@ -122,11 +154,11 @@ export default function Sidebar({ onPromptSelect: _ }: SidebarProps) {
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 ${
                 isActive
                   ? "bg-white/[0.06] text-white"
-                  : "text-white/60 hover:bg-white/[0.04] hover:text-white/80"
+                  : "text-white/75 hover:bg-white/[0.04] hover:text-white"
               }`}
             >
               <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                isActive ? "bg-neon-blue/15 text-neon-blue" : "bg-white/[0.04] text-white/40"
+                isActive ? "bg-neon-blue/15 text-neon-blue" : "bg-white/[0.04] text-white/55"
               }`}>
                 {cat.icon}
               </span>
@@ -134,15 +166,35 @@ export default function Sidebar({ onPromptSelect: _ }: SidebarProps) {
             </Link>
           );
         })}
+        <Link
+          href="/guide"
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 ${
+            guideActive
+              ? "bg-white/[0.06] text-white"
+              : "text-white/75 hover:bg-white/[0.04] hover:text-white"
+          }`}
+        >
+          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
+            guideActive ? "bg-neon-purple/15 text-neon-purple" : "bg-neon-purple/10 text-neon-purple/80"
+          }`}>
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" />
+            </svg>
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-medium">All features & prompts</span>
+            <span className="block text-[11px] text-white/45">Stems, instruments, examples</span>
+          </span>
+        </Link>
       </div>
 
       {/* Coming Soon */}
       <div className="border-t border-white/[0.06] p-3">
         <div className="flex items-center gap-2 mb-2">
-          <svg className="h-4 w-4 text-neon-purple/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <svg className="h-4 w-4 text-neon-purple/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" />
           </svg>
-          <span className="text-sm font-medium text-white/50">Coming Soon</span>
+          <span className="text-sm font-medium text-white/70">Coming Soon</span>
         </div>
         <div className="space-y-0.5">
           {[
@@ -151,17 +203,17 @@ export default function Sidebar({ onPromptSelect: _ }: SidebarProps) {
           ].map((item) => (
             <div
               key={item.name}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl text-left opacity-50 cursor-not-allowed"
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-left opacity-80 cursor-not-allowed"
               title="Coming soon"
             >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-white/30">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-white/45">
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </span>
               <span className="min-w-0">
-                <span className="block text-xs font-medium text-white/50">{item.name}</span>
-                <span className="block text-[11px] text-white/25 truncate">{item.desc}</span>
+                <span className="block text-xs font-medium text-white/70">{item.name}</span>
+                <span className="block text-[11px] text-white/45 truncate">{item.desc}</span>
               </span>
               <span className="ml-auto shrink-0 rounded-full bg-neon-purple/15 px-2 py-0.5 text-[10px] font-semibold text-neon-purple">
                 Soon
@@ -174,28 +226,32 @@ export default function Sidebar({ onPromptSelect: _ }: SidebarProps) {
       {/* Settings */}
       <div className="border-t border-white/[0.06] p-3">
         <div className="flex items-center gap-2 mb-3">
-          <svg className="h-4 w-4 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <svg className="h-4 w-4 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
-          <span className="text-sm font-medium text-white/50">Settings</span>
+          <span className="text-sm font-medium text-white/70">Settings</span>
         </div>
         <div className="space-y-2">
-          <label className="flex items-center justify-between">
-            <span className="text-xs text-white/40">Auto-analyze</span>
-            <div className="h-5 w-9 rounded-full bg-neon-blue/30 relative cursor-pointer">
-              <div className="absolute left-[18px] top-0.5 h-4 w-4 rounded-full bg-neon-blue" />
-            </div>
-          </label>
-          <label className="flex items-center justify-between">
-            <span className="text-xs text-white/40">High quality</span>
-            <div className="h-5 w-9 rounded-full bg-white/10 relative cursor-pointer">
-              <div className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white/40" />
-            </div>
-          </label>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-white/65" title="Automatically run AI analysis (instruments, structure, mood, genre) right after upload">
+              Auto-analyze
+            </span>
+            <Toggle checked={settings.autoAnalyze} onChange={(v) => updateSettings({ autoAnalyze: v })} label="Auto-analyze uploads" />
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-white/65" title="On: downloads stay lossless WAV. Off: downloads convert to the format below first.">
+              High quality
+            </span>
+            <Toggle checked={settings.highQuality} onChange={(v) => updateSettings({ highQuality: v })} label="High quality downloads" />
+          </div>
           <div>
-            <span className="text-xs text-white/40 block mb-1">Output format</span>
-            <select className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white/60 outline-none backdrop-blur-sm focus:border-neon-blue/30 transition-colors">
+            <span className="text-xs text-white/65 block mb-1">Output format {!settings.highQuality && <span className="text-white/40">(used on download)</span>}</span>
+            <select
+              value={settings.outputFormat}
+              onChange={(e) => updateSettings({ outputFormat: e.target.value })}
+              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white/75 outline-none backdrop-blur-sm focus:border-neon-blue/30 transition-colors"
+            >
               <option value="wav">WAV (Lossless)</option>
               <option value="flac">FLAC (Compressed)</option>
               <option value="mp3">MP3 (Smaller)</option>

@@ -441,6 +441,14 @@ ENHANCE_KEYWORDS = [
     "clean up the voice", "clean the voice", "clean the vocal",
     "clean up vocals", "clean vocals", "clean up vocal",
     "clear up the voice", "clear up voice",
+    "make me louder", "make myself", "hear me", "my voice",
+    # sudden real-world disturbances (horns, drills, traffic, sirens)
+    "car horn", "horn noise", "honk", "honking",
+    "drill", "drilling", "construction", "traffic", "siren",
+    "disturbance", "disturbances", "background disturbances",
+    "unwanted sound", "unwanted sounds", "unnecessary noise",
+    "popping", "plosive", "mic pop", "click", "bang", "clatter",
+    "interruptions",
 ]
 
 # Drum-piece keywords for selective adds ("add only snare", "kick drum").
@@ -458,12 +466,14 @@ def voice_flags(prompt: str) -> dict:
     voice_words = ("vocal", "voice", "voices", "speech", "speak", "sing",
                    "dialogue", "podcast", "singer", "vocalist", "narrat")
     noise_words = ("noise", "hiss", "disturbance", "denoise", "de-noise",
-                   "hum", "buzz", "background")
+                   "hum", "buzz", "background", "horn", "honk", "drill",
+                   "construction", "traffic", "siren", "crowd", "chatter",
+                   "wind", "pop", "click", "bang", "clatter", "rumble")
     return {
         "aggressive": bool(re.search(
-            r"\b(very|really|super|extremely|heavily|completely|totally|a lot|all( the)? (background )?noise|much noise)\b", lower)),
+            r"\b(very|really|super|extremely|heavily|completely|totally|a lot|all( the)? (background )?noise|much noise|horn|honk|drill|construction|siren|traffic)\b", lower)),
         "level_boost": bool(re.search(
-            r"audible|can'?t hear|cannot hear|loud and clear|bring .*voice (up|forward|out)|voice.*(louder|up front)", lower)),
+            r"audible|can'?t hear|cannot hear|loud and clear|bring .*voice (up|forward|out)|voice.*(louder|up front)|make me |myself|my voice|hear me\b|stand out|up front|more prominent", lower)),
         "denoise_mix": (any(k in lower for k in noise_words)
                         and not any(k in lower for k in voice_words)),
     }
@@ -926,7 +936,7 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
 
     if intent == Intent.ENHANCE_VOCALS:
         lower = prompt.lower()
-        params["denoise"] = any(k in lower for k in ["noise", "hiss", "disturbance", "denoise", "clean", "audible", "clear", "hear", "crisp", "muffl"])
+        params["denoise"] = any(k in lower for k in ["noise", "hiss", "disturbance", "denoise", "clean", "audible", "clear", "hear", "crisp", "muffl", "horn", "honk", "drill", "siren", "traffic", "construction"])
         params["clarity"] = True
         params.update(voice_flags(prompt))
         # Combined request ("add drums + make the voice clear"): voice first,

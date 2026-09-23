@@ -9,6 +9,7 @@ from server.ml.audio_understanding import (
     compute_mood_curve,
     describe_mood,
     predict_genre,
+    predict_content,
     analyze_mix,
 )
 from server.ml.diarization import diarize
@@ -97,6 +98,12 @@ async def understand_audio(req: AudioPathRequest):
         curve = compute_mood_curve(req.audio_path)
         genre = predict_genre(req.audio_path)
         try:
+            # content head: noise-condition + quality. Additive only —
+            # never breaks understanding if the artifact is missing.
+            content = predict_content(req.audio_path)
+        except Exception:
+            content = None
+        try:
             # rhythm read: tempo, beat grid, feel, auto-groove. Loads lazily
             # and never breaks understanding if it fails.
             from server.ml.rhythm import analyze_rhythm
@@ -113,6 +120,7 @@ async def understand_audio(req: AudioPathRequest):
             "mood": mood,
             "energy_curve": curve,
             "genre": genre,
+            "content": content,
             "rhythm": rhythm,
         }
     except Exception as e:

@@ -17,6 +17,7 @@ import {
   type UnderstandResponse,
 } from "@/services/api";
 import { describeResult, isOutputFollowUp } from "@/utils/followUp";
+import { getSettings } from "@/utils/settings";
 
 type PageState = "idle" | "uploading" | "analyzed" | "processing" | "completed" | "error";
 
@@ -55,6 +56,21 @@ export default function PromptPage() {
     try { localStorage.setItem("audelle:promptHistory", JSON.stringify(promptHistory.slice(-30))); } catch {}
   }, [promptHistory]);
 
+  const handleAnalyze = useCallback(async (audioPath?: string) => {
+    const target = audioPath ?? uploadResult?.audio_path;
+    if (!target) return;
+    setAnalyzing(true);
+    setErrorMsg("");
+    try {
+      const res = await understandAudio(target);
+      setUnderstand(res);
+    } catch (e: unknown) {
+      setErrorMsg(e instanceof Error ? e.message : "Analysis failed");
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [uploadResult?.audio_path]);
+
   const handleFileSelected = useCallback(async (f: File) => {
     setFile(f);
     setUrlInput("");
@@ -69,12 +85,15 @@ export default function PromptPage() {
       setUploadResult(result);
       try { localStorage.setItem("audelle:lastAudio", JSON.stringify({ audio_path: result.audio_path, filename: f.name })); } catch {}
       setState("analyzed");
+      if (getSettings().autoAnalyze) {
+        void handleAnalyze(result.audio_path);
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Upload failed";
       setErrorMsg(msg);
       setState("error");
     }
-  }, [objectUrl]);
+  }, [objectUrl, handleAnalyze]);
 
   const handleURLUpload = async () => {
     const url = urlInput.trim();
@@ -95,20 +114,6 @@ export default function PromptPage() {
     }
   };
 
-  const handleAnalyze = async () => {
-    if (!uploadResult) return;
-    setAnalyzing(true);
-    setErrorMsg("");
-    try {
-      const res = await understandAudio(uploadResult.audio_path);
-      setUnderstand(res);
-    } catch (e: unknown) {
-      setErrorMsg(e instanceof Error ? e.message : "Analysis failed");
-    } finally {
-      setAnalyzing(false);
-    }
-  };
-
   const handleProcess = async () => {
     if (!prompt.trim()) return;
     if (!uploadResult) {
@@ -123,7 +128,7 @@ export default function PromptPage() {
       setPrompt("");
       if (lastResult?.download_key) {
         setHistory((prev) => [...prev, { role: "ai", text: "Here's your latest output — opening the download now. The player and Download buttons are in the Output panel too." }]);
-        handleDownload(lastResult.download_key);
+        void handleDownload(lastResult.download_key);
       } else {
         setHistory((prev) => [...prev, { role: "ai", text: "No output yet — describe an edit first, e.g. \"Add drums\"." }]);
       }
@@ -226,9 +231,29 @@ export default function PromptPage() {
     rec.start();
   };
 
-  const handleDownload = (key?: string | null) => {
+  const handleDownload = async (key?: string | null) => {
     if (!key) return;
-    window.open(downloadUrl(key), "_blank", "noopener");
+    const { highQuality, outputFormat } = getSettings();
+    if (highQuality || outputFormat === "wav") {
+      window.open(downloadUrl(key), "_blank", "noopener");
+      return;
+    }
+    // Standard quality: convert to the chosen format first (existing backend
+    // converter), then download that — falls back to WAV on any failure.
+    const srcPath = activeAudioPath;
+    if (!srcPath) {
+      window.open(downloadUrl(key), "_blank", "noopener");
+      return;
+    }
+    setExporting(true);
+    try {
+      const conv = await processAudio(srcPath, `convert to ${outputFormat}`);
+      window.open(downloadUrl(conv.download_key ?? key), "_blank", "noopener");
+    } catch {
+      window.open(downloadUrl(key), "_blank", "noopener");
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleExportZip = async () => {
@@ -482,7 +507,7 @@ export default function PromptPage() {
 
                     {!understand ? (
                       <button
-                        onClick={handleAnalyze}
+                        onClick={() => handleAnalyze()}
                         disabled={analyzing}
                         className="w-full rounded-xl bg-neon-blue/15 px-4 py-2.5 text-sm font-medium text-neon-blue hover:bg-neon-blue/25 transition-colors disabled:opacity-50"
                       >
@@ -604,8 +629,8 @@ export default function PromptPage() {
                     <div className="flex-1 overflow-y-auto p-4 space-y-3">
                       {history.length === 0 && (
                         <div className="flex flex-col items-center justify-center h-full text-center">
-                          <p className="text-base text-white/30 mb-2">What do you want to do?</p>
-                          <p className="text-xs text-white/20">Type a prompt below, or <Link href="/features/manual" className="underline hover:text-white/40">open the Manual Editor</Link>.</p>
+                          <p className="text-base text-white/40 mb-2">What do you want to do?</p>
+                          <p className="text-xs text-white/30">Type a prompt below, <Link href="/guide" className="underline hover:text-white/50">browse all features & prompts</Link>, or <Link href="/features/manual" className="underline hover:text-white/50">open the Manual Editor</Link>.</p>
                         </div>
                       )}
                       {history.map((h, i) => (

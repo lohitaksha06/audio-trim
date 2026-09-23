@@ -2,7 +2,12 @@
 
 from fastapi import APIRouter
 
-from server.ml.eval.metrics import genre_model_metrics, system_metrics
+from server.ml.eval.metrics import (
+    content_model_metrics,
+    genre_model_metrics,
+    groove_model_metrics,
+    system_metrics,
+)
 from server.ml.eval.prompt_bench import BENCH, evaluate_prompt_bench
 
 router = APIRouter(prefix="/api/eval", tags=["eval"])
@@ -24,6 +29,16 @@ async def get_prompt_bench():
 @router.get("/genre")
 async def get_genre_metrics():
     return genre_model_metrics()
+
+
+@router.get("/content")
+async def get_content_metrics():
+    return content_model_metrics()
+
+
+@router.get("/groove")
+async def get_groove_metrics():
+    return groove_model_metrics()
 
 
 @router.get("/bench")
