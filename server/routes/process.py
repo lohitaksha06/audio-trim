@@ -47,6 +47,11 @@ async def process_audio(req: ProcessRequest):
                 status_code=400,
                 detail="Upload your stem file first, then press Mix — I need the stem audio to BPM-match it.",
             )
+        if plan.intent == _Intent.SPEED and plan.params.get("needs_bpm"):
+            raise HTTPException(
+                status_code=400,
+                detail="What BPM do you want? Tell me e.g. 'Set tempo to 128 BPM' or 'Slow down to 90 BPM'.",
+            )
         # chaining: accept a previous download_key as readily as a server path
         audio_src = req.audio_path
         if not Path(audio_src).is_file():

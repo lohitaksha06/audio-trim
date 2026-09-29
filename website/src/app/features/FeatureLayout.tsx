@@ -111,7 +111,8 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
       setState("completed");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Processing failed";
-      setHistory((prev) => [...prev, { role: "ai", text: `Error: ${msg}` }]);
+      const asksBpm = /what BPM/i.test(msg);
+      setHistory((prev) => [...prev, { role: "ai", text: asksBpm ? msg : `Error: ${msg}` }]);
       setErrorMsg(msg);
       setState("analyzed");
     }
@@ -256,6 +257,7 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
                   ) : (
                     <div className="grid gap-2">
                       {inst && <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3"><div className="text-[11px] text-white/40 uppercase tracking-wider mb-1">Instruments</div><div className="flex flex-wrap gap-1.5">{inst.instruments.map((el) => <span key={el.instrument} className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-white/50">{el.instrument} · {(el.confidence*100).toFixed(0)}%</span>)}</div></div>}
+                      {understand?.genre && <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3"><div className="text-[11px] text-white/40 uppercase tracking-wider mb-1">Genre / Style</div><div className="text-xs text-white/60">{understand.genre.genre} · {(understand.genre.confidence*100).toFixed(0)}%{understand?.rhythm ? ` · ${understand.rhythm.auto_groove.replace(/_/g, " ")} · ${Math.round(understand.rhythm.tempo_bpm)} BPM` : ""}</div></div>}
                       {sections.length>0 && <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3"><div className="text-[11px] text-white/40 uppercase tracking-wider mb-1">Structure</div>{sections.map((s,i)=><div key={i} className="flex justify-between text-xs"><span className="text-white/60 capitalize">{s.label}</span><span className="text-white/30">{formatDuration(s.start)}–{formatDuration(s.end)}</span></div>)}</div>}
                     </div>
                   )}

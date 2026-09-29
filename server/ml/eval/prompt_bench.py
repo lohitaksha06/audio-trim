@@ -56,6 +56,14 @@ BENCH: list[dict[str, Any]] = [
     {"prompt": "make it twice as fast", "intent": "speed", "params": {"speed_factor": 2.0}},
     {"prompt": "slow it down", "intent": "speed"},
     {"prompt": "2x faster please", "intent": "speed"},
+    # SPEED with BPM target + ask-back when missing
+    {"prompt": "set tempo to 128 BPM", "intent": "speed", "params": {"target_bpm": 128.0}},
+    {"prompt": "slow down to 90 bpm", "intent": "speed", "params": {"target_bpm": 90.0}},
+    {"prompt": "change the tempo, speed it up", "intent": "speed", "params": {"needs_bpm": True}},
+    # CLASSIFY (3)
+    {"prompt": "what genre is this?", "intent": "classify"},
+    {"prompt": "what edm style is this?", "intent": "classify"},
+    {"prompt": "classify this track", "intent": "classify"},
     # REVERB (2)
     {"prompt": "add reverb", "intent": "reverb"},
     {"prompt": "make it echo like a cathedral", "intent": "reverb"},

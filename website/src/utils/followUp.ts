@@ -36,7 +36,13 @@ export interface ResultMeta {
   method?: string;
   song_bpm?: number;
   stem_bpm?: number;
+  target_bpm?: number;
+  speed_factor?: number;
   stretch_factor?: number;
+  genre?: string;
+  genre_confidence?: number;
+  edm_style?: string;
+  groove_confidence?: number;
   beat_offset_sec?: number;
   stem_level?: number;
 }
@@ -72,6 +78,16 @@ export function describeResult(intent: string, meta?: ResultMeta | null): string
     bits.push(`turned up ${meta.boosted}`);
   } else if (typeof meta.gain_db === "number") {
     bits.push(`gain ${meta.gain_db > 0 ? "+" : ""}${meta.gain_db} dB`);
+  } else if (typeof meta.target_bpm === "number" || typeof meta.speed_factor === "number" || typeof meta.stretch_factor === "number") {
+    const from = typeof meta.song_bpm === "number" ? `${Math.round(meta.song_bpm)} BPM → ` : "";
+    const to = typeof meta.target_bpm === "number" ? `${Math.round(meta.target_bpm)} BPM` : "";
+    const factor = typeof (meta.stretch_factor ?? meta.speed_factor) === "number"
+      ? ` (×${(meta.stretch_factor ?? meta.speed_factor) as number})` : "";
+    bits.push(`tempo ${from}${to}${factor}`.trim());
+  } else if (meta.genre || meta.edm_style || typeof meta.song_bpm === "number") {
+    if (meta.genre) bits.push(`genre: ${meta.genre}${typeof meta.genre_confidence === "number" ? ` (${Math.round(meta.genre_confidence * 100)}%)` : ""}`);
+    if (meta.edm_style) bits.push(`style: ${String(meta.edm_style).replace(/_/g, " ")}`);
+    if (typeof meta.song_bpm === "number") bits.push(`${Math.round(meta.song_bpm)} BPM`);
   } else if (meta.style) {
     bits.push(`${meta.style} style`);
     if (meta.tempo_bpm) bits.push(`${Math.round(meta.tempo_bpm)} BPM`);

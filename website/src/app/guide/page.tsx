@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Nav from "@/components/Nav";
+import Sidebar from "@/components/Sidebar";
 import { getCatalog, type CatalogResponse } from "@/services/api";
 
 const SECTIONS: { title: string; hint: string; prompts: string[] }[] = [
@@ -174,6 +175,18 @@ const SECTIONS: { title: string; hint: string; prompts: string[] }[] = [
       "Add reverb",
       "Make it darker",
       "Speed it up",
+      "Set tempo to 128 BPM",
+      "Slow down to 90 BPM",
+    ],
+  },
+  {
+    title: "Tempo & genre",
+    hint: "Time-stretch to the BPM you name — or ask what the track is. If you ask to change tempo without a BPM, the AI asks you which BPM you want.",
+    prompts: [
+      "What genre is this?",
+      "What EDM style is this?",
+      "What BPM is this?",
+      "Change the tempo",
     ],
   },
   {
@@ -226,9 +239,11 @@ export default function GuidePage() {
   const grooves = catalog?.grooves?.length ? catalog.grooves : FALLBACK_GROOVES;
 
   return (
-    <div className="flex min-h-screen flex-col bg-black">
+    <div className="flex h-screen flex-col bg-black">
       <Nav />
-      <div className="pt-14 sm:pt-16 flex-1">
+      <div className="flex flex-1 mt-14 sm:mt-16 overflow-hidden">
+        <Sidebar onPromptSelect={copy} />
+        <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 py-8 sm:py-12">
           <h1 className="text-2xl sm:text-4xl font-bold text-white">What can I ask Audelle?</h1>
           <p className="mt-2 text-sm sm:text-base text-white/40">
@@ -330,11 +345,12 @@ export default function GuidePage() {
             ))}
           </div>
 
-          <div className="mt-8 text-center">
+          <div className="mt-8 text-center pb-4">
             <Link href="/prompt" className="inline-block rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple px-8 py-3.5 text-sm sm:text-base font-semibold text-black hover:scale-105 transition-transform">
               Open the Editor
             </Link>
           </div>
+        </div>
         </div>
       </div>
     </div>

@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import FeatureLayout from "../FeatureLayout";
 import { useFeaturePrompt } from "../FeaturePromptContext";
 
 export default function EditingPage() {
   const promptCtx = useFeaturePrompt();
+  const [bpm, setBpm] = useState("128");
   return (
     <FeatureLayout title="Smart Editing" subtitle="Trim, cut, and rearrange sections with natural language">
       <div className="space-y-5">
@@ -24,6 +26,63 @@ export default function EditingPage() {
                 <span className="text-sm text-white/70">{section.label}</span>
                 <span className="text-xs text-white/30 font-mono">{section.time}</span>
               </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-3">Tempo / BPM</h3>
+          <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 space-y-2">
+            <p className="text-xs text-white/40">Time-stretch to an exact tempo. If you ask to change tempo without a BPM, the AI will ask you which BPM you want.</p>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                min={40}
+                max={220}
+                value={bpm}
+                onChange={(e) => setBpm(e.target.value)}
+                placeholder="128"
+                className="w-24 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-neon-blue/50"
+              />
+              <button
+                onClick={() => promptCtx?.setPrompt(`Set tempo to ${bpm || 128} BPM`)}
+                className="flex-1 rounded-lg bg-neon-blue/15 px-3 py-2 text-xs font-medium text-neon-blue hover:bg-neon-blue/25 transition-colors"
+              >
+                Set tempo to {bpm || 128} BPM
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => promptCtx?.setPrompt(`Speed up to ${bpm || 128} BPM`)}
+                className="rounded-lg border border-white/5 bg-white/[0.02] p-2 text-xs text-white/60 hover:border-neon-blue/20 hover:text-neon-blue/80 transition-all"
+              >
+                Speed up to {bpm || 128} BPM
+              </button>
+              <button
+                onClick={() => promptCtx?.setPrompt(`Slow down to ${bpm || 128} BPM`)}
+                className="rounded-lg border border-white/5 bg-white/[0.02] p-2 text-xs text-white/60 hover:border-neon-blue/20 hover:text-neon-blue/80 transition-all"
+              >
+                Slow down to {bpm || 128} BPM
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-3">Genre / Style</h3>
+          <div className="space-y-2">
+            {[
+              { label: "What genre is this?", prompt: "What genre is this?" },
+              { label: "What EDM style is this?", prompt: "What EDM style is this?" },
+              { label: "What BPM is this?", prompt: "What BPM is this?" },
+            ].map((action) => (
+              <button
+                key={action.label}
+                onClick={() => promptCtx?.setPrompt(action.prompt)}
+                className="w-full text-left rounded-xl border border-white/5 bg-white/[0.02] p-3 text-sm text-white/60 hover:border-neon-blue/20 hover:text-neon-blue/80 hover:bg-neon-blue/5 transition-all"
+              >
+                {action.label}
+              </button>
             ))}
           </div>
         </div>

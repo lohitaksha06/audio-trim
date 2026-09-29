@@ -29,6 +29,7 @@ class Intent(str, Enum):
     REVERSE = "reverse"
     REPEAT = "repeat"
     TRANSPOSE = "transpose"
+    CLASSIFY = "classify"
     UNKNOWN = "unknown"
 
 
@@ -223,7 +224,8 @@ def extract_instrument(prompt: str) -> str | None:
     if re.search(r"\bbase\b", lower):
         return "bass"
     # "techno drums" / "hardstyle kick" = drums played with that groove, not a synth kit
-    if any(w in lower for w in ("drum", "kick", "snare", "hat", "cymbal", "percussion")):
+    # (word boundaries so "what" doesn't match "hat")
+    if re.search(r"\b(drum|drums|kick|snare|hat|hats|hihat|hi-hat|cymbal|percussion|rim|rimshot|clap|ride|crash|shaker)\b", lower):
         others = [s for s in extract_instruments(prompt) if s not in _GROOVE_KINDS and s != "drums"]
         if not others:
             return "drums"
@@ -312,6 +314,36 @@ def extract_instruments(prompt: str) -> list[str]:
     if "house" in found and "afro_house" in found:
         found.remove("house")
     return found
+
+
+def extract_target_bpm(prompt: str) -> float | None:
+    """Target tempo like '128 bpm', '128bpm', 'tempo 128', 'to 128 bpm'."""
+    lower = prompt.lower()
+    m = re.search(r"(\d{2,3}(?:\.\d+)?)\s*bpm\b", lower)
+    if m:
+        try:
+            bpm = float(m.group(1))
+            if 40.0 <= bpm <= 220.0:
+                return bpm
+        except ValueError:
+            pass
+    m = re.search(r"\bbpm\s*(?:to|of|at|=|:)?\s*(\d{2,3}(?:\.\d+)?)\b", lower)
+    if m:
+        try:
+            bpm = float(m.group(1))
+            if 40.0 <= bpm <= 220.0:
+                return bpm
+        except ValueError:
+            pass
+    m = re.search(r"\btempo\s+(?:of\s+|to\s+|at\s+)?(\d{2,3}(?:\.\d+)?)\b", lower)
+    if m:
+        try:
+            bpm = float(m.group(1))
+            if 40.0 <= bpm <= 220.0:
+                return bpm
+        except ValueError:
+            pass
+    return None
 
 
 def _mix_stem_of(instrument: str) -> str:
@@ -598,6 +630,26 @@ def classify_intent(prompt: str) -> Intent:
     ):
         return Intent.MIX_STEM
 
+    # music / EDM style classification question ("what genre is this?",
+    # "what edm style is this?", "classify this track"). Runs before STYLE
+    # (conversion) and SPEED so questions don't become edits.
+    _classify_q = (
+        "what genre" in lower or "which genre" in lower or "what style" in lower
+        or "which style" in lower or "what kind of music" in lower
+        or "what type of music" in lower or "what edm" in lower
+        or "which edm" in lower or "what subgenre" in lower or "which subgenre" in lower
+        or "classify" in lower or "identify the genre" in lower or "identify the style" in lower
+        or "genre is this" in lower or "style is this" in lower
+        or "what bpm" in lower or "what tempo" in lower or "which bpm" in lower
+        or "which tempo" in lower or "detect bpm" in lower or "detect tempo" in lower
+        or "how fast is" in lower or "how many bpm" in lower
+    )
+    if _classify_q:
+        return Intent.CLASSIFY
+    # "is this house or techno?" — style identification question
+    if re.search(r"\bis this\b.*\b(house|techno|trance|trap|dnb|dubstep|phonk|synthwave|garage|amapiano|edm|jungle|grime|hiphop|pop|rock|jazz)\b", lower) and "?" in prompt:
+        return Intent.CLASSIFY
+
     if any(k in lower for k in ENHANCE_KEYWORDS):
         return Intent.ENHANCE_VOCALS
     # stem mixer ("drums louder, vocals quieter", "balance the mix", "prioritize drums"):
@@ -677,7 +729,7 @@ def classify_intent(prompt: str) -> Intent:
         return Intent.NORMALIZE
     if any(w in lower for w in ["darker", "brighter", "energetic", "calm", "mood", "feel"]) or re.search(r"\btone\b", lower):
         return Intent.MOOD
-    if any(w in lower for w in ["speed", "tempo", "ramp"]) or re.search(
+    if any(w in lower for w in ["speed", "tempo", "bpm", "ramp"]) or re.search(
         r"\b(fast|faster|slow|slower|speed ?up|speed ?down)\b", lower
     ):
         return Intent.SPEED
@@ -735,6 +787,11 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
     if duration:
         params["duration"] = duration
 
+    if intent == Intent.CLASSIFY:
+        # identification question is read-only — drop edit params that leak
+        # in from generic extraction (timestamps, instruments, formats).
+        return PromptPlan(intent=intent, params={}, raw_prompt=prompt)
+
     if intent == Intent.MOOD:
         lower = prompt.lower()
         if "dark" in lower:
@@ -786,21 +843,38 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
 
     if intent == Intent.SPEED:
         lower = prompt.lower()
+        target_bpm = extract_target_bpm(prompt)
+        if target_bpm:
+            params["target_bpm"] = target_bpm
         factor = 1.0
+        explicit_factor = False
+        vague_factor = 1.0
         m = re.search(r"(\d+(?:\.\d+)?)\s*(?:x|times)\s*(?:as\s*)?(fast|faster|slow|slower)", lower)
         if m:
             num = float(m.group(1))
             factor = num if m.group(2).startswith("fast") else 1 / num
+            explicit_factor = True
         elif re.search(r"\b(twice|double|2x|2x fast)\b", lower):
             factor = 2.0
+            explicit_factor = True
         elif re.search(r"\b(half|slow|slower|slow ?down|speed ?down)\b", lower):
-            factor = 0.75
+            vague_factor = 0.75
         elif re.search(r"\b(fast|faster|speed ?up)\b", lower):
-            factor = 1.5
+            vague_factor = 1.5
         elif re.search(r"\bspeed\b", lower):
-            factor = 1.5
-        if factor != 1.0:
+            vague_factor = 1.5
+        mentions_tempo = "bpm" in lower or "tempo" in lower
+        if explicit_factor:
             params["speed_factor"] = factor
+        elif target_bpm:
+            # exact BPM wins — vague direction words add no stretch
+            pass
+        elif mentions_tempo:
+            # BPM-targeted tempo change without a number: ask the user for
+            # the BPM instead of silently applying a default stretch.
+            params["needs_bpm"] = True
+        elif vague_factor != 1.0:
+            params["speed_factor"] = vague_factor
 
     if intent == Intent.REVERB:
         params["reverb_amount"] = 0.5

@@ -58,8 +58,9 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
         y = _remove_silence(y, sr)
         output_path = _save_wav(y, sr)
     elif plan.intent == Intent.SPEED:
-        y = _speed_change(y, sr, plan.params)
+        y, speed_meta = _speed_change(y, sr, plan.params)
         output_path = _save_wav(y, sr)
+        metadata.update(speed_meta)
     elif plan.intent == Intent.REVERB:
         y = _add_reverb(y, sr)
         output_path = _save_wav(y, sr)
@@ -189,6 +190,8 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
         y, tr_meta = _transpose_audio(y, sr, plan.params)
         output_path = _save_wav(y, sr)
         metadata.update(tr_meta)
+    elif plan.intent == Intent.CLASSIFY:
+        metadata.update(_classify_audio(audio_path, y, sr))
     elif plan.intent == Intent.MIX_STEM:
         stem_src = plan.params.get("stem_path")
         if not stem_src:
@@ -360,10 +363,69 @@ def _remove_silence(y: np.ndarray, sr: int, threshold_db: float = 20) -> np.ndar
     return result
 
 
-def _speed_change(y: np.ndarray, sr: int, params: dict) -> np.ndarray:
-    factor = params.get("speed_factor", 1.0)
-    result = librosa.effects.time_stretch(y[0], rate=factor)
-    return result[np.newaxis, :]
+def _speed_change(y: np.ndarray, sr: int, params: dict) -> tuple[np.ndarray, dict]:
+    """Tempo change by explicit factor or by target BPM.
+
+    ``target_bpm`` wins when present: the current tempo is detected and the
+    stretch factor becomes target/current. Returns (audio, meta).
+    """
+    meta: dict = {}
+    factor = float(params.get("speed_factor", 1.0))
+    target_bpm = params.get("target_bpm")
+    song_bpm: float | None = None
+    if target_bpm is not None:
+        try:
+            target = float(target_bpm)
+            tempo, _beats = _detect_beats(y, sr)
+            song_bpm = round(float(tempo), 1)
+            if song_bpm > 0:
+                factor = max(0.5, min(2.0, target / song_bpm))
+        except Exception:
+            pass
+        meta["song_bpm"] = song_bpm
+        meta["target_bpm"] = float(target_bpm)
+    if abs(factor - 1.0) < 1e-6:
+        meta.setdefault("stretch_factor", 1.0)
+        return y, meta
+    out_ch: list[np.ndarray] = []
+    for ch in range(y.shape[0]):
+        out_ch.append(librosa.effects.time_stretch(y[ch].astype(np.float32), rate=factor))
+    n = min(c.shape[0] for c in out_ch)
+    result = np.stack([c[:n] for c in out_ch], axis=0).astype(np.float32)
+    meta["stretch_factor"] = round(float(factor), 3)
+    meta["speed_factor"] = round(float(factor), 3)
+    return result, meta
+
+
+def _classify_audio(audio_path: str, y: np.ndarray, sr: int) -> dict:
+    """Identify music genre / EDM style + tempo. Read-only, no audio output."""
+    meta: dict = {}
+    try:
+        from server.ml.audio_understanding.genre_classifier import predict_genre
+
+        genre = predict_genre(audio_path)
+        if genre:
+            meta["genre"] = genre.get("genre")
+            meta["genre_confidence"] = genre.get("confidence")
+            meta["suggested_actions"] = genre.get("suggested_actions", [])
+    except Exception:
+        pass
+    try:
+        res = _rhythm_of(y, sr)
+        meta["song_bpm"] = round(float(res.get("tempo_bpm", 0.0)), 1)
+        meta["edm_style"] = res.get("auto_groove")
+        meta["groove_confidence"] = res.get("groove_confidence")
+        meta["groove_source"] = res.get("groove_source")
+        meta["beat_count"] = res.get("beat_count")
+    except Exception:
+        pass
+    if not meta.get("song_bpm"):
+        try:
+            tempo, _beats = _detect_beats(y, sr)
+            meta["song_bpm"] = round(float(tempo), 1)
+        except Exception:
+            pass
+    return meta
 
 
 def _add_reverb(y: np.ndarray, sr: int) -> np.ndarray:
