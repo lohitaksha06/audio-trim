@@ -26,6 +26,7 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
   const [lastResult, setLastResult] = useState<ProcessResponse | null>(null);
   const [exporting, setExporting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [notice, setNotice] = useState("");
   const [edits, setEdits] = useState(0);
   const [fromOriginal, setFromOriginal] = useState(false);
   const activeAudioPath = !fromOriginal && lastResult?.download_key
@@ -36,6 +37,7 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
     setFile(f);
     setState("uploading");
     setErrorMsg("");
+    setNotice("");
     setUnderstand(null);
     setLastResult(null);
     try {
@@ -70,9 +72,12 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
   const handleProcess = async () => {
     if (!prompt.trim()) return;
     if (!uploadResult) {
+      // The chat log renders in both states here, so a reply is enough — no
+      // duplicate notice above the composer.
       setHistory((prev) => [...prev, { role: "ai", text: "Please upload a file first before processing." }]);
       return;
     }
+    setNotice("");
     if (isOutputFollowUp(prompt)) {
       const currentPrompt = prompt;
       setHistory((prev) => [...prev, { role: "user", text: currentPrompt }]);
@@ -143,6 +148,7 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
     setLastResult(null);
     setHistory([]);
     setErrorMsg("");
+    setNotice("");
     setEdits(0);
     setFromOriginal(false);
   };
@@ -152,6 +158,7 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
     setLastResult(null);
     setPrompt("");
     setErrorMsg("");
+    setNotice("");
     setEdits(0);
     setFromOriginal(false);
     if (uploadResult) setState("analyzed");
@@ -305,6 +312,12 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
 
           {/* ALWAYS VISIBLE Prompt Input at bottom */}
           <div className="shrink-0 border-t border-white/10 bg-black/90 p-3 sm:p-4 backdrop-blur-sm">
+            {notice && (
+              <p role="alert" className="mb-2 flex items-start gap-2 rounded-lg border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">
+                <span aria-hidden className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" />
+                {notice}
+              </p>
+            )}
             <p className="mb-2 text-xs text-white/58">
               {file ? "Press Enter to send" : "Upload a file first, then describe what you want"}
             </p>

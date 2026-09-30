@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Nav from "@/components/Nav";
 import Sidebar from "@/components/Sidebar";
@@ -34,6 +34,9 @@ export default function PromptPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [notice, setNotice] = useState("");
+  const [listening, setListening] = useState(false);
+  const recognitionRef = useRef<{ stop: () => void } | null>(null);
   const [history, setHistory] = useState<{ role: string; text: string }[]>([]);
   const [promptHistory, setPromptHistory] = useState<string[]>([]);
   const [edits, setEdits] = useState(0);
@@ -76,6 +79,7 @@ export default function PromptPage() {
     setUrlInput("");
     setState("uploading");
     setErrorMsg("");
+    setNotice("");
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     setObjectUrl(URL.createObjectURL(f));
     setUnderstand(null);
@@ -117,7 +121,9 @@ export default function PromptPage() {
   const handleProcess = async () => {
     if (!prompt.trim()) return;
     if (!uploadResult) {
-      setHistory((prev) => [...prev, { role: "ai", text: "Please upload a file first before processing." }]);
+      // The chat log is only rendered once a file exists, so a history entry
+      // here would be invisible — surface it above the composer instead.
+      setNotice("I need the audio first. Upload a file above, then send your prompt again.");
       return;
     }
     // Conversational follow-up ("show me the output", "send the download"):
@@ -136,9 +142,10 @@ export default function PromptPage() {
     }
     const srcPath = activeAudioPath;
     if (!srcPath) {
-      setHistory((prev) => [...prev, { role: "ai", text: "Please upload a file first before processing." }]);
+      setNotice("I can't reach that audio. Upload it again, then send your prompt.");
       return;
     }
+    setNotice("");
     setHistory((prev) => [...prev, { role: "user", text: prompt }]);
     setPromptHistory((prev) => [prompt, ...prev.filter((p) => p !== prompt)].slice(0, 30));
     const currentPrompt = prompt;
@@ -209,26 +216,55 @@ export default function PromptPage() {
   const handleVoice = () => {
     type SRCtor = new () => {
       start: () => void;
+      stop: () => void;
       lang: string;
       interimResults: boolean;
       onresult: (e: { results?: ArrayLike<ArrayLike<{ transcript?: string }>> }) => void;
-      onerror: () => void;
+      onerror: (e: { error?: string }) => void;
+      onend: () => void;
     };
     const w = window as unknown as { SpeechRecognition?: SRCtor; webkitSpeechRecognition?: SRCtor };
     const Recognition = w.SpeechRecognition || w.webkitSpeechRecognition;
     if (!Recognition) {
-      setErrorMsg("Voice input not supported in this browser.");
+      setNotice("Voice input needs Chrome or Edge (it uses the Web Speech API) — or just type your prompt.");
+      return;
+    }
+    if (listening) {
+      recognitionRef.current?.stop();
       return;
     }
     const rec = new Recognition();
+    recognitionRef.current = rec;
     rec.lang = "en-US";
     rec.interimResults = false;
     rec.onresult = (e) => {
       const text = e.results?.[0]?.[0]?.transcript || "";
-      setPrompt((p) => (p ? `${p} ${text}` : text));
+      if (text) setPrompt((p) => (p ? `${p} ${text}` : text));
     };
-    rec.onerror = () => setErrorMsg("Voice input failed.");
-    rec.start();
+    rec.onerror = (e) => {
+      // Surface the real reason — a denied mic otherwise looks exactly like a
+      // dead button.
+      const reason = e?.error;
+      const msg =
+        reason === "not-allowed" || reason === "service-not-allowed"
+          ? "Microphone access was blocked. Allow it in your browser's site settings, then try again."
+          : reason === "no-speech"
+            ? "I didn't catch that — try again a little closer to the mic."
+            : reason === "audio-capture"
+              ? "No microphone found. Plug one in, or type your prompt."
+              : `Voice input failed (${reason ?? "unknown error"}). You can type your prompt instead.`;
+      setNotice(msg);
+    };
+    rec.onend = () => setListening(false);
+    setNotice("");
+    setErrorMsg("");
+    setListening(true);
+    try {
+      rec.start();
+    } catch {
+      setListening(false);
+      setNotice("Voice input couldn't start. Type your prompt instead.");
+    }
   };
 
   const handleDownload = async (key?: string | null) => {
@@ -278,6 +314,7 @@ export default function PromptPage() {
     setUnderstand(null);
     setLastResult(null);
     setErrorMsg("");
+    setNotice("");
     setHistory([]);
     setEdits(0);
     setFromOriginal(false);
@@ -293,6 +330,7 @@ export default function PromptPage() {
     setLastResult(null);
     setPrompt("");
     setErrorMsg("");
+    setNotice("");
     setEdits(0);
     setFromOriginal(false);
     if (uploadResult) setState("analyzed");
@@ -658,8 +696,20 @@ export default function PromptPage() {
           </div>
 
           <div className="shrink-0 border-t border-white/10 bg-black/90 p-3 sm:p-4 backdrop-blur-sm">
+            {notice && (
+              <p role="alert" className="mb-2 flex items-start gap-2 rounded-lg border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">
+                <span aria-hidden className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" />
+                {notice}
+              </p>
+            )}
             <p className="mb-2 text-xs text-white/58">
-              {state === "uploading" ? "Uploading your file — hold on…" : file ? "Press Enter to send · mic for voice input" : "Upload a file first, then describe what you want"}
+              {state === "uploading"
+                ? "Uploading your file — hold on…"
+                : listening
+                  ? "Listening… click the mic again to stop."
+                  : file
+                    ? "Press Enter to send · mic for voice input"
+                    : "Upload a file first, then describe what you want"}
             </p>
             {/* Stacked below sm so the input keeps a usable measure instead of
                 being squeezed into a sliver beside the button. */}
@@ -677,11 +727,16 @@ export default function PromptPage() {
                 />
                 <button
                   onClick={handleVoice}
-                  title="Voice input"
-                  aria-label="Voice input"
-                  className="absolute right-2.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-white/58 transition-colors hover:bg-white/10 hover:text-white"
+                  title={listening ? "Stop listening" : "Voice input"}
+                  aria-label={listening ? "Stop voice input" : "Voice input"}
+                  aria-pressed={listening}
+                  className={`absolute right-2.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg transition-colors ${
+                    listening
+                      ? "bg-neon-blue/20 text-neon-blue"
+                      : "text-white/58 hover:bg-white/10 hover:text-white"
+                  }`}
                 >
-                  <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <svg className={`h-[18px] w-[18px] ${listening ? "animate-pulse" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
                   </svg>
                 </button>
