@@ -8,6 +8,7 @@ import AudioPreview from "@/components/AudioPreview";
 import { uploadFile, processAudio, understandAudio, exportZip, downloadUrl, type UploadResponse, type UnderstandResponse, type ProcessResponse } from "@/services/api";
 import { describeResult, isOutputFollowUp } from "@/utils/followUp";
 import { FeaturePromptContext } from "./FeaturePromptContext";
+import { Conversation } from "./FeaturePanels";
 
 interface FeatureLayoutProps {
   children: ReactNode;
@@ -69,8 +70,9 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
     window.open(downloadUrl(key), "_blank", "noopener");
   };
 
-  const handleProcess = async () => {
-    if (!prompt.trim()) return;
+  const handleProcess = async (override?: string) => {
+    const raw = (override ?? prompt).trim();
+    if (!raw) return;
     if (!uploadResult) {
       // The chat log renders in both states here, so a reply is enough — no
       // duplicate notice above the composer.
@@ -78,9 +80,8 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
       return;
     }
     setNotice("");
-    if (isOutputFollowUp(prompt)) {
-      const currentPrompt = prompt;
-      setHistory((prev) => [...prev, { role: "user", text: currentPrompt }]);
+    if (isOutputFollowUp(raw)) {
+      setHistory((prev) => [...prev, { role: "user", text: raw }]);
       setPrompt("");
       if (lastResult?.download_key) {
         setHistory((prev) => [...prev, { role: "ai", text: "Here's your latest output — opening the download now." }]);
@@ -95,8 +96,8 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
       setHistory((prev) => [...prev, { role: "ai", text: "Please upload a file first before processing." }]);
       return;
     }
-    setHistory((prev) => [...prev, { role: "user", text: prompt }]);
-    const currentPrompt = prompt;
+    setHistory((prev) => [...prev, { role: "user", text: raw }]);
+    const currentPrompt = raw;
     setPrompt("");
     setState("processing");
     setErrorMsg("");
@@ -180,8 +181,21 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
   const sections = understand?.structure?.sections ?? [];
   const hasResult = !!lastResult;
 
+  const ctx = {
+    setPrompt: handlePromptSelect,
+    triggerPrompt: (p: string) => void handleProcess(p),
+    hasFile: !!file,
+    analysis,
+    understand,
+    analyzing,
+    runAnalyze: () => void handleAnalyze(),
+    busy: state === "processing" || state === "uploading" || exporting,
+    hasResult,
+    fileName: file?.name ?? null,
+  };
+
   return (
-    <FeaturePromptContext.Provider value={{ setPrompt: handlePromptSelect }}>
+    <FeaturePromptContext.Provider value={ctx}>
     <div className="flex h-screen flex-col bg-black">
       <Nav />
 
@@ -284,30 +298,13 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
                   )}
                   {errorMsg && <p className="text-xs text-red-400">{errorMsg}</p>}
                 </div>
+                <Conversation history={history} busy={state === "processing"} />
                 <div>{children}</div>
               </>
             )}
-
-            {/* Chat history */}
-            {history.length > 0 && (
-              <div className="mt-4 space-y-3">
-                {history.map((h, i) => (
-                  <div key={i} className={`flex ${h.role === "user" ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[80%] rounded-xl px-4 py-2.5 text-sm ${h.role === "user" ? "bg-gradient-to-r from-neon-blue/20 to-neon-purple/20 text-white/90" : "bg-white/5 text-white/84"}`}>
-                      {h.text}
-                    </div>
-                  </div>
-                ))}
-                {state === "processing" && (
-                  <div className="flex justify-start">
-                    <div className="flex items-center gap-2 rounded-xl bg-neon-blue/10 px-4 py-2.5 text-sm text-neon-blue">
-                      <div className="h-3 w-3 animate-spin rounded-full border border-neon-blue border-t-transparent" />
-                      Processing...
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Same conversation when no file is loaded, so replies are never
+                hidden below the action list. */}
+            {!file && <Conversation history={history} busy={state === "processing"} />}
           </div>
 
           {/* ALWAYS VISIBLE Prompt Input at bottom */}
@@ -333,7 +330,7 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
                 autoFocus
               />
               <button
-                onClick={handleProcess}
+                onClick={() => void handleProcess()}
                 disabled={!prompt.trim() || state === "processing"}
                 className="shrink-0 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple px-6 py-3.5 text-base font-semibold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               >

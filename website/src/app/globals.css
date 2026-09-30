@@ -54,19 +54,51 @@ body {
   border-radius: 0.5rem;
 }
 
-/* Sidebar scrollbar */
-.sidebar-scroll::-webkit-scrollbar {
-  width: 6px;
+/* Scrollbars — one treatment for every scrollable surface in the app.
+   Chrome/Edge use the WebKit pseudo-elements; Firefox uses scrollbar-width. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
 }
-.sidebar-scroll::-webkit-scrollbar-track {
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
   background: transparent;
 }
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.16);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 212, 255, 0.45);
+}
+::-webkit-scrollbar-thumb:active {
+  background-color: rgba(0, 212, 255, 0.7);
+}
+
+/* Sidebar rail: same language, slightly tighter. */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+.sidebar-scroll::-webkit-scrollbar {
+  width: 8px;
+}
 .sidebar-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.14);
-  border-radius: 6px;
+  background-color: rgba(255, 255, 255, 0.14);
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 .sidebar-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.26);
+  background-color: rgba(0, 212, 255, 0.4);
 }
 
 /* Panel eyebrow — the one uppercase role in the app, used for section labels. */

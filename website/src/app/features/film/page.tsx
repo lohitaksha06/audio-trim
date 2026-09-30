@@ -1,54 +1,40 @@
 "use client";
 
 import FeatureLayout from "../FeatureLayout";
-import { useFeaturePrompt } from "../FeaturePromptContext";
+import { ActionButton, Panel } from "../FeaturePanels";
 
 export default function FilmPage() {
-  const promptCtx = useFeaturePrompt();
   return (
-    <FeatureLayout title="Film & Video" subtitle="Clean dialogue, match room tone, separate stems for post-production">
-      <div className="space-y-5">
-        <div>
-          <h3 className="text-sm font-semibold text-white/78 uppercase tracking-wider mb-3">Audio Layers</h3>
-          <div className="space-y-2">
-            {[
-              { label: "Dialogue", level: 85, color: "bg-blue-400" },
-              { label: "Music", level: 60, color: "bg-purple-400" },
-              { label: "Sound Effects", level: 45, color: "bg-amber-400" },
-              { label: "Ambience", level: 30, color: "bg-green-400" },
-            ].map((layer) => (
-              <div key={layer.label} className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm text-white/90">{layer.label}</span>
-                  <span className="text-xs text-white/58">{layer.level}%</span>
-                </div>
-                <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
-                  <div className={`h-full rounded-full ${layer.color}`} style={{ width: `${layer.level}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+    <FeatureLayout title="Film & Video" subtitle="Clean dialogue and pull stems for post-production">
+      <div className="space-y-6">
+        <Panel title="Dialogue">
+          <ActionButton
+            label="Clean dialogue"
+            hint="Isolates speech, cuts hiss and rumble, lifts it over the scene"
+            prompt="Clean up the dialogue and remove background noise"
+            tone="accent"
+          />
+          <ActionButton
+            label="De-noise a noisy scene"
+            prompt="Remove all background noise, it is very noisy"
+            tone="accent"
+          />
+        </Panel>
 
-        <div>
-          <h3 className="text-sm font-semibold text-white/78 uppercase tracking-wider mb-3">Quick Actions</h3>
-          <div className="space-y-2">
-            {[
-              { label: "Clean dialogue", prompt: "Clean up the dialogue and remove background noise" },
-              { label: "Match room tone", prompt: "Match the room tone across all dialogue clips" },
-              { label: "Separate stems", prompt: "Separate dialogue, music, and sound effects into individual stems" },
-              { label: "ADR sync", prompt: "Sync the replacement dialogue to match lip movements" },
-            ].map((action) => (
-              <button
-                key={action.label}
-                onClick={() => promptCtx?.setPrompt(action.prompt)}
-                className="w-full text-left rounded-xl border border-white/5 bg-white/[0.02] p-3 text-sm text-white/84 hover:border-neon-blue/20 hover:text-neon-blue/80 hover:bg-neon-blue/5 transition-all"
-              >
-                {action.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <Panel title="Stems for post">
+          <ActionButton
+            label="Separate into stems"
+            hint="Vocals / drums / bass / other — download as a ZIP"
+            prompt="Separate into stems"
+          />
+          <ActionButton label="Keep only the speech" prompt="Keep only the vocals" />
+          <ActionButton label="Remove the music bed" prompt="Remove the bass and drums" />
+        </Panel>
+
+        <Panel title="Levels & timing">
+          <ActionButton label="Normalize scene loudness" prompt="Normalize the volume" />
+          <ActionButton label="Match levels in the mix" prompt="Make the drums louder and the vocals quieter" />
+        </Panel>
       </div>
     </FeatureLayout>
   );

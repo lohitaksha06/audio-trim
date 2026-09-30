@@ -1,55 +1,83 @@
 "use client";
 
 import FeatureLayout from "../FeatureLayout";
+import { ActionButton, Panel, Row } from "../FeaturePanels";
 import { useFeaturePrompt } from "../FeaturePromptContext";
 
-export default function MoodPage() {
-  const promptCtx = useFeaturePrompt();
+function RealMood() {
+  const ctx = useFeaturePrompt();
+  const mood = ctx?.understand?.mood;
+  if (!mood) return null;
   return (
-    <FeatureLayout title="Mood & Style" subtitle="Transform the feel, tone, and character of your audio">
-      <div className="space-y-5">
-        <div>
-          <h3 className="text-sm font-semibold text-white/78 uppercase tracking-wider mb-3">Mood Controls</h3>
-          <div className="space-y-3">
-            {[
-              { label: "Brightness", left: "Dark", right: "Bright" },
-              { label: "Energy", left: "Calm", right: "Intense" },
-              { label: "Warmth", left: "Cold", right: "Warm" },
-              { label: "Space", left: "Dry", right: "Reverb" },
-            ].map((control) => (
-              <div key={control.label}>
-                <div className="flex justify-between mb-1.5">
-                  <span className="text-xs text-white/68">{control.left}</span>
-                  <span className="text-xs text-white/84 font-medium">{control.label}</span>
-                  <span className="text-xs text-white/68">{control.right}</span>
-                </div>
-                <div className="h-2 rounded-full bg-white/10 relative">
-                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-4 w-4 rounded-full bg-gradient-to-r from-neon-blue to-neon-purple border-2 border-black cursor-pointer" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+    <Panel title="Measured mood">
+      <Row label="Overall" value={<span className="capitalize">{mood.mood}</span>} />
+      <Row label="Energy" value={mood.energy_mean.toFixed(2)} />
+      <Row label="Brightness" value={mood.brightness_mean.toFixed(2)} />
+      <Row label="Tension" value={mood.tension_mean.toFixed(2)} />
+      <p className="rounded-xl border border-white/12 bg-white/[0.02] p-4 text-sm text-white/68">
+        {mood.description}
+      </p>
+    </Panel>
+  );
+}
 
-        <div>
-          <h3 className="text-sm font-semibold text-white/78 uppercase tracking-wider mb-3">Quick Actions</h3>
-          <div className="space-y-2">
-            {[
-              { label: "Make darker", prompt: "Make this section sound darker and more moody" },
-              { label: "More energetic", prompt: "Make the chorus more energetic and powerful" },
-              { label: "Add reverb", prompt: "Add reverb to the vocals to make it sound like a cathedral" },
-              { label: "Add fade in/out", prompt: "Add a smooth fade in at the beginning and fade out at the end" },
-            ].map((action) => (
-              <button
-                key={action.label}
-                onClick={() => promptCtx?.setPrompt(action.prompt)}
-                className="w-full text-left rounded-xl border border-white/5 bg-white/[0.02] p-3 text-sm text-white/84 hover:border-neon-blue/20 hover:text-neon-blue/80 hover:bg-neon-blue/5 transition-all"
-              >
-                {action.label}
-              </button>
-            ))}
-          </div>
-        </div>
+function EnergyCurve() {
+  const ctx = useFeaturePrompt();
+  const curve = ctx?.understand?.energy_curve?.curve ?? [];
+  if (curve.length < 4) return null;
+  const max = Math.max(...curve.map((p) => p.energy), 0.0001);
+  return (
+    <Panel title="Energy over time">
+      <div className="flex h-24 items-end gap-px rounded-xl border border-white/12 bg-white/[0.02] p-3">
+        {curve.map((p, i) => (
+          <span
+            key={i}
+            title={`${p.t.toFixed(1)}s · energy ${p.energy.toFixed(2)}`}
+            className="flex-1 rounded-t bg-neon-blue/60"
+            style={{ height: `${Math.max(3, (p.energy / max) * 100)}%` }}
+          />
+        ))}
+      </div>
+      <p className="text-xs text-white/58">Measured from your audio — hover a bar for details.</p>
+    </Panel>
+  );
+}
+
+export default function MoodPage() {
+  return (
+    <FeatureLayout title="Mood & Style" subtitle="Transform the feel, tone and character of your audio">
+      <div className="space-y-6">
+        <RealMood />
+        <EnergyCurve />
+
+        <Panel title="Change the mood">
+          <ActionButton label="Make it darker" prompt="Make this sound darker" />
+          <ActionButton label="Make it brighter" prompt="Make it brighter" />
+          <ActionButton label="More energetic" prompt="Make this more energetic" />
+          <ActionButton label="Calm it down" prompt="Calm this down" />
+        </Panel>
+
+        <Panel title="Space & polish">
+          <ActionButton
+            label="Add reverb"
+            hint="Cathedral-style room sound"
+            prompt="Add reverb to make it sound like a cathedral"
+            tone="accent"
+          />
+          <ActionButton
+            label="Fade in and out"
+            prompt="Add a fade in at the beginning and fade out at the end"
+            tone="accent"
+          />
+          <ActionButton label="Normalize loudness" prompt="Normalize the volume" tone="accent" />
+        </Panel>
+
+        <Panel title="Style presets">
+          <ActionButton label="House style" prompt="Convert this song into a house music style" />
+          <ActionButton label="Techno style" prompt="Convert to techno style" />
+          <ActionButton label="Synthwave style" prompt="Convert to synthwave style" />
+          <ActionButton label="Lo-fi" prompt="Make it lofi" />
+        </Panel>
       </div>
     </FeatureLayout>
   );
