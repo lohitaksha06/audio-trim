@@ -59,10 +59,10 @@ export default function StemMixer({ audioPath, onResult, disabled }: StemMixerPr
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
       <div className="mb-1 flex items-center justify-between">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-white/50">Prioritize sounds</h4>
-        <span className="text-[10px] text-white/25">Demucs stems when possible, EQ-balance fallback</span>
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-white/78">Prioritize sounds</h4>
+        <span className="text-xs text-white/52">Demucs stems when possible, EQ-balance fallback</span>
       </div>
-      <p className="mb-3 text-[11px] leading-relaxed text-white/35">
+      <p className="mb-3 text-xs leading-relaxed text-white/62">
         Drums louder, vocals lower? Move the faders, then Apply. Each mix builds on your latest output.
       </p>
 
@@ -70,7 +70,7 @@ export default function StemMixer({ audioPath, onResult, disabled }: StemMixerPr
         {STEMS.map((s) => (
           <div key={s.id} className="rounded-xl border border-white/5 bg-black/30 p-3">
             <div className="text-xs font-medium text-white/80">{s.label}</div>
-            <div className="text-[10px] text-white/25">{s.hint}</div>
+            <div className="text-xs text-white/52">{s.hint}</div>
             <input
               type="range"
               min={-12}
@@ -80,7 +80,7 @@ export default function StemMixer({ audioPath, onResult, disabled }: StemMixerPr
               onChange={(e) => set(s.id, Number(e.target.value))}
               className="mt-2 w-full accent-neon-purple"
             />
-            <div className="mt-1 text-center font-mono text-xs text-white/70">
+            <div className="mt-1 text-center font-mono text-xs text-white/90">
               {gains[s.id] > 0 ? `+${gains[s.id]}` : gains[s.id]} dB
             </div>
           </div>
@@ -93,7 +93,7 @@ export default function StemMixer({ audioPath, onResult, disabled }: StemMixerPr
             key={p.name}
             type="button"
             onClick={() => setGains({ ...p.gains })}
-            className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/50 transition-colors hover:border-neon-purple/40 hover:text-neon-purple"
+            className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-white/78 transition-colors hover:border-neon-purple/40 hover:text-neon-purple"
           >
             {p.name}
           </button>

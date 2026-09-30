@@ -9,21 +9,21 @@ export default function FilmPage() {
     <FeatureLayout title="Film & Video" subtitle="Clean dialogue, match room tone, separate stems for post-production">
       <div className="space-y-5">
         <div>
-          <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-3">Audio Layers</h3>
+          <h3 className="text-sm font-semibold text-white/78 uppercase tracking-wider mb-3">Audio Layers</h3>
           <div className="space-y-2">
             {[
-              { label: "Dialogue", level: 85, color: "from-blue-500 to-blue-400" },
-              { label: "Music", level: 60, color: "from-purple-500 to-purple-400" },
-              { label: "Sound Effects", level: 45, color: "from-amber-500 to-amber-400" },
-              { label: "Ambience", level: 30, color: "from-green-500 to-green-400" },
+              { label: "Dialogue", level: 85, color: "bg-blue-400" },
+              { label: "Music", level: 60, color: "bg-purple-400" },
+              { label: "Sound Effects", level: 45, color: "bg-amber-400" },
+              { label: "Ambience", level: 30, color: "bg-green-400" },
             ].map((layer) => (
               <div key={layer.label} className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
                 <div className="flex justify-between mb-2">
-                  <span className="text-sm text-white/70">{layer.label}</span>
-                  <span className="text-xs text-white/30">{layer.level}%</span>
+                  <span className="text-sm text-white/90">{layer.label}</span>
+                  <span className="text-xs text-white/58">{layer.level}%</span>
                 </div>
                 <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
-                  <div className={`h-full rounded-full bg-gradient-to-r ${layer.color}`} style={{ width: `${layer.level}%` }} />
+                  <div className={`h-full rounded-full ${layer.color}`} style={{ width: `${layer.level}%` }} />
                 </div>
               </div>
             ))}
@@ -31,7 +31,7 @@ export default function FilmPage() {
         </div>
 
         <div>
-          <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-3">Quick Actions</h3>
+          <h3 className="text-sm font-semibold text-white/78 uppercase tracking-wider mb-3">Quick Actions</h3>
           <div className="space-y-2">
             {[
               { label: "Clean dialogue", prompt: "Clean up the dialogue and remove background noise" },
@@ -42,7 +42,7 @@ export default function FilmPage() {
               <button
                 key={action.label}
                 onClick={() => promptCtx?.setPrompt(action.prompt)}
-                className="w-full text-left rounded-xl border border-white/5 bg-white/[0.02] p-3 text-sm text-white/60 hover:border-neon-blue/20 hover:text-neon-blue/80 hover:bg-neon-blue/5 transition-all"
+                className="w-full text-left rounded-xl border border-white/5 bg-white/[0.02] p-3 text-sm text-white/84 hover:border-neon-blue/20 hover:text-neon-blue/80 hover:bg-neon-blue/5 transition-all"
               >
                 {action.label}
               </button>

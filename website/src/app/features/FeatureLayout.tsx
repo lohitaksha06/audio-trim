@@ -178,7 +178,7 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
     <div className="flex h-screen flex-col bg-black">
       <Nav />
 
-      <div className="flex flex-1 mt-14 sm:mt-16 overflow-hidden">
+      <div className="flex flex-1 mt-[var(--nav-h)] overflow-hidden">
         <Sidebar onPromptSelect={handlePromptSelect} />
 
         <main className="flex-1 flex flex-col overflow-hidden min-w-0">
@@ -186,20 +186,20 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
           <div className="shrink-0 border-b border-white/5 px-4 sm:px-6 py-3 flex items-center justify-between">
             <div>
               <h1 className="text-lg sm:text-xl font-bold text-white">{title}</h1>
-              <p className="text-xs text-white/40">{subtitle}</p>
+              <p className="text-xs text-white/68">{subtitle}</p>
             </div>
             {file && (
               <div className="flex gap-2">
-                <button onClick={newChat} title="Clear conversation, keep this file" className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/40 hover:border-white/20 hover:text-white/70 transition-colors">
+                <button onClick={newChat} title="Clear conversation, keep this file" className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/68 hover:border-white/20 hover:text-white/90 transition-colors">
                   New chat
                 </button>
-                <button onClick={reset} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/40 hover:border-white/20 hover:text-white/70 transition-colors">
+                <button onClick={reset} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/68 hover:border-white/20 hover:text-white/90 transition-colors">
                   New file
                 </button>
               </div>
             )}
             {edits > 0 && lastResult?.download_key && (
-              <div className="shrink-0 text-[11px] text-neon-blue/70 px-1">
+              <div className="shrink-0 text-xs text-neon-blue/70 px-1">
                 Layering on output {edits}
                 {!fromOriginal ? (
                   <button onClick={() => setFromOriginal(true)} className="underline ml-1">from original instead</button>
@@ -222,7 +222,7 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="truncate text-sm font-medium text-white">{file.name}</p>
-                  <p className="text-xs text-white/40">
+                  <p className="text-xs text-white/68">
                     {uploadResult?.is_video ? "Video" : "Audio"} · {formatSize(file.size)}
                     {analysis && <> · {formatDuration(analysis.duration_seconds)} · {analysis.bpm?.toFixed(0)} BPM</>}
                   </p>
@@ -246,9 +246,9 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
                 {/* Analysis panel (shared) */}
                 <div className="mb-4 grid gap-3">
                   <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 grid grid-cols-3 gap-2">
-                    <div className="rounded-lg border border-white/5 bg-black/40 p-2 text-center"><div className="text-[10px] text-white/30">Duration</div><div className="text-sm text-white">{analysis ? formatDuration(analysis.duration_seconds) : "—"}</div></div>
-                    <div className="rounded-lg border border-white/5 bg-black/40 p-2 text-center"><div className="text-[10px] text-white/30">BPM</div><div className="text-sm text-white">{analysis?.bpm?.toFixed(0) ?? "—"}</div></div>
-                    <div className="rounded-lg border border-white/5 bg-black/40 p-2 text-center"><div className="text-[10px] text-white/30">Key</div><div className="text-sm text-white">{analysis?.key ?? "—"}</div></div>
+                    <div className="rounded-lg border border-white/5 bg-black/40 p-2 text-center"><div className="text-xs text-white/58">Duration</div><div className="text-sm text-white">{analysis ? formatDuration(analysis.duration_seconds) : "—"}</div></div>
+                    <div className="rounded-lg border border-white/5 bg-black/40 p-2 text-center"><div className="text-xs text-white/58">BPM</div><div className="text-sm text-white">{analysis?.bpm?.toFixed(0) ?? "—"}</div></div>
+                    <div className="rounded-lg border border-white/5 bg-black/40 p-2 text-center"><div className="text-xs text-white/58">Key</div><div className="text-sm text-white">{analysis?.key ?? "—"}</div></div>
                   </div>
                   {!understand ? (
                     <button onClick={handleAnalyze} disabled={analyzing} className="w-full rounded-xl bg-neon-blue/15 px-4 py-2.5 text-sm font-medium text-neon-blue hover:bg-neon-blue/25 transition-colors disabled:opacity-50">
@@ -256,9 +256,9 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
                     </button>
                   ) : (
                     <div className="grid gap-2">
-                      {inst && <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3"><div className="text-[11px] text-white/40 uppercase tracking-wider mb-1">Instruments</div><div className="flex flex-wrap gap-1.5">{inst.instruments.map((el) => <span key={el.instrument} className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-white/50">{el.instrument} · {(el.confidence*100).toFixed(0)}%</span>)}</div></div>}
-                      {understand?.genre && <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3"><div className="text-[11px] text-white/40 uppercase tracking-wider mb-1">Genre / Style</div><div className="text-xs text-white/60">{understand.genre.genre} · {(understand.genre.confidence*100).toFixed(0)}%{understand?.rhythm ? ` · ${understand.rhythm.auto_groove.replace(/_/g, " ")} · ${Math.round(understand.rhythm.tempo_bpm)} BPM` : ""}</div></div>}
-                      {sections.length>0 && <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3"><div className="text-[11px] text-white/40 uppercase tracking-wider mb-1">Structure</div>{sections.map((s,i)=><div key={i} className="flex justify-between text-xs"><span className="text-white/60 capitalize">{s.label}</span><span className="text-white/30">{formatDuration(s.start)}–{formatDuration(s.end)}</span></div>)}</div>}
+                      {inst && <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3"><div className="text-xs text-white/68 uppercase tracking-wider mb-1">Instruments</div><div className="flex flex-wrap gap-1.5">{inst.instruments.map((el) => <span key={el.instrument} className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-white/78">{el.instrument} · {(el.confidence*100).toFixed(0)}%</span>)}</div></div>}
+                      {understand?.genre && <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3"><div className="text-xs text-white/68 uppercase tracking-wider mb-1">Genre / Style</div><div className="text-xs text-white/84">{understand.genre.genre} · {(understand.genre.confidence*100).toFixed(0)}%{understand?.rhythm ? ` · ${understand.rhythm.auto_groove.replace(/_/g, " ")} · ${Math.round(understand.rhythm.tempo_bpm)} BPM` : ""}</div></div>}
+                      {sections.length>0 && <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3"><div className="text-xs text-white/68 uppercase tracking-wider mb-1">Structure</div>{sections.map((s,i)=><div key={i} className="flex justify-between text-xs"><span className="text-white/84 capitalize">{s.label}</span><span className="text-white/58">{formatDuration(s.start)}–{formatDuration(s.end)}</span></div>)}</div>}
                     </div>
                   )}
                   {hasResult && lastResult?.download_key && (
@@ -286,7 +286,7 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
               <div className="mt-4 space-y-3">
                 {history.map((h, i) => (
                   <div key={i} className={`flex ${h.role === "user" ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[80%] rounded-xl px-4 py-2.5 text-sm ${h.role === "user" ? "bg-gradient-to-r from-neon-blue/20 to-neon-purple/20 text-white/90" : "bg-white/5 text-white/60"}`}>
+                    <div className={`max-w-[80%] rounded-xl px-4 py-2.5 text-sm ${h.role === "user" ? "bg-gradient-to-r from-neon-blue/20 to-neon-purple/20 text-white/90" : "bg-white/5 text-white/84"}`}>
                       {h.text}
                     </div>
                   </div>
@@ -304,14 +304,17 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
           </div>
 
           {/* ALWAYS VISIBLE Prompt Input at bottom */}
-          <div className="shrink-0 border-t border-white/5 p-3 sm:p-4 bg-black/80 backdrop-blur-sm">
-            <div className="flex gap-3">
+          <div className="shrink-0 border-t border-white/10 bg-black/90 p-3 sm:p-4 backdrop-blur-sm">
+            <p className="mb-2 text-xs text-white/58">
+              {file ? "Press Enter to send" : "Upload a file first, then describe what you want"}
+            </p>
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-3">
               <input
                 type="text"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder="Describe what you want to do..."
-                className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 text-sm sm:text-base text-white placeholder-white/20 outline-none transition-all focus:border-neon-blue/50 focus:ring-2 focus:ring-neon-blue/20 focus:bg-white/[0.04]"
+                className="w-full flex-1 rounded-xl border border-white/15 bg-white/[0.06] px-4 py-3.5 text-base text-white placeholder-white/48 outline-none transition-colors focus:border-neon-blue/60"
                 disabled={state === "processing"}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleProcess(); } }}
                 autoFocus
@@ -319,14 +322,11 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
               <button
                 onClick={handleProcess}
                 disabled={!prompt.trim() || state === "processing"}
-                className="shrink-0 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple px-6 py-3.5 text-sm sm:text-base font-semibold text-black transition-all duration-300 hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
+                className="shrink-0 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple px-6 py-3.5 text-base font-semibold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {state === "processing" ? "..." : "Process"}
               </button>
             </div>
-            <p className="mt-2 text-[11px] text-white/20">
-              {file ? "Press Enter to send" : "Upload a file first, then describe what you want"}
-            </p>
           </div>
         </main>
       </div>

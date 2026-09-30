@@ -13,7 +13,7 @@ interface OptimizePanelProps {
 const SEV_STYLE: Record<string, string> = {
   high: "border-red-400/20 bg-red-500/[0.06] text-red-300",
   medium: "border-amber-400/20 bg-amber-500/[0.06] text-amber-300",
-  low: "border-white/10 bg-white/[0.03] text-white/60",
+  low: "border-white/10 bg-white/[0.03] text-white/84",
   good: "border-green-400/20 bg-green-500/[0.06] text-green-300",
 };
 
@@ -37,14 +37,14 @@ export default function OptimizePanel({ audioPath, onApplyPrompt }: OptimizePane
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
       <div className="mb-1 flex items-center justify-between">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-white/50">Optimize my song</h4>
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-white/78">Optimize my song</h4>
         {report && (
-          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 font-mono text-[11px] text-white/60">
+          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 font-mono text-xs text-white/84">
             score {report.score}/100
           </span>
         )}
       </div>
-      <p className="mb-3 text-[11px] leading-relaxed text-white/35">
+      <p className="mb-3 text-xs leading-relaxed text-white/62">
         Mix Doctor measures loudness, clipping, dynamics and spectral balance, then tells you exactly
         what to fix — tap Apply on any tip to run its one-click prompt.
       </p>
@@ -67,20 +67,20 @@ export default function OptimizePanel({ audioPath, onApplyPrompt }: OptimizePane
               [`Crest ${report.summary.crest_db}dB`, "dyn"],
               [`Dyn ${report.summary.dynamics_db}dB`, "range"],
             ].map(([v, k]) => (
-              <div key={k} className="rounded-lg bg-black/30 px-1 py-1.5 font-mono text-[10px] text-white/50">{v}</div>
+              <div key={k} className="rounded-lg bg-black/30 px-1 py-1.5 font-mono text-xs text-white/78">{v}</div>
             ))}
           </div>
           {report.tips.map((t, i) => (
             <div key={i} className={`rounded-xl border p-3 ${SEV_STYLE[t.severity] ?? SEV_STYLE.low}`}>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-semibold">{t.title}</span>
-                <span className="shrink-0 rounded-full bg-black/30 px-2 py-0.5 text-[10px] uppercase tracking-wider opacity-70">{t.severity}</span>
+                <span className="shrink-0 rounded-full bg-black/30 px-2 py-0.5 text-xs uppercase tracking-wider opacity-70">{t.severity}</span>
               </div>
-              <p className="mt-1 text-[11px] leading-relaxed opacity-80">{t.detail}</p>
+              <p className="mt-1 text-xs leading-relaxed opacity-80">{t.detail}</p>
               <button
                 type="button"
                 onClick={() => onApplyPrompt(t.fix_prompt)}
-                className="mt-2 w-full rounded-lg bg-black/30 px-2 py-1.5 text-left text-[11px] hover:bg-black/50 transition-colors"
+                className="mt-2 w-full rounded-lg bg-black/30 px-2 py-1.5 text-left text-xs hover:bg-black/50 transition-colors"
               >
                 Apply: <span className="underline">“{t.fix_prompt}”</span>
               </button>
@@ -90,7 +90,7 @@ export default function OptimizePanel({ audioPath, onApplyPrompt }: OptimizePane
             type="button"
             onClick={run}
             disabled={busy}
-            className="w-full rounded-lg border border-white/10 px-3 py-1.5 text-[11px] text-white/40 transition-colors hover:border-white/20 disabled:opacity-40"
+            className="w-full rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/68 transition-colors hover:border-white/20 disabled:opacity-40"
           >
             {busy ? "Listening…" : "Re-check after my fix"}
           </button>

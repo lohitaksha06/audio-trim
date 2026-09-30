@@ -11,7 +11,7 @@ export default function FeatureCard({ title, description, icon }: FeatureCardPro
         {icon}
       </div>
       <h3 className="mb-2 text-lg sm:text-xl font-semibold text-white">{title}</h3>
-      <p className="text-sm sm:text-base leading-relaxed text-white/60">{description}</p>
+      <p className="text-sm sm:text-base leading-relaxed text-white/84">{description}</p>
     </div>
   );
 }

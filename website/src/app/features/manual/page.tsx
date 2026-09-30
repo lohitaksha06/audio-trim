@@ -103,16 +103,16 @@ export default function ManualPage() {
   return (
     <div className="flex h-screen flex-col bg-black">
       <Nav />
-      <div className="flex flex-1 mt-14 sm:mt-16 overflow-hidden">
+      <div className="flex flex-1 mt-[var(--nav-h)] overflow-hidden">
         <Sidebar onPromptSelect={() => {}} />
         <main className="flex-1 flex flex-col overflow-hidden min-w-0">
           <div className="shrink-0 border-b border-white/5 px-4 sm:px-6 py-3 flex items-center justify-between">
             <div>
               <h1 className="text-lg sm:text-xl font-bold text-white">Manual Editor</h1>
-              <p className="text-xs text-white/40">Hands-on waveform editing — select, trim, fade, gain, speed. Each edit builds on the last.</p>
+              <p className="text-xs text-white/68">Hands-on waveform editing — select, trim, fade, gain, speed. Each edit builds on the last.</p>
             </div>
             {ready && (
-              <button onClick={reset} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/40 hover:border-white/20 hover:text-white/70 transition-colors">
+              <button onClick={reset} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/68 hover:border-white/20 hover:text-white/90 transition-colors">
                 New file
               </button>
             )}
@@ -128,11 +128,11 @@ export default function ManualPage() {
                       className="w-full rounded-2xl border border-neon-blue/20 bg-neon-blue/[0.05] p-4 text-left hover:bg-neon-blue/10 transition-colors"
                     >
                       <span className="block text-sm font-medium text-neon-blue">Continue where you left off</span>
-                      <span className="block truncate text-xs text-white/40">{resumable.filename}</span>
+                      <span className="block truncate text-xs text-white/68">{resumable.filename}</span>
                     </button>
                   )}
                   <FileUpload onFileSelected={handleFileSelected} onInvalid={setErrorMsg} />
-                  <p className="text-center text-xs text-white/20">…or describe it in words in Prompt Mode — same engine underneath.</p>
+                  <p className="text-center text-xs text-white/48">…or describe it in words in Prompt Mode — same engine underneath.</p>
                   {uploading && <p className="text-center text-xs text-neon-blue animate-pulse">Uploading…</p>}
                   {errorMsg && <p className="text-center text-xs text-red-400">{errorMsg}</p>}
                 </div>
@@ -144,7 +144,7 @@ export default function ManualPage() {
                     <p className="truncate text-sm font-medium text-white">
                       {file?.name ?? resumable?.filename ?? "Audio"}
                     </p>
-                    <p className="text-xs text-white/40">
+                    <p className="text-xs text-white/68">
                       {edits === 0 ? "Original" : `Layering on output ${edits} — each edit builds on the last`}
                     </p>
                   </div>
@@ -164,17 +164,17 @@ export default function ManualPage() {
 
                 {lastResult?.download_key && (
                   <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3">
-                    <p className="mb-2 text-[10px] uppercase tracking-wider text-white/30">Latest output</p>
+                    <p className="mb-2 text-xs uppercase tracking-wider text-white/58">Latest output</p>
                     <AudioPreview src={downloadUrl(lastResult.download_key)} height={48} />
                   </div>
                 )}
 
                 {history.length > 0 && (
                   <div className="rounded-2xl border border-white/5 bg-white/[0.01] p-3">
-                    <p className="mb-1.5 text-[10px] uppercase tracking-wider text-white/30">Edit history</p>
+                    <p className="mb-1.5 text-xs uppercase tracking-wider text-white/58">Edit history</p>
                     <ul className="space-y-1">
                       {history.map((h, i) => (
-                        <li key={i} className="text-xs text-white/50">✓ {h}</li>
+                        <li key={i} className="text-xs text-white/78">✓ {h}</li>
                       ))}
                     </ul>
                   </div>

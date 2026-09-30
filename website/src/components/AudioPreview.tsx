@@ -86,7 +86,7 @@ export default function AudioPreview({ src, curve, height = 64 }: AudioPreviewPr
       <button
         type="button"
         onClick={toggle}
-        className="mt-2 inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/50 hover:border-white/20 hover:text-white/80 transition-colors"
+        className="mt-2 inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/78 hover:border-white/20 hover:text-white/80 transition-colors"
       >
         <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
           {playing ? (

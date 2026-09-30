@@ -254,7 +254,7 @@ export default function ManualEditor({ src, audioPath, onResult }: ManualEditorP
       <audio ref={audioRef} src={src} preload="metadata" className="hidden" />
 
       <div className="rounded-2xl border border-white/10 bg-black/40 p-3">
-        <div className="mb-2 flex items-center justify-between text-[11px] text-white/40">
+        <div className="mb-2 flex items-center justify-between text-xs text-white/68">
           <span>{loadingWave ? "Drawing waveform…" : "Drag on the waveform to select · drag the blue handles to trim · click to seek"}</span>
           <span className="font-mono">{fmt(current)} / {fmt(duration)}</span>
         </div>
@@ -270,25 +270,25 @@ export default function ManualEditor({ src, audioPath, onResult }: ManualEditorP
           <button type="button" onClick={toggle} className="rounded-lg bg-neon-blue/15 px-3 py-1.5 text-xs text-neon-blue hover:bg-neon-blue/25 transition-colors">
             {playing ? "Pause" : "Play"}
           </button>
-          <button type="button" onClick={playSelection} disabled={!hasSel} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/50 hover:border-white/20 transition-colors disabled:opacity-40">
+          <button type="button" onClick={playSelection} disabled={!hasSel} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/78 hover:border-white/20 transition-colors disabled:opacity-40">
             Play selection
           </button>
-          <button type="button" onClick={() => { if (audioRef.current) { const t = audioRef.current.currentTime; setStart(Math.min(t, end || duration)); } }} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/50 hover:border-white/20 transition-colors">
+          <button type="button" onClick={() => { if (audioRef.current) { const t = audioRef.current.currentTime; setStart(Math.min(t, end || duration)); } }} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/78 hover:border-white/20 transition-colors">
             Set Start {fmt(start)}
           </button>
-          <button type="button" onClick={() => { if (audioRef.current) { const t = audioRef.current.currentTime; setEnd(Math.max(t, start)); } }} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/50 hover:border-white/20 transition-colors">
+          <button type="button" onClick={() => { if (audioRef.current) { const t = audioRef.current.currentTime; setEnd(Math.max(t, start)); } }} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/78 hover:border-white/20 transition-colors">
             Set End {fmt(end)}
           </button>
-          <button type="button" onClick={() => { setStart(0); setEnd(duration); }} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/30 hover:text-white/60 transition-colors">
+          <button type="button" onClick={() => { setStart(0); setEnd(duration); }} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/58 hover:text-white/84 transition-colors">
             Select all
           </button>
-          {hasSel && <span className="text-[11px] text-neon-blue/70">Selected {selLen.toFixed(1)}s</span>}
+          {hasSel && <span className="text-xs text-neon-blue/70">Selected {selLen.toFixed(1)}s</span>}
         </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3">
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/50">Region</h4>
+          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/78">Region</h4>
           <div className="flex flex-col gap-2">
             <button type="button" onClick={() => runOp("Keep selection", `trim from ${start.toFixed(2)} to ${end.toFixed(2)}`)} disabled={!hasSel || !!busy} className="rounded-lg bg-gradient-to-r from-neon-blue to-neon-purple px-3 py-2 text-xs font-semibold text-black hover:scale-[1.01] transition-transform disabled:opacity-40">
               {busy === "Keep selection" ? "Working…" : "Keep selection (trim)"}
@@ -300,16 +300,16 @@ export default function ManualEditor({ src, audioPath, onResult }: ManualEditorP
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3">
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/50">Fades</h4>
-          <label className="mb-2 flex items-center gap-2 text-xs text-white/50">
+          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/78">Fades</h4>
+          <label className="mb-2 flex items-center gap-2 text-xs text-white/78">
             <span className="w-14">Fade in</span>
             <input type="range" min={0} max={10} step={0.5} value={fadeIn} onChange={(e) => setFadeIn(Number(e.target.value))} className="flex-1 accent-neon-blue" />
-            <span className="w-10 text-right font-mono text-white/70">{fadeIn.toFixed(1)}s</span>
+            <span className="w-10 text-right font-mono text-white/90">{fadeIn.toFixed(1)}s</span>
           </label>
-          <label className="mb-2 flex items-center gap-2 text-xs text-white/50">
+          <label className="mb-2 flex items-center gap-2 text-xs text-white/78">
             <span className="w-14">Fade out</span>
             <input type="range" min={0} max={10} step={0.5} value={fadeOut} onChange={(e) => setFadeOut(Number(e.target.value))} className="flex-1 accent-neon-blue" />
-            <span className="w-10 text-right font-mono text-white/70">{fadeOut.toFixed(1)}s</span>
+            <span className="w-10 text-right font-mono text-white/90">{fadeOut.toFixed(1)}s</span>
           </label>
           <button type="button" onClick={() => runOp("Fades", `fade in ${fadeIn.toFixed(1)}s and fade out ${fadeOut.toFixed(1)}s`)} disabled={(fadeIn <= 0 && fadeOut <= 0) || !!busy} className="w-full rounded-lg bg-neon-blue/15 px-3 py-2 text-xs font-medium text-neon-blue hover:bg-neon-blue/25 transition-colors disabled:opacity-40">
             {busy === "Fades" ? "Working…" : "Apply fades"}
@@ -317,28 +317,28 @@ export default function ManualEditor({ src, audioPath, onResult }: ManualEditorP
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3">
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/50">Volume</h4>
-          <label className="mb-2 flex items-center gap-2 text-xs text-white/50">
+          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/78">Volume</h4>
+          <label className="mb-2 flex items-center gap-2 text-xs text-white/78">
             <span className="w-14">Gain</span>
             <input type="range" min={-12} max={12} step={0.5} value={gainDb} onChange={(e) => setGainDb(Number(e.target.value))} className="flex-1 accent-neon-purple" />
-            <span className="w-14 text-right font-mono text-white/70">{gainDb > 0 ? `+${gainDb.toFixed(1)}` : gainDb.toFixed(1)} dB</span>
+            <span className="w-14 text-right font-mono text-white/90">{gainDb > 0 ? `+${gainDb.toFixed(1)}` : gainDb.toFixed(1)} dB</span>
           </label>
           <div className="flex gap-2">
             <button type="button" onClick={() => runOp("Gain", `set gain to ${gainDb >= 0 ? "+" : ""}${gainDb.toFixed(1)}dB`)} disabled={gainDb === 0 || !!busy} className="flex-1 rounded-lg bg-neon-purple/15 px-3 py-2 text-xs font-medium text-neon-purple hover:bg-neon-purple/25 transition-colors disabled:opacity-40">
               {busy === "Gain" ? "Working…" : "Apply gain"}
             </button>
-            <button type="button" onClick={() => runOp("Normalize", "normalize the volume")} disabled={!!busy} className="flex-1 rounded-lg border border-white/10 px-3 py-2 text-xs text-white/50 hover:border-white/20 transition-colors disabled:opacity-40">
+            <button type="button" onClick={() => runOp("Normalize", "normalize the volume")} disabled={!!busy} className="flex-1 rounded-lg border border-white/10 px-3 py-2 text-xs text-white/78 hover:border-white/20 transition-colors disabled:opacity-40">
               {busy === "Normalize" ? "Working…" : "Normalize"}
             </button>
           </div>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3">
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/50">Speed</h4>
-          <label className="mb-2 flex items-center gap-2 text-xs text-white/50">
+          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/78">Speed</h4>
+          <label className="mb-2 flex items-center gap-2 text-xs text-white/78">
             <span className="w-14">Rate</span>
             <input type="range" min={0.5} max={2} step={0.05} value={speed} onChange={(e) => setSpeed(Number(e.target.value))} className="flex-1 accent-neon-blue" />
-            <span className="w-14 text-right font-mono text-white/70">{speed.toFixed(2)}x</span>
+            <span className="w-14 text-right font-mono text-white/90">{speed.toFixed(2)}x</span>
           </label>
           <button
             type="button"

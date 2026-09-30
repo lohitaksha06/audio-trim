@@ -61,7 +61,7 @@ export default function FileUpload({ onFileSelected, onInvalid }: FileUploadProp
       <div className="flex flex-col items-center">
         <div className="mb-5 flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full bg-white/5 group-hover:bg-white/10 transition-colors">
           <svg
-            className="h-8 w-8 sm:h-10 sm:w-10 text-white/40"
+            className="h-8 w-8 sm:h-10 sm:w-10 text-white/68"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -74,13 +74,13 @@ export default function FileUpload({ onFileSelected, onInvalid }: FileUploadProp
             />
           </svg>
         </div>
-        <p className="mb-1.5 text-lg sm:text-xl font-medium text-white/70">
+        <p className="mb-1.5 text-lg sm:text-xl font-medium text-white/90">
           Drop your audio or video file here
         </p>
-        <p className="mb-5 text-sm sm:text-base text-white/30">
+        <p className="mb-5 text-sm sm:text-base text-white/58">
           or click to browse
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-2 text-xs sm:text-sm text-white/20">
+        <div className="flex flex-wrap items-center justify-center gap-2 text-xs sm:text-sm text-white/48">
           {["MP3", "WAV", "FLAC", "M4A", "MP4", "MOV", "AVI", "MKV"].map((fmt) => (
             <span key={fmt} className="rounded-md border border-white/10 px-2.5 py-1">
               {fmt}

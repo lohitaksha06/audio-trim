@@ -3,6 +3,23 @@
 :root {
   --background: #000000;
   --foreground: #ededed;
+
+  /* Ink scale — every value clears 4.5:1 on black except --ink-faint,
+     which is reserved for non-essential decoration (scrollbars, dividers). */
+  --ink-strong: 1; /* headings, primary controls        */
+  --ink: 0.86; /* body copy                            */
+  --ink-muted: 0.66; /* supporting copy, hints            */
+  --ink-label: 0.58; /* uppercase section eyebrows         */
+  --ink-faint: 0.42; /* decorative marks only              */
+
+  /* Nav height: one row on lg, two rows (links + feature chips) below it. */
+  --nav-h: 109px;
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --nav-h: 64px;
+  }
 }
 
 @theme inline {
@@ -15,31 +32,51 @@
   --color-neon-purple-light: #c084fc;
 }
 
+/* Fixed 16px root. Viewport-scaling the root made rem sizes drift by 20%
+   across breakpoints, so `text-xs` and `text-[10px]` had no stable ratio. */
 html {
-  font-size: clamp(16px, 1vw, 20px);
+  font-size: 16px;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   font-size: 1rem;
   line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* One visible focus treatment across the whole app. */
+:where(a, button, input, select, textarea, [role="switch"]):focus-visible {
+  outline: 2px solid var(--color-neon-blue);
+  outline-offset: 2px;
+  border-radius: 0.5rem;
 }
 
 /* Sidebar scrollbar */
 .sidebar-scroll::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
 }
 .sidebar-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
 .sidebar-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
 }
 .sidebar-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.26);
+}
+
+/* Panel eyebrow — the one uppercase role in the app, used for section labels. */
+.eyebrow {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-label);
 }
 
 @keyframes fade-in-up {
@@ -51,6 +88,15 @@ body {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@keyframes nudge {
+  0%, 100% { transform: translateY(0); opacity: 0.55; }
+  50% { transform: translateY(4px); opacity: 1; }
+}
+
+.animate-nudge {
+  animation: nudge 2.2s cubic-bezier(0.33, 1, 0.68, 1) infinite;
 }
 
 @keyframes pulse-glow {

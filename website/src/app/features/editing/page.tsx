@@ -11,29 +11,29 @@ export default function EditingPage() {
     <FeatureLayout title="Smart Editing" subtitle="Trim, cut, and rearrange sections with natural language">
       <div className="space-y-5">
         <div>
-          <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-3">Structure</h3>
+          <h3 className="text-sm font-semibold text-white/78 uppercase tracking-wider mb-3">Structure</h3>
           <div className="space-y-1.5">
             {[
-              { label: "Intro", time: "0:00", color: "from-blue-500/20 to-blue-500/5" },
-              { label: "Verse 1", time: "0:32", color: "from-purple-500/20 to-purple-500/5" },
-              { label: "Chorus", time: "1:15", color: "from-neon-blue/20 to-neon-blue/5" },
-              { label: "Verse 2", time: "1:50", color: "from-purple-500/20 to-purple-500/5" },
-              { label: "Chorus", time: "2:35", color: "from-neon-blue/20 to-neon-blue/5" },
-              { label: "Bridge", time: "3:10", color: "from-amber-500/20 to-amber-500/5" },
-              { label: "Outro", time: "3:45", color: "from-green-500/20 to-green-500/5" },
+              { label: "Intro", time: "0:00", color: "bg-blue-500/10" },
+              { label: "Verse 1", time: "0:32", color: "bg-purple-500/10" },
+              { label: "Chorus", time: "1:15", color: "bg-neon-blue/10" },
+              { label: "Verse 2", time: "1:50", color: "bg-purple-500/10" },
+              { label: "Chorus", time: "2:35", color: "bg-neon-blue/10" },
+              { label: "Bridge", time: "3:10", color: "bg-amber-500/10" },
+              { label: "Outro", time: "3:45", color: "bg-green-500/10" },
             ].map((section, i) => (
-              <div key={i} className={`flex items-center justify-between rounded-lg bg-gradient-to-r ${section.color} border border-white/5 px-3 py-2`}>
-                <span className="text-sm text-white/70">{section.label}</span>
-                <span className="text-xs text-white/30 font-mono">{section.time}</span>
+              <div key={i} className={`flex items-center justify-between rounded-lg ${section.color} border border-white/10 px-3.5 py-2.5`}>
+                <span className="text-sm text-white/90">{section.label}</span>
+                <span className="text-xs text-white/58 font-mono">{section.time}</span>
               </div>
             ))}
           </div>
         </div>
 
         <div>
-          <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-3">Tempo / BPM</h3>
+          <h3 className="text-sm font-semibold text-white/78 uppercase tracking-wider mb-3">Tempo / BPM</h3>
           <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 space-y-2">
-            <p className="text-xs text-white/40">Time-stretch to an exact tempo. If you ask to change tempo without a BPM, the AI will ask you which BPM you want.</p>
+            <p className="text-xs text-white/68">Time-stretch to an exact tempo. If you ask to change tempo without a BPM, the AI will ask you which BPM you want.</p>
             <div className="flex gap-2">
               <input
                 type="number"
@@ -54,13 +54,13 @@ export default function EditingPage() {
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => promptCtx?.setPrompt(`Speed up to ${bpm || 128} BPM`)}
-                className="rounded-lg border border-white/5 bg-white/[0.02] p-2 text-xs text-white/60 hover:border-neon-blue/20 hover:text-neon-blue/80 transition-all"
+                className="rounded-lg border border-white/5 bg-white/[0.02] p-2 text-xs text-white/84 hover:border-neon-blue/20 hover:text-neon-blue/80 transition-all"
               >
                 Speed up to {bpm || 128} BPM
               </button>
               <button
                 onClick={() => promptCtx?.setPrompt(`Slow down to ${bpm || 128} BPM`)}
-                className="rounded-lg border border-white/5 bg-white/[0.02] p-2 text-xs text-white/60 hover:border-neon-blue/20 hover:text-neon-blue/80 transition-all"
+                className="rounded-lg border border-white/5 bg-white/[0.02] p-2 text-xs text-white/84 hover:border-neon-blue/20 hover:text-neon-blue/80 transition-all"
               >
                 Slow down to {bpm || 128} BPM
               </button>
@@ -69,7 +69,7 @@ export default function EditingPage() {
         </div>
 
         <div>
-          <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-3">Genre / Style</h3>
+          <h3 className="text-sm font-semibold text-white/78 uppercase tracking-wider mb-3">Genre / Style</h3>
           <div className="space-y-2">
             {[
               { label: "What genre is this?", prompt: "What genre is this?" },
@@ -79,7 +79,7 @@ export default function EditingPage() {
               <button
                 key={action.label}
                 onClick={() => promptCtx?.setPrompt(action.prompt)}
-                className="w-full text-left rounded-xl border border-white/5 bg-white/[0.02] p-3 text-sm text-white/60 hover:border-neon-blue/20 hover:text-neon-blue/80 hover:bg-neon-blue/5 transition-all"
+                className="w-full text-left rounded-xl border border-white/5 bg-white/[0.02] p-3 text-sm text-white/84 hover:border-neon-blue/20 hover:text-neon-blue/80 hover:bg-neon-blue/5 transition-all"
               >
                 {action.label}
               </button>
@@ -88,7 +88,7 @@ export default function EditingPage() {
         </div>
 
         <div>
-          <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-3">Quick Actions</h3>
+          <h3 className="text-sm font-semibold text-white/78 uppercase tracking-wider mb-3">Quick Actions</h3>
           <div className="space-y-2">
             {[
               { label: "Trim section", prompt: "Trim the track from 1:00 to 2:30" },
@@ -99,7 +99,7 @@ export default function EditingPage() {
               <button
                 key={action.label}
                 onClick={() => promptCtx?.setPrompt(action.prompt)}
-                className="w-full text-left rounded-xl border border-white/5 bg-white/[0.02] p-3 text-sm text-white/60 hover:border-neon-blue/20 hover:text-neon-blue/80 hover:bg-neon-blue/5 transition-all"
+                className="w-full text-left rounded-xl border border-white/5 bg-white/[0.02] p-3 text-sm text-white/84 hover:border-neon-blue/20 hover:text-neon-blue/80 hover:bg-neon-blue/5 transition-all"
               >
                 {action.label}
               </button>
