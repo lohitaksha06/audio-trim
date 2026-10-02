@@ -492,6 +492,19 @@ _DRUM_PART_KEYWORDS: dict[str, list[str]] = {
 }
 
 
+def _mentions_noise(prompt: str) -> bool:
+    """True when the request names a real noise/disturbance to clean up.
+
+    Guards the substring trap in ENHANCE_KEYWORDS: "phonk" (a real EDM style)
+    contains "honk", so without this a phonk request is read as "remove the car
+    horn" and hijacks the intent.
+    """
+    lower = prompt.lower()
+    if "phonk" in lower:
+        return False
+    return any(k in lower for k in ENHANCE_KEYWORDS)
+
+
 def voice_flags(prompt: str) -> dict:
     """Shared vocal-clarity params: aggression, audibility lift, mix-denoise."""
     lower = prompt.lower()
@@ -650,7 +663,7 @@ def classify_intent(prompt: str) -> Intent:
     if re.search(r"\bis this\b.*\b(house|techno|trance|trap|dnb|dubstep|phonk|synthwave|garage|amapiano|edm|jungle|grime|hiphop|pop|rock|jazz)\b", lower) and "?" in prompt:
         return Intent.CLASSIFY
 
-    if any(k in lower for k in ENHANCE_KEYWORDS):
+    if _mentions_noise(prompt):
         return Intent.ENHANCE_VOCALS
     # stem mixer ("drums louder, vocals quieter", "balance the mix", "prioritize drums"):
     # needs 2+ stems, or 1 stem + an explicit mix/balance/prioritize word.
@@ -708,10 +721,13 @@ def classify_intent(prompt: str) -> Intent:
         if any(k in lower for k in ["bass", "drum", "synth", "guitar", "piano", "keys", "pad", "strings", "tropical", "future", "futuristic", "dubstep", "wobble", "edm", "big room", "bigroom", "lead", "pluck", "supersaw", "riddim", "808", "acid", "reese", "techno", "trance", "trap", "hardstyle", "phonk", "synthwave", "dnb", "house", "garage", "amapiano", "afro", "jungle", "grime", "brass", "sax", "trumpet", "flute", "violin", "cello", "harp", "marimba", "choir", "organ", "arp", "square"]):
             return Intent.ADD_INSTRUMENT
     if any(w in lower for w in ["trim", "cut", "crop", "shorten"]):
-        return Intent.TRIM
+        # "cut the pauses" / "trim the ums" are cleanup, not a region trim —
+        # let the remove branch handle them.
+        if not any(s in lower for s in ("pause", "gap", "silence", "filler", "ums", "ahs", "uhs")):
+            return Intent.TRIM
     if any(w in lower for w in ["inpaint", "fill smoothly", "seamless", "paint over", "fill the gap", "clean up the", "remove the cough", "fix that"]):
         return Intent.PAINT
-    if any(w in lower for w in ["remove", "delete", "drop", "get rid of", "cut out"]):
+    if any(w in lower for w in ["remove", "delete", "drop", "get rid of", "cut out", "cut", "trim"]):
         has_filler = "filler" in lower or _FILLER_PATTERN.search(lower)
         has_silence = any(w in lower for w in ["silence", "silent", "pause", "gap", "quiet part"])
         if has_filler or has_silence:
@@ -758,7 +774,8 @@ def extract_format(prompt: str) -> str | None:
 
 
 def extract_duration_seconds(prompt: str) -> float | None:
-    match = re.search(r"(\d+)\s*sec(?:ond)?s?", prompt, re.IGNORECASE)
+    # `(?<![\d.])` stops "0.5 seconds" from being read as "5 seconds".
+    match = re.search(r"(?<![\d.])(\d+)\s*sec(?:ond)?s?", prompt, re.IGNORECASE)
     if match:
         return float(match.group(1))
     match = re.search(r"(\d+)\s*min(?:ute)?s?", prompt, re.IGNORECASE)
@@ -875,6 +892,20 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
             params["needs_bpm"] = True
         elif vague_factor != 1.0:
             params["speed_factor"] = vague_factor
+
+    if intent == Intent.REMOVE_FILLERS:
+        # Acoustic pause bounds: "cut pauses over 0.5s" / "maximum pause 1.5s".
+        lower = prompt.lower()
+        m = re.search(r"(?:maximum|max|up to)\s*(?:a\s*)?(?:pause|gap)?\s*(?:of\s*)?(\d+(?:\.\d+)?)\s*(?:s|sec|second)", lower)
+        if m:
+            params["max_pause"] = float(m.group(1))
+        else:
+            m2 = re.search(r"(?:pause|gap)s?\s*(?:longer than|over|above)\s*(\d+(?:\.\d+)?)\s*(?:s|sec|second)", lower)
+            if m2:
+                params["max_pause"] = float(m2.group(1))
+        m3 = re.search(r"(?:pause|gap)s?\s*(?:shorter than|under|below)\s*(\d+(?:\.\d+)?)\s*(?:s|sec|second)", lower)
+        if m3:
+            params["min_pause"] = float(m3.group(1))
 
     if intent == Intent.REVERB:
         params["reverb_amount"] = 0.5
@@ -998,7 +1029,7 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
         # combined request from the other direction: clarify the voice first
         # (reachable via the LLM path; the regex classifier already prefers
         # ENHANCE_VOCALS when enhance keywords are present)
-        if any(k in prompt.lower() for k in ENHANCE_KEYWORDS):
+        if _mentions_noise(prompt):
             params["also_enhance"] = True
             params.update(voice_flags(prompt))
 
@@ -1056,7 +1087,7 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
                 params["drum_parts"] = parts
         # voice-clarity half of the combo ("...and clean up the voice"):
         # clarify first, then layer (voice-first chaining in execute_plan)
-        if any(k in prompt.lower() for k in ENHANCE_KEYWORDS):
+        if _mentions_noise(prompt):
             params["also_enhance"] = True
             params.update(voice_flags(prompt))
             params["denoise"] = True

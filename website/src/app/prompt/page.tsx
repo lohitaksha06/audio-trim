@@ -16,7 +16,7 @@ import {
   type ProcessResponse,
   type UnderstandResponse,
 } from "@/services/api";
-import { describeResult, isOutputFollowUp } from "@/utils/followUp";
+import { describeResult, isOutputFollowUp, type ResultMeta } from "@/utils/followUp";
 import { getSettings } from "@/utils/settings";
 
 type PageState = "idle" | "uploading" | "analyzed" | "processing" | "completed" | "error";
@@ -161,7 +161,7 @@ export default function PromptPage() {
       }
       setEdits((n) => n + 1);
       setFromOriginal(false);
-      const detail = describeResult(result.intent, result.metadata as { added_instrument?: string; combined?: string[]; groove?: string; tempo_bpm?: number; beat_count?: number; hits?: number; style?: string; enhanced?: string; boosted?: string; removed_stem?: string; isolated_stem?: string } | null);
+      const detail = describeResult(result.intent, result.metadata as ResultMeta | null);
       const msg = detail ? `Done — ${detail}. Preview it in the Output panel.` : `Done! Applied: "${currentPrompt}"`;
       setHistory((prev) => [...prev, { role: "ai", text: msg }]);
       setState("completed");

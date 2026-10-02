@@ -68,8 +68,12 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
         y = _mood_adjust(y, sr, plan.params)
         output_path = _save_wav(y, sr)
     elif plan.intent == Intent.REMOVE_FILLERS:
-        y = _remove_silence(y, sr, threshold_db=15)
+        # Real disfluency removal: detect hesitation spans (filled pauses) and
+        # splice them out. Previously this just dropped silence, which is not
+        # the same thing.
+        y, fill_meta = _remove_fillers(y, sr, plan.params)
         output_path = _save_wav(y, sr)
+        metadata.update(fill_meta)
     elif plan.intent == Intent.SEPARATE:
         separator = SourceSeparator()
         stems = separator.separate(audio_path)
@@ -361,6 +365,38 @@ def _remove_silence(y: np.ndarray, sr: int, threshold_db: float = 20) -> np.ndar
         return y
     result = np.concatenate([y[:, s:e] for s, e in intervals], axis=1)
     return result
+
+
+def _remove_fillers(y: np.ndarray, sr: int, params: dict) -> tuple[np.ndarray, dict]:
+    """Cut hesitation/filler spans. ``params`` may carry ``min_pause`` /
+    ``max_pause`` seconds and ``threshold_db`` (speech floor)."""
+    from server.ml.transcription.fillers import detect_disfluencies, remove_spans
+
+    def _num(key: str, default: float) -> float:
+        try:
+            return float(params.get(key, default))
+        except (TypeError, ValueError):
+            return default
+
+    dur_before = y.shape[-1] / sr
+    spans = detect_disfluencies(
+        y,
+        sr,
+        min_pause=_num("min_pause", 0.35),
+        max_pause=_num("max_pause", 0.9),
+        dynamic_range_db=_num("threshold_db", 22.0),
+    )
+    if not spans:
+        return y, {"fillers_removed": 0, "seconds_saved": 0.0, "note": "no hesitation detected"}
+    out = remove_spans(y, sr, spans)
+    saved = max(0.0, dur_before - out.shape[-1] / sr)
+    return out, {
+        "fillers_removed": len(spans),
+        "seconds_saved": round(saved, 2),
+        "longest_removed": round(max(s.duration for s in spans), 3),
+        "pauses": sum(1 for s in spans if s.kind == "pause"),
+        "blabs": sum(1 for s in spans if s.kind == "blab"),
+    }
 
 
 def _speed_change(y: np.ndarray, sr: int, params: dict) -> tuple[np.ndarray, dict]:

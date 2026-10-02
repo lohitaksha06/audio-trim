@@ -34,6 +34,9 @@ export interface ResultMeta {
   gain_db?: number;
   gains_db?: Record<string, number>;
   method?: string;
+  fillers_removed?: number;
+  seconds_saved?: number;
+  note?: string;
   song_bpm?: number;
   stem_bpm?: number;
   target_bpm?: number;
@@ -78,6 +81,15 @@ export function describeResult(intent: string, meta?: ResultMeta | null): string
     bits.push(`turned up ${meta.boosted}`);
   } else if (typeof meta.gain_db === "number") {
     bits.push(`gain ${meta.gain_db > 0 ? "+" : ""}${meta.gain_db} dB`);
+  } else if (typeof meta.fillers_removed === "number") {
+    if (meta.fillers_removed === 0) {
+      bits.push("no hesitation detected — audio unchanged");
+    } else {
+      bits.push(
+        `removed ${meta.fillers_removed} filler${meta.fillers_removed === 1 ? "" : "s"}` +
+          (meta.seconds_saved ? ` · ${meta.seconds_saved}s saved` : "")
+      );
+    }
   } else if (typeof meta.target_bpm === "number" || typeof meta.speed_factor === "number" || typeof meta.stretch_factor === "number") {
     const from = typeof meta.song_bpm === "number" ? `${Math.round(meta.song_bpm)} BPM → ` : "";
     const to = typeof meta.target_bpm === "number" ? `${Math.round(meta.target_bpm)} BPM` : "";

@@ -41,10 +41,22 @@ export default function PodcastPage() {
           <ActionButton label="Remove room noise" prompt="Remove background noise" />
         </Panel>
 
+        <Panel title="Tighter cuts">
+          <ActionButton
+            label="Cut pauses over 0.5s"
+            prompt="Remove pauses longer than 0.5 seconds"
+          />
+          <ActionButton
+            label="Cut pauses over 1s"
+            prompt="Remove fillers with maximum pause of 1.5 seconds"
+          />
+        </Panel>
+
         <Panel title="Deeper analysis">
           <p className="rounded-xl border border-white/12 bg-white/[0.02] p-4 text-sm text-white/58">
             Speaker diarization and word-level transcription run as backend jobs and are not part of
-            the prompt pipeline yet. Use the sidebar Guide for how the current engine handles speech.
+            the prompt pipeline yet. Filler removal here is acoustic (filled pauses), so it works
+            without a transcript and across accents.
           </p>
         </Panel>
       </div>

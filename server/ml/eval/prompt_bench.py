@@ -60,6 +60,12 @@ BENCH: list[dict[str, Any]] = [
     {"prompt": "set tempo to 128 BPM", "intent": "speed", "params": {"target_bpm": 128.0}},
     {"prompt": "slow down to 90 bpm", "intent": "speed", "params": {"target_bpm": 90.0}},
     {"prompt": "change the tempo, speed it up", "intent": "speed", "params": {"needs_bpm": True}},
+    # Filler removal with explicit acoustic bounds
+    {"prompt": "remove fillers with maximum pause of 1.5 seconds", "intent": "remove_fillers", "params": {"max_pause": 1.5}},
+    {"prompt": "cut pauses over 0.5 seconds", "intent": "remove_silence"},
+    {"prompt": "remove the pauses longer than 0.8s", "intent": "remove_silence"},
+    # 'phonk' must not be read as 'honk' (car horn -> enhance)
+    {"prompt": "add a phonk cowbell", "intent": "add_instrument"},
     # CLASSIFY (3)
     {"prompt": "what genre is this?", "intent": "classify"},
     {"prompt": "what edm style is this?", "intent": "classify"},

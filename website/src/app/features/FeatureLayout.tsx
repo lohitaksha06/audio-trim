@@ -6,7 +6,7 @@ import Sidebar from "@/components/Sidebar";
 import FileUpload from "@/components/FileUpload";
 import AudioPreview from "@/components/AudioPreview";
 import { uploadFile, processAudio, understandAudio, exportZip, downloadUrl, type UploadResponse, type UnderstandResponse, type ProcessResponse } from "@/services/api";
-import { describeResult, isOutputFollowUp } from "@/utils/followUp";
+import { describeResult, isOutputFollowUp, type ResultMeta } from "@/utils/followUp";
 import { FeaturePromptContext } from "./FeaturePromptContext";
 import { Conversation } from "./FeaturePanels";
 
@@ -111,7 +111,7 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
       }
       setEdits((n) => n + 1);
       setFromOriginal(false);
-      const detail = describeResult(result.intent, result.metadata as { added_instrument?: string; combined?: string[]; groove?: string; tempo_bpm?: number; beat_count?: number; hits?: number; style?: string; enhanced?: string; boosted?: string; removed_stem?: string; isolated_stem?: string } | null);
+      const detail = describeResult(result.intent, result.metadata as ResultMeta | null);
       const msg = detail ? `Done — ${detail}.` : `Done! Intent: ${result.intent}. Applied: "${currentPrompt}"`;
       setHistory((prev) => [...prev, { role: "ai", text: msg }]);
       setState("completed");
