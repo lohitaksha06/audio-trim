@@ -21,7 +21,7 @@ const SECTIONS: { title: string; hint: string; prompts: string[] }[] = [
   },
   {
     title: "Add instruments (beat-synced)",
-    hint: "AI detects your song's BPM, beats and key, then plays along. Say 'add drums' with no style and it matches your song's feel automatically.",
+    hint: "AI detects your song's BPM, beats and key, then plays along. Melodic instruments use a timbre model trained on real recordings; drums are real recorded samples.",
     prompts: [
       "Add drums",
       "Add drums that match the song",
@@ -37,6 +37,39 @@ const SECTIONS: { title: string; hint: string; prompts: string[] }[] = [
       "Add choir pad",
       "Add piano chords",
       "Add drums at 100 BPM",
+    ],
+  },
+  {
+    title: "Beat styles (real recorded drums)",
+    hint: "Every hit is a recorded drum sample from a 1,200-hit bank, locked to your measured BPM. Set a target tempo first if you want an exact one.",
+    prompts: [
+      "Add house drums",
+      "Add techno drums",
+      "Add trap drums",
+      "Add dnb drums",
+      "Add edm drums",
+      "Add hiphop drums",
+      "Add afrobeat drums",
+      "Add garage drums",
+      "Add breakbeat drums",
+      "Add pop drums",
+    ],
+  },
+  {
+    title: "Instruments (trained timbre)",
+    hint: "These timbres are learned from real instrument recordings, not hand-picked presets. Notes follow your track's detected key so they sit in tune.",
+    prompts: [
+      "Add guitar",
+      "Add piano",
+      "Add bass",
+      "Add flute",
+      "Add strings",
+      "Add organ",
+      "Add marimba",
+      "Add brass",
+      "Add sax",
+      "Add vocals",
+      "Add synth lead",
     ],
   },
   {

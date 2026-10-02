@@ -27,31 +27,70 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done and measured · `[-
 - [~] **#4 Speaker diarization → real podcast tools**
       `diarization.py` exists (VAD + MFCC + KMeans) but was never reachable
       from the prompt pipeline, which is why the podcast page was fake.
-      - [~] Per-speaker transcript (run Whisper per diarized segment)
-      - [ ] `SPLIT_SPEAKERS` intent → one file per speaker
-      - [ ] `KEEP_SPEAKER` / `REMOVE_SPEAKER` intents
-      - [ ] `CHAPTERS` intent → timestamped chapters from the transcript
-      - [ ] Wire all of it into the podcast page with real output
-- [ ] **#2 Trained instrument synthesis** — replace hand-written DSP presets
-      - [ ] Acquire a labelled multi-instrument note corpus
-      - [ ] Extract per-note timbre features (harmonic envelope, ADSR)
-      - [ ] Train a timbre model (CPU-feasible; hybrid neural+render, as DDSP/NNSF do)
-      - [ ] Render from the model; delete the sine/noise presets
-- [ ] **Electronic / beat expansion** — user-facing priority
-      - [ ] Real drum one-shots (recorded, not synthesized) + tempo sync
-      - [ ] Train a style→hit selector instead of 24 hand-written patterns
-      - [ ] Expand instrument coverage well past drums/bass
+      - [x] `server/ml/diarization/transcript.py` — speaker segments + per-segment
+            Whisper text, real talk time per speaker
+      - [x] `SPLIT_SPEAKERS` / `KEEP_SPEAKER` / `REMOVE_SPEAKER` / `CHAPTERS` intents
+      - [x] Podcast page shows real detected speakers and chapter counts
+      Bugs found by measuring, not by reading:
+      - VAD thresholded `rms > percentile(rms, 40) * 1.5`, which excluded real
+        speech whenever speech was most of the file → **zero** segments. Now an
+        adaptive log-domain noise floor with hangover.
+      - Cluster selection required `len(segments) >= k + 2`, so a 3-turn clip
+        could never resolve 2 speakers.
+      - `remove_spans` skipped any span starting at sample 0, so leading audio
+        survived every "keep only speaker 1".
+      - "remove background noise from her **voice**" matched the speaker pattern;
+        keep/remove now require the literal word "speaker".
+- [x] **#2 Trained instrument synthesis** — replaces hand-written presets
+      - [x] Data: `confit/nsynth-parquet`, one `instrument/` shard (379 MB,
+            3,856 notes). Fields: audio + instrument + pitch + filename-encoded
+            velocity. 27 family/source combos (11 bases x acoustic/electronic/synthetic).
+      - [x] Features per note: 32-band log spectral envelope over the sustain,
+            plus attack, decay ratio, centroid, flatness.
+      - [x] Model: `TimbreNet` — instrument embedding(24) + [pitch, velocity] ->
+            128 -> 128 -> 36. **Val loss 0.946 -> 0.685**, CPU, ~30 s.
+      - [x] Renderer: partial amplitudes read off the predicted envelope, with
+            inharmonicity, a flatness-driven noise layer and predicted ADSR.
+      - [x] `server/ml/synthesis/timbre.py` + `scripts/train_timbre_model.py`
+      - [x] Wired into `_add_instrument`; notes follow the track's detected key.
+      Honest scope: the **timbre is learned**, the renderer is deterministic DSP —
+      the same hybrid design DDSP and NSF models use. Not a generative model.
+      - [x] Unknown instruments return `None` instead of fuzzy-matching (that
+            fallback mapped "acid" -> `vocal/acoustic`, same trap as the old
+            `phonk`->`honk` bug) and fall back to the existing DSP synths.
+- [x] **Electronic / beat expansion**
+      - [x] `airasoul/drum-kit` -> **1,200 real recorded one-shots**, 10 drum types
+            (kick, snare, clap, hat, cymbal, crash, ride, tom, conga, rim),
+            trimmed and de-clicked. FLAC: 60 MB -> 34.7 MB committed.
+      - [x] All **18 existing grooves** now play recorded hits instead of a
+            pitch-swept sine for the kick and filtered noise for the snare.
+      - [x] `server/ml/synthesis/drums.py` — 10-style 16th-note sequencer,
+            tempo-locked to measured BPM. Measured: kick-band onset energy is
+            **1.97x higher on-grid than off-grid**.
+      - [x] UI catalogue (`instrumentCatalog.ts`): 11 trained instruments,
+            4 honestly-labelled DSP sounds, 10 beat styles, 10 drum types.
+      - [x] `test_catalog_sync.py` fails if the UI advertises anything the
+            backend cannot render, or omits anything it can.
+      Honest scope: hits are real recordings; the *arrangement* is a rule-based
+      pattern library. No trained drum model is claimed.
 
 ## Known fakes still in the product
 
 - [ ] **Inpainting is a crossfade.** "Remove that cymbal crash and fill
       smoothly" reconstructs nothing. Needs a generative model.
-- [ ] **`add drums` / `add bass` are hand-written sine+noise synthesis.**
-      Being replaced under #2 above.
 - [ ] **Style presets are DSP**, not generative — "convert to phonk style"
       applies EQ plus a drum pattern.
 - [ ] **MusicGen never benchmarked.** No GPU here (torch `2.10.0+cpu`,
       Ryzen 7 7840HS, 15.3 GB). Must be a bounded benchmark before it ships.
+
+## Rebuilding the trained assets
+
+    python -m scripts.train_timbre_model --epochs 80   # ~4 min, CPU
+    python -m scripts.build_drum_bank --per-label 120   # ~1 min
+
+Both read Hugging Face datasets (`confit/nsynth-parquet`, `airasoul/drum-kit`).
+Their outputs — `server/ml/models/timbre_model.pt` and
+`server/ml/models/drum_bank/` — are committed so the app works out of the box.
 
 ## Environment constraints (measured, not assumed)
 

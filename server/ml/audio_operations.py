@@ -684,10 +684,128 @@ def _detect_key_root(y: np.ndarray, sr: int) -> float:
         return 55.0
 
 
+def _timbre_family(instrument: str, wave: str = "") -> str | None:
+    """Map a user-facing instrument name onto a trained timbre family."""
+    from server.ml.synthesis import timbre
+
+    if not timbre.available():
+        return None
+    try:
+        return timbre._nearest_family(instrument)
+    except Exception:
+        return None
+
+
+def _timbre_layer(
+    instrument: str, tempo: float, beats: list[float], dur: float,
+    sr: int, root_hz: float, groove: str, params: dict,
+) -> tuple[np.ndarray, int, dict] | None:
+    """Render a melodic layer from the trained timbre model.
+
+    Returns ``None`` when the instrument has no trained family, so callers can
+    fall back to the DSP synths for sounds with no learned equivalent
+    (supersaw, acid, 808, and similar).
+    """
+    from server.ml.synthesis import timbre
+
+    family = _timbre_family(instrument, params.get("wave", "") or "")
+    if family is None:
+        return None
+
+    n = int(dur * sr)
+    gen = np.zeros(n, dtype=np.float32)
+    hits = 0
+
+    # Detect the song's key so the layer is in tune rather than arbitrary.
+    root_midi = int(round(69 + 12 * np.log2(max(root_hz, 20.0) / 440.0)))
+    root_midi = max(24, min(72, root_midi))
+    # Natural minor: safe, and fits most of what people ask to "add".
+    scale = [0, 2, 3, 5, 7, 8, 10]
+
+    beat_sec = 60.0 / max(tempo, 40.0)
+    # `div` is the note duration in beats; n_sub is how many notes fit per beat.
+    # Deriving one from the other avoids div=0.5 rounding to zero sub-steps,
+    # which silently collapsed every 8th-note layer to a single note.
+    if family.startswith(("organ", "vocal", "string", "reed", "brass")):
+        div, dur_div, spread = 1.0, 0.9, (0, 2, 4)      # held chord
+    elif family.startswith("mallet"):
+        div, dur_div, spread = 0.5, 0.8, (0, 2, 4, 6)   # arpeggio
+    elif family.startswith(("flute", "synth_lead", "guitar")):
+        div, dur_div, spread = 0.5, 0.7, (0, 4, 2, 6)   # melodic figure
+    else:
+        div, dur_div, spread = 0.5, 0.8, (0, 2, 4)      # bass/keys figure
+
+    n_sub = max(1, int(round(1.0 / div)))
+    step = beat_sec / n_sub
+    grid = list(beats) or [0.0]
+    t = (grid[-1] + beat_sec) if grid else 0.0
+    while t < dur:
+        grid.append(round(t, 4))
+        t += beat_sec
+
+    grid = np.asarray(grid)
+    if len(grid) > 1:
+        # De-duplicate so repeated/dense beats do not double-trigger.
+        grid = np.unique(np.round(grid, 3))
+    times: list[float] = []
+    for g in grid:
+        for j in range(n_sub):
+            times.append(float(g) + j * step)
+    times = [x for x in times if x < dur]
+    if not times:
+        times = [0.0]
+
+    for i, at in enumerate(times):
+        deg = spread[i % len(spread)]
+        octave = 12 * ((i // len(spread)) % 2)
+        midi = root_midi + scale[deg % len(scale)] + octave
+        midi = max(21, min(108, midi))
+        note_len = step * dur_div
+        velocity = 100 if i % len(spread) == 0 else 78
+        try:
+            y, _ = timbre.render_note(
+                family, midi, duration=note_len, velocity=velocity,
+                sr=sr, seed=hash((instrument, i, midi)) & 0x7FFFFFFF,
+            )
+        except Exception:
+            return None
+        s = int(at * sr)
+        e = min(s + len(y), n)
+        if s < e and np.any(y):
+            gen[s:e] += y[: e - s]
+            hits += 1
+
+    meta = {
+        "timbre_source": "trained model (NSynth recordings)",
+        "timbre_family": family,
+        "timbre_requested": instrument,
+        "notes": hits,
+        "root_midi": root_midi,
+    }
+    return gen, hits, meta
+
+
 def _kick_hit(sr: int, amp: float = 0.9) -> np.ndarray:
     n = int(0.14 * sr)
     t = np.arange(n) / sr
     return (amp * np.exp(-t * 28) * np.sin(2 * np.pi * 55 * t)).astype(np.float32)
+
+
+def _real_hit(label: str, sr: int, amp: float, max_seconds: float | None = None):
+    """A real recorded drum one-shot scaled to `amp`, or None if unavailable.
+
+    Keeps the groove patterns below (18 of them) but stops them being built
+    from synthetic sine/noise: the hits now come from the recorded drum bank.
+    """
+    try:
+        from server.ml.synthesis import drums
+
+        y = drums.hit(label, sr=sr, max_seconds=max_seconds)
+    except Exception:
+        return None
+    if y is None or not np.any(y):
+        return None
+    return (y * amp).astype(np.float32)
 
 
 def _snare_hit(sr: int, amp: float = 0.55) -> np.ndarray:
@@ -709,9 +827,30 @@ def _hat_hit(sr: int, amp: float = 0.3, dur: float = 0.04) -> np.ndarray:
 # Aliased base hit generators so _drum_pattern can wrap them (selective parts)
 # without Python's conditional-def scoping trap (a conditional def would leave
 # the name unbound when the condition is False).
-_BASE_KICK_HIT = _kick_hit
-_BASE_SNARE_HIT = _snare_hit
-_BASE_HAT_HIT = _hat_hit
+# Each prefers a REAL recorded one-shot and falls back to synthesis only when
+# the drum bank is absent, so the 18 groove patterns keep working either way.
+def _kick_or_synth(sr: int, amp: float = 0.9) -> np.ndarray:
+    y = _real_hit("kick", sr, amp)
+    return y if y is not None else _kick_hit(sr, amp)
+
+
+def _snare_or_synth(sr: int, amp: float = 0.55) -> np.ndarray:
+    y = _real_hit("snare", sr, amp)
+    return y if y is not None else _snare_hit(sr, amp)
+
+
+def _hat_or_synth(sr: int, amp: float = 0.3, dur: float = 0.04) -> np.ndarray:
+    # A real hat is already short; only trim the tail when the caller asked
+    # for something very brief.
+    y = _real_hit("hat", sr, amp, max_seconds=max(dur * 3.0, 0.12))
+    if y is not None and len(y) > int(dur * sr):
+        y = y[: int(dur * sr)]
+    return y if y is not None else _hat_hit(sr, amp, dur)
+
+
+_BASE_KICK_HIT = _kick_or_synth
+_BASE_SNARE_HIT = _snare_or_synth
+_BASE_HAT_HIT = _hat_or_synth
 
 
 def _place(gen: np.ndarray, sr: int, at_sec: float, hit: np.ndarray) -> bool:
@@ -728,6 +867,9 @@ def _place(gen: np.ndarray, sr: int, at_sec: float, hit: np.ndarray) -> bool:
 
 
 def _crash_hit(sr: int, amp: float = 0.22) -> np.ndarray:
+    y = _real_hit("crash", sr, amp)
+    if y is not None:
+        return y
     n = int(1.0 * sr)
     rng = np.random.default_rng(13)
     noise = rng.standard_normal(n).astype(np.float32) * np.exp(-np.arange(n) / sr * 4)
@@ -888,7 +1030,13 @@ def _drum_pattern(
             hits += _place(gen, sr, b + beat_sec * 0.75, _hat_hit(sr, 0.12, dur=0.03))
         elif groove == "hardstyle":
             # hardstyle: distorted punch kick every beat, clap 2 & 4
-            hard = _kick_hit(sr, 1.0) + 0.35 * _snare_hit(sr, 0.5)[: len(_kick_hit(sr))]
+            # Recorded one-shots have different lengths, so align to the
+            # shorter of the two instead of assuming they match. Each hit is
+            # also drawn once — calling twice would give two different samples.
+            _hk = _kick_hit(sr, 1.0)
+            _hs = _snare_hit(sr, 0.5)
+            _hn = min(len(_hk), len(_hs))
+            hard = _hk[:_hn] + 0.35 * _hs[:_hn]
             hits += _place(gen, sr, b, hard)
             if bar_pos in (1, 3):
                 hits += _place(gen, sr, b, _snare_hit(sr, 0.55))
@@ -1586,40 +1734,60 @@ def _add_instrument(
             pass
     gen = np.zeros(n, dtype=np.float32)
     hits = 0
+    timbre_meta: dict = {}
 
     if instrument == "drums":
         gen, hits = _drum_pattern(tempo, beats, dur, groove, sr,
                                   parts=params.get("drum_parts"), swing=swing)
+        try:
+            from server.ml.synthesis import drums
+
+            if drums.available():
+                timbre_meta["drum_source"] = "real recorded one-shots"
+        except Exception:
+            pass
     elif instrument == "bass":
         root = _detect_key_root(y, sr)
-        gen = _bass_line(tempo, beats, dur, sr, groove, root)
-        hits = len(beats) * 2
+        built = _timbre_layer(instrument, tempo, beats, dur, sr, root, groove, params)
+        if built is not None:
+            gen, hits, timbre_meta = built
+        else:
+            gen = _bass_line(tempo, beats, dur, sr, groove, root)
+            hits = len(beats) * 2
     elif instrument == "guitar":
-        # strummed triad from detected key, 8th-note groove
         root = _detect_key_root(y, sr) * 2
-        chord = [root, root * 2 ** (4 / 12), root * 2 ** (7 / 12)]
-        beat_sec = 60.0 / tempo
-        step = beat_sec / 2
-        tt = 0.0
-        while tt < dur:
-            s = int(tt * sr)
-            e = min(s + int(step * 0.9 * sr), n)
-            tarr = np.arange(e - s) / sr
-            tone = sum(0.12 * np.sin(2 * np.pi * f * tarr) for f in chord)
-            env = np.minimum(1.0, tarr * 40) * np.exp(-tarr * 6)
-            gen[s:e] += (tone * env).astype(np.float32)
-            tt += step
-            hits += 1
+        built = _timbre_layer(instrument, tempo, beats, dur, sr, root, groove, params)
+        if built is not None:
+            gen, hits, timbre_meta = built
+        else:
+            # strummed triad from detected key, 8th-note groove
+            chord = [root, root * 2 ** (4 / 12), root * 2 ** (7 / 12)]
+            beat_sec = 60.0 / tempo
+            step = beat_sec / 2
+            tt = 0.0
+            while tt < dur:
+                s = int(tt * sr)
+                e = min(s + int(step * 0.9 * sr), n)
+                tarr = np.arange(e - s) / sr
+                tone = sum(0.12 * np.sin(2 * np.pi * f * tarr) for f in chord)
+                env = np.minimum(1.0, tarr * 40) * np.exp(-tarr * 6)
+                gen[s:e] += (tone * env).astype(np.float32)
+                tt += step
+                hits += 1
     elif instrument == "strings":
-        # sustained string section: root+fifth+octave, slow bowed attack, vibrato
-        t = np.arange(n) / sr
         root = _detect_key_root(y, sr) * 4
-        for i, f in enumerate((root, root * 1.5, root * 2)):
-            vib = 1 + 0.004 * np.sin(2 * np.pi * 5.5 * t + i)
-            gen += 0.11 * np.sin(2 * np.pi * f * vib * t)
-        gen *= np.minimum(1.0, t / 1.5)  # 1.5s bowed swell
-        gen *= 1 + 0.08 * np.sin(2 * np.pi * (tempo / 60 / 8) * t)
-        hits = len(beats)
+        built = _timbre_layer("string", tempo, beats, dur, sr, root, groove, params)
+        if built is not None:
+            gen, hits, timbre_meta = built
+        else:
+            # sustained string section: root+fifth+octave, slow bowed attack, vibrato
+            t = np.arange(n) / sr
+            for i, f in enumerate((root, root * 1.5, root * 2)):
+                vib = 1 + 0.004 * np.sin(2 * np.pi * 5.5 * t + i)
+                gen += 0.11 * np.sin(2 * np.pi * f * vib * t)
+            gen *= np.minimum(1.0, t / 1.5)  # 1.5s bowed swell
+            gen *= 1 + 0.08 * np.sin(2 * np.pi * (tempo / 60 / 8) * t)
+            hits = len(beats)
     elif instrument in ("keys", "other", "piano", "organ", "choir", "pad", "arp",
                           "pluck", "marimba", "harp", "brass", "trumpet", "sax",
                           "flute", "violin", "cello", "supersaw", "square_lead",
@@ -1628,7 +1796,11 @@ def _add_instrument(
                           "lofi_keys"):
         # named waves / acoustic / sub families — each gets its own timbre
         root = _detect_key_root(y, sr)
-        gen, hits = _synth_layer(instrument, tempo, beats, dur, sr, root)
+        built = _timbre_layer(instrument, tempo, beats, dur, sr, root, groove, params)
+        if built is not None:
+            gen, hits, timbre_meta = built
+        else:
+            gen, hits = _synth_layer(instrument, tempo, beats, dur, sr, root)
     elif instrument in ("synth", "tropical", "future", "futuristic", "future_bass",
                          "dubstep", "wobble", "edm", "big_room", "bigroom", "festival",
                          "house", "deep_house", "tech_house", "techno", "trance",
@@ -1690,6 +1862,7 @@ def _add_instrument(
         "hits": hits,
     }
     meta.update(auto_meta)
+    meta.update(timbre_meta)
     return y, meta, layer
 
 

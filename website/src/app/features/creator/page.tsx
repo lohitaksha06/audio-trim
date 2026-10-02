@@ -2,6 +2,7 @@
 
 import FeatureLayout from "../FeatureLayout";
 import { ActionButton, Panel } from "../FeaturePanels";
+import { AddBeats, AddInstruments } from "../AddLayers";
 
 export default function CreatorPage() {
   return (
@@ -37,6 +38,9 @@ export default function CreatorPage() {
           <ActionButton label="Speed up the tempo" prompt="Set tempo to 140 BPM" />
           <ActionButton label="Add background music" prompt="Add background music that matches the energy of this clip" />
         </Panel>
+
+        <AddBeats />
+        <AddInstruments />
 
         <Panel title="Export">
           <ActionButton label="Export as MP3" prompt="Convert this file to mp3 format" />

@@ -2,6 +2,7 @@
 
 import FeatureLayout from "../FeatureLayout";
 import { ActionButton, Panel } from "../FeaturePanels";
+import { AddBeats, AddInstruments, AddSfx } from "../AddLayers";
 import { useFeaturePrompt } from "../FeaturePromptContext";
 
 const STEM_LABELS: Record<string, string> = {
@@ -72,11 +73,9 @@ export default function SeparationPage() {
           <ActionButton label="Remove the kick drum" prompt="Remove the kick drum" />
         </Panel>
 
-        <Panel title="Add instruments back">
-          <ActionButton label="Add a bass line" prompt="Add a bass line to this track" tone="accent" />
-          <ActionButton label="Add drums" prompt="Add drums to this track" tone="accent" />
-          <ActionButton label="Add a synth pad" prompt="Add a synth pad" tone="accent" />
-        </Panel>
+        <AddBeats />
+        <AddInstruments />
+        <AddSfx />
       </div>
     </FeatureLayout>
   );

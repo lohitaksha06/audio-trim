@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local scratch
+*.log
+.env
+.env.local
+.env.*.local
+
+# NOTE: server/ml/models/ is intentionally NOT ignored. The trained artefacts
+# (timbre_model.pt, drum_bank/, *.joblib) are committed so the app works
+# without a training run. Rebuild them with:
+#   python -m scripts.train_timbre_model --epochs 80
+#   python -m scripts.build_drum_bank --per-label 120

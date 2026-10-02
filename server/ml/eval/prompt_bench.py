@@ -75,6 +75,17 @@ BENCH: list[dict[str, Any]] = [
     # 'voice' alone must stay a voice cleanup, not a speaker selection
     {"prompt": "remove background noise from her voice", "intent": "enhance_vocals",
      "params": {"denoise_mix": False}},
+    # Instrument + beat catalogue (mirrors instrumentCatalog.ts)
+    {"prompt": "add guitar", "intent": "add_instrument", "params": {"instrument": "guitar"}},
+    {"prompt": "add piano", "intent": "add_instrument", "params": {"instrument": "piano"}},
+    {"prompt": "add flute", "intent": "add_instrument", "params": {"instrument": "flute"}},
+    {"prompt": "add marimba", "intent": "add_instrument", "params": {"instrument": "marimba"}},
+    {"prompt": "add sax", "intent": "add_instrument", "params": {"instrument": "sax"}},
+    {"prompt": "add an acid bassline", "intent": "add_instrument", "params": {"instrument": "acid"}},
+    {"prompt": "add supersaw", "intent": "add_instrument", "params": {"instrument": "supersaw"}},
+    {"prompt": "add house drums", "intent": "add_instrument", "params": {"instrument": "drums"}},
+    {"prompt": "add afrobeat drums", "intent": "add_instrument", "params": {"instrument": "drums"}},
+    {"prompt": "add garage drums", "intent": "add_instrument", "params": {"instrument": "drums"}},
     # CLASSIFY (3)
     {"prompt": "what genre is this?", "intent": "classify"},
     {"prompt": "what edm style is this?", "intent": "classify"},
