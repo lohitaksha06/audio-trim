@@ -167,12 +167,16 @@ def remove_spans(
     for s in ordered:
         a = int(round(s.start * sr))
         b = int(round(s.end * sr))
-        if a <= cursor:
-            continue
+        # Overlapping/adjacent spans: trim to what is still unconsumed. A span
+        # starting exactly at the cursor must still be cut — the old `a <=
+        # cursor` guard skipped it and left leading audio in place.
+        if a < cursor:
+            a = cursor
         b = min(max(b, a + 1), n_samples)
         if b <= cursor:
             continue
-        pieces.append(y[..., cursor:a])
+        if a > cursor:
+            pieces.append(y[..., cursor:a])
         cursor = b
 
     tail = y[..., cursor:]

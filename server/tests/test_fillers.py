@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import soundfile as sf
 
-from server.ml.transcription.fillers import detect_disfluencies, remove_spans
+from server.ml.transcription.fillers import DisfluencySpan, detect_disfluencies, remove_spans
 
 SR = 22050
 
@@ -104,6 +104,30 @@ def test_output_shape_and_no_clipping(speech_with_gaps):
     assert out.ndim == 2 and out.shape[0] == y.shape[0]
     assert np.isfinite(out).all()
     assert np.max(np.abs(out)) <= 1.0 + 1e-6
+
+
+def test_span_starting_at_zero_is_cut(speech_with_gaps):
+    """Regression: a span at t=0 was skipped, so leading audio survived."""
+    y = np.ones((1, SR), dtype=np.float32) * 0.5
+    spans = [DisfluencySpan(0.0, 1.0, "pause")]
+    out = remove_spans(y, SR, spans)
+    after = out.shape[-1] / SR
+    assert after < SR * 0.95, f"leading 1.0s was not removed (kept {after:.2f}s)"
+
+    spans2 = [DisfluencySpan(0.0, 1.0, "pause"), DisfluencySpan(2.0, 3.0, "pause")]
+    out2 = remove_spans(y, SR, spans2)
+    assert out2.shape[-1] / SR < SR * 0.95
+
+
+def test_overlapping_spans_are_handled():
+    """Overlapping spans must cut their union, not just the first."""
+    dur = 4.0
+    y = np.ones((1, int(dur * SR)), dtype=np.float32) * 0.5
+    out = remove_spans(y, SR, [DisfluencySpan(0.5, 2.0, "pause"),
+                              DisfluencySpan(1.0, 3.0, "pause")])
+    after = out.shape[-1] / SR
+    # union = 0.5..3.0 = 2.5s cut, so ~1.5s remains
+    assert 1.4 < after < 1.6, f"expected ~1.5s kept, got {after:.2f}s"
 
 
 def test_silence_only_input_is_left_alone():

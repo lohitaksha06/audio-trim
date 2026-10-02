@@ -192,6 +192,8 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
     busy: state === "processing" || state === "uploading" || exporting,
     hasResult,
     fileName: file?.name ?? null,
+    edits,
+    lastMetadata: (lastResult?.metadata ?? null) as Record<string, unknown> | null,
   };
 
   return (

@@ -196,6 +196,18 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
         metadata.update(tr_meta)
     elif plan.intent == Intent.CLASSIFY:
         metadata.update(_classify_audio(audio_path, y, sr))
+    elif plan.intent == Intent.SPLIT_SPEAKERS:
+        stems, sp_meta = _split_speakers(audio_path, y, sr)
+        stems_keys = stems
+        metadata.update(sp_meta)
+    elif plan.intent in (Intent.KEEP_SPEAKER, Intent.REMOVE_SPEAKER):
+        y, sp_meta = _speaker_edit(
+            audio_path, y, sr, plan.params, keep=plan.intent == Intent.KEEP_SPEAKER
+        )
+        output_path = _save_wav(y, sr)
+        metadata.update(sp_meta)
+    elif plan.intent == Intent.CHAPTERS:
+        metadata.update(_speaker_chapters(audio_path))
     elif plan.intent == Intent.MIX_STEM:
         stem_src = plan.params.get("stem_path")
         if not stem_src:
@@ -365,6 +377,128 @@ def _remove_silence(y: np.ndarray, sr: int, threshold_db: float = 20) -> np.ndar
         return y
     result = np.concatenate([y[:, s:e] for s, e in intervals], axis=1)
     return result
+
+
+def _resolve_speaker(transcript: dict, params: dict) -> str | None:
+    """Map "speaker 2" onto a real cluster label (SPK_1 is the 2nd cluster)."""
+    speakers = transcript.get("speakers") or []
+    if not speakers:
+        return None
+    if params.get("all_speakers"):
+        return speakers[0]
+    idx = int(params.get("speaker_index") or 1)
+    if idx < 1 or idx > len(speakers):
+        return None
+    return speakers[idx - 1]
+
+
+def _speaker_edit(
+    audio_path: str, y: np.ndarray, sr: int, params: dict, keep: bool
+) -> tuple[np.ndarray, dict]:
+    """Keep or drop one speaker's turns, splicing the rest together."""
+    from server.ml.diarization.transcript import (
+        complement_spans,
+        speaker_spans,
+        transcribe_with_speakers,
+    )
+    from server.ml.transcription.fillers import DisfluencySpan, remove_spans
+
+    transcript = transcribe_with_speakers(audio_path, include_text=False)
+    speakers = transcript.get("speakers") or []
+    if not speakers:
+        return y, {
+            "enhanced": None,
+            "note": "no speech detected — nothing to isolate",
+            "speakers": [],
+        }
+
+    target = _resolve_speaker(transcript, params)
+    if target is None:
+        return y, {
+            "note": (
+                f"found {len(speakers)} speaker(s); say which one, "
+                f"e.g. 'keep only speaker 1'"
+            ),
+            "speakers": speakers,
+        }
+
+    selected = set(speakers) if params.get("all_speakers") else {target}
+    if keep:
+        keep_spans, _ = speaker_spans(transcript, selected)
+    else:
+        _, drop_spans = speaker_spans(transcript, selected)
+
+    duration = float(transcript.get("duration_seconds") or (y.shape[-1] / sr))
+    cut = complement_spans(keep_spans, duration) if keep else drop_spans
+    if not cut:
+        return y, {
+            "enhanced": None,
+            "note": f"nothing to {'cut' if keep else 'remove'} for {target}",
+            "speakers": speakers,
+        }
+
+    mono = y[0] if y.ndim > 1 else y
+    out = remove_spans(
+        mono, sr, [DisfluencySpan(a, b, "pause") for a, b in cut]
+    )
+    out = np.atleast_2d(out)
+    if out.shape[0] != y.shape[0]:
+        out = np.repeat(out[:1], y.shape[0], axis=0)
+    removed = sum((b - a) for a, b in cut)
+    return out, {
+        "enhanced": target if keep else f"removed {target}",
+        "speakers": speakers,
+        "selected_speaker": target,
+        "action": "keep" if keep else "remove",
+        "spans_cut": len(cut),
+        "seconds_removed": round(removed, 2),
+    }
+
+
+def _split_speakers(
+    audio_path: str, y: np.ndarray, sr: int
+) -> tuple[dict[str, str], dict]:
+    """Export one WAV per diarized speaker."""
+    from server.ml.diarization.transcript import complement_spans, speaker_spans, transcribe_with_speakers
+    from server.ml.transcription.fillers import DisfluencySpan, remove_spans
+
+    transcript = transcribe_with_speakers(audio_path, include_text=False)
+    speakers = transcript.get("speakers") or []
+    if not speakers:
+        return {}, {"note": "no speech detected — nothing to split", "speakers": []}
+
+    duration = float(transcript.get("duration_seconds") or (y.shape[-1] / sr))
+    mono = y[0] if y.ndim > 1 else y
+    out_files: dict[str, str] = {}
+    talk: dict[str, float] = transcript.get("talk_time_seconds", {})
+    for spk in speakers:
+        spans, _ = speaker_spans(transcript, {spk})
+        gaps = complement_spans(spans, duration)
+        piece = remove_spans(
+            mono, sr, [DisfluencySpan(a, b, "pause") for a, b in gaps]
+        )
+        path = _save_wav(np.atleast_2d(piece), sr)
+        out_files[spk] = path
+
+    return out_files, {
+        "speakers": speakers,
+        "split_count": len(out_files),
+        "talk_time_seconds": talk,
+    }
+
+
+def _speaker_chapters(audio_path: str) -> dict:
+    """Chapter markers from real pauses in the diarized transcript."""
+    from server.ml.diarization.transcript import chapters_from_transcript, transcribe_with_speakers
+
+    transcript = transcribe_with_speakers(audio_path, include_text=True)
+    marks = chapters_from_transcript(transcript)
+    return {
+        "chapters": marks,
+        "chapter_count": len(marks),
+        "speakers": transcript.get("speakers", []),
+        "note": None if marks else "no pauses long enough to mark chapters",
+    }
 
 
 def _remove_fillers(y: np.ndarray, sr: int, params: dict) -> tuple[np.ndarray, dict]:

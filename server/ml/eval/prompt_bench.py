@@ -66,6 +66,15 @@ BENCH: list[dict[str, Any]] = [
     {"prompt": "remove the pauses longer than 0.8s", "intent": "remove_silence"},
     # 'phonk' must not be read as 'honk' (car horn -> enhance)
     {"prompt": "add a phonk cowbell", "intent": "add_instrument"},
+    # Speaker operations
+    {"prompt": "Split this interview by speaker into separate tracks", "intent": "split_speakers"},
+    {"prompt": "keep only speaker 1", "intent": "keep_speaker", "params": {"speaker_index": 1}},
+    {"prompt": "remove speaker 2", "intent": "remove_speaker", "params": {"speaker_index": 2}},
+    {"prompt": "keep the second speaker only", "intent": "keep_speaker", "params": {"speaker_index": 2}},
+    {"prompt": "Generate chapters from this transcript", "intent": "chapters"},
+    # 'voice' alone must stay a voice cleanup, not a speaker selection
+    {"prompt": "remove background noise from her voice", "intent": "enhance_vocals",
+     "params": {"denoise_mix": False}},
     # CLASSIFY (3)
     {"prompt": "what genre is this?", "intent": "classify"},
     {"prompt": "what edm style is this?", "intent": "classify"},

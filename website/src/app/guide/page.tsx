@@ -190,6 +190,19 @@ const SECTIONS: { title: string; hint: string; prompts: string[] }[] = [
     ],
   },
   {
+    title: "Speakers & dialogue",
+    hint: "Real diarization: detects turns, then splits, keeps or drops one speaker. Chapters mark real pauses.",
+    prompts: [
+      "Split this interview by speaker into separate tracks",
+      "Keep only speaker 1",
+      "Remove speaker 2",
+      "Generate chapters from this transcript",
+      "Remove ums and ahs",
+      "Remove all long pauses and silences longer than 0.5 seconds",
+      "Make voices clearer and remove background noise",
+    ],
+  },
+  {
     title: "Talk to your output",
     hint: "Follow-ups refer to your latest result — no re-processing.",
     prompts: ["Show me the output file", "Send me the download", "Play the result"],

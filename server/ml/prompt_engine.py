@@ -30,6 +30,10 @@ class Intent(str, Enum):
     REPEAT = "repeat"
     TRANSPOSE = "transpose"
     CLASSIFY = "classify"
+    SPLIT_SPEAKERS = "split_speakers"
+    KEEP_SPEAKER = "keep_speaker"
+    REMOVE_SPEAKER = "remove_speaker"
+    CHAPTERS = "chapters"
     UNKNOWN = "unknown"
 
 
@@ -672,6 +676,20 @@ def classify_intent(prompt: str) -> Intent:
     if re.search(r"\bis this\b.*\b(house|techno|trance|trap|dnb|dubstep|phonk|synthwave|garage|amapiano|edm|jungle|grime|hiphop|pop|rock|jazz)\b", lower) and "?" in prompt:
         return Intent.CLASSIFY
 
+    # Speaker operations, checked before the generic separate/isolate/remove
+    # branches — "split by speaker" would otherwise be swallowed by SEPARATE.
+    if re.search(r"\b(split|separate|export)\b[^.]{0,30}\b(speakers?|voices?)\b", lower) \
+            or re.search(r"\b(speakers?|voices?)\b[^.]{0,30}\b(split|separate|export)\b", lower):
+        return Intent.SPLIT_SPEAKERS
+    if re.search(r"\b(chapters?|section markers?|table of contents)\b", lower):
+        return Intent.CHAPTERS
+    # Keep/remove require the word "speaker": "remove background noise from her
+    # voice" is a voice cleanup, not a speaker selection.
+    if re.search(r"\b(keep|only|just|extract|isolate)\b[^.]{0,30}\bspeakers?\b", lower):
+        return Intent.KEEP_SPEAKER
+    if re.search(r"\b(remove|delete|drop|get rid of|cut|mute|kill)\b[^.]{0,30}\bspeakers?\b", lower):
+        return Intent.REMOVE_SPEAKER
+
     if _mentions_noise(prompt):
         return Intent.ENHANCE_VOCALS
     # stem mixer ("drums louder, vocals quieter", "balance the mix", "prioritize drums"):
@@ -915,6 +933,19 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
         m3 = re.search(r"(?:pause|gap)s?\s*(?:shorter than|under|below)\s*(\d+(?:\.\d+)?)\s*(?:s|sec|second)", lower)
         if m3:
             params["min_pause"] = float(m3.group(1))
+
+    if intent in (Intent.KEEP_SPEAKER, Intent.REMOVE_SPEAKER, Intent.SPLIT_SPEAKERS):
+        # "speaker 2" / "the second speaker" / "both speakers"
+        m = re.search(r"\bspeaker\s*#?\s*(\d+)\b", prompt.lower())
+        if not m:
+            m = re.search(r"\b(third|second|fourth|first)\s+(?:speaker|voice)\b", prompt.lower())
+            if m:
+                words = {"first": 1, "second": 2, "third": 3, "fourth": 4}
+                params["speaker_index"] = words[m.group(1)]
+        elif m:
+            params["speaker_index"] = int(m.group(1))
+        if re.search(r"\b(all|every|each|both)\s+(?:of the\s+)?(?:the\s+)?speakers?\b", prompt.lower()):
+            params["all_speakers"] = True
 
     if intent == Intent.REVERB:
         params["reverb_amount"] = 0.5
