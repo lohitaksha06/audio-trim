@@ -130,9 +130,12 @@ def test_enhance_fallback_without_separator(tmp_path, monkeypatch):
 
     monkeypatch.setattr(AO, "SourceSeparator", Boom)
     path = _wav(tmp_path, _loop(128, _house))
-    plan = regex_plan_from_prompt("make the voice clearer")
+    # Music context is required to reach the Demucs path at all — bare voice
+    # requests use the spectral route, because Demucs measured worse on speech.
+    plan = regex_plan_from_prompt("make the voice clearer over the drums")
     res = AO.execute_plan(path, plan)
     assert res["intent"] == "enhance_vocals"
+    assert plan.params["music_context"] is True
     assert res["metadata"]["method"] == "eq_fallback"
     assert res.get("output_path")
 
@@ -157,8 +160,9 @@ def test_enhance_stem_remix_with_fake_separator(tmp_path, monkeypatch):
             return stems
 
     monkeypatch.setattr(AO, "SourceSeparator", FakeSep)
-    plan = regex_plan_from_prompt("make the voice clearer and louder")
+    plan = regex_plan_from_prompt("make the voice clearer and louder over the drums")
     res = AO.execute_plan(src, plan)
+    assert plan.params["music_context"] is True
     assert res["metadata"]["method"] == "stem_remix"
     assert res["metadata"]["vocal_boost_db"] >= 4.0
     assert res.get("output_path")
@@ -170,7 +174,7 @@ def test_mix_denoise_path(tmp_path):
     before = _band(y, 200, 500) / _band(y, 6000, 10000)
     plan = regex_plan_from_prompt("remove background noise")
     res = AO.execute_plan(path, plan)
-    assert res["metadata"]["method"] == "mix_denoise"
+    assert res["metadata"]["method"] == "spectral_denoise"
     out, _ = sf.read(res["output_path"], always_2d=True)
     after = _band(out[:, 0], 200, 500) / _band(out[:, 0], 6000, 10000)
     assert after > before

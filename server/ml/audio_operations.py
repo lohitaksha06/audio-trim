@@ -1926,19 +1926,6 @@ def _spectral_subtract(y: np.ndarray, sr: int, strength: float = 1.0,
     return out
 
 
-def _denoise_mix(y: np.ndarray, sr: int, aggressive: bool = False) -> tuple[np.ndarray, int]:
-    """Whole-mix background-noise removal (no voice named in the request).
-
-    Two stages: transient/disturbance suppression first (horns, drills —
-    too loud for profile subtraction), then learned-profile subtraction
-    for stationary hiss/hum. Returns (audio, n_disturbances).
-    """
-    y, n_events = _suppress_disturbances(y, sr, aggressive)
-    y = _spectral_subtract(y, sr, strength=1.5 if aggressive else 1.2,
-                           floor=0.03 if aggressive else 0.08)
-    return y, n_events
-
-
 def _polish_vocal(v: np.ndarray, sr: int, aggressive: bool = False) -> tuple[np.ndarray, int]:
     """EQ + denoise for an isolated vocal stem: rumble cut, mud cut,
     presence + air lift, de-ess, hiss tame, learned-profile subtraction.
@@ -1979,19 +1966,44 @@ def _enhance_voice(audio_path: str, y: np.ndarray, sr: int,
                    params: dict | None = None) -> tuple[np.ndarray, dict]:
     """Voice-first enhancement. Returns (audio, metadata).
 
-    - ``denoise_mix`` (no voice named): learned-profile subtraction on the mix.
-    - otherwise: isolate the vocal stem (Demucs), polish + lift it, remix over
-      the accompaniment. Falls back to mix EQ when separation is unavailable.
+    - ``denoise_mix`` (no voice named): spectral denoise on the mix.
+    - ``music_context``: accompaniment is present, so isolate the vocal stem
+      (Demucs), polish + lift it and remix over the rest. Demucs is a
+      music-trained separator and measurably made *speech* worse, so it is only
+      used when the request implies a mix.
+    - otherwise: spectral speech path (Wiener denoise + noise-aware presence).
     """
     params = params or {}
     aggressive = bool(params.get("aggressive"))
     meta: dict = {"aggressive": aggressive}
 
+    def _spectral_strength() -> float:
+        return 3.0 if aggressive else 2.0
+
     if params.get("denoise_mix"):
-        y, n_events = _denoise_mix(y, sr, aggressive)
-        meta["method"] = "mix_denoise"
+        from server.ml.speech.voice import enhance_voice_speech
+
+        y, sp_meta = enhance_voice_speech(
+            y, sr,
+            strength=_spectral_strength(),
+            presence_db=5.0 if aggressive else 4.0,
+            makeup_db=3.0 if params.get("level_boost") else 2.0,
+        )
+        meta.update(sp_meta)
         meta["enhanced"] = "mix"
-        meta["disturbances_removed"] = n_events
+        return y, meta
+
+    if not params.get("music_context"):
+        from server.ml.speech.voice import enhance_voice_speech
+
+        y, sp_meta = enhance_voice_speech(
+            y, sr,
+            strength=_spectral_strength(),
+            presence_db=5.0 if aggressive else 4.0,
+            makeup_db=3.0 if params.get("level_boost") else 2.0,
+        )
+        meta.update(sp_meta)
+        meta["enhanced"] = "vocals"
         return y, meta
 
     vocal_db = 4.0 + (2.0 if aggressive else 0.0) + (2.0 if params.get("level_boost") else 0.0)

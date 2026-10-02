@@ -514,6 +514,10 @@ def voice_flags(prompt: str) -> dict:
                    "hum", "buzz", "background", "horn", "honk", "drill",
                    "construction", "traffic", "siren", "crowd", "chatter",
                    "wind", "pop", "click", "bang", "clatter", "rumble")
+    music_words = ("drum", "kick", "snare", "hat", "bass", "guitar", "piano", "keys",
+                    "synth", "mix", "song", "track", "beat", "instrument", "stem",
+                    "accompaniment", "band", "singer")
+
     return {
         "aggressive": bool(re.search(
             r"\b(very|really|super|extremely|heavily|completely|totally|a lot|all( the)? (background )?noise|much noise|horn|honk|drill|construction|siren|traffic)\b", lower)),
@@ -521,6 +525,11 @@ def voice_flags(prompt: str) -> dict:
             r"audible|can'?t hear|cannot hear|loud and clear|bring .*voice (up|forward|out)|voice.*(louder|up front)|make me |myself|my voice|hear me\b|stand out|up front|more prominent", lower)),
         "denoise_mix": (any(k in lower for k in noise_words)
                         and not any(k in lower for k in voice_words)),
+        # Accompaniment present -> the voice sits in a mix and Demucs stem
+        # separation is the right tool. Bare voice/noise complaints -> spectral
+        # processing, because Demucs is trained on music and measurably made
+        # speech SNR worse (-5 to -7 dB).
+        "music_context": any(k in lower for k in music_words),
     }
 
 

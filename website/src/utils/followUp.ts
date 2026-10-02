@@ -34,6 +34,10 @@ export interface ResultMeta {
   gain_db?: number;
   gains_db?: Record<string, number>;
   method?: string;
+  snr_before_db?: number;
+  snr_after_db?: number;
+  snr_gain_db?: number;
+  vocal_boost_db?: number;
   fillers_removed?: number;
   seconds_saved?: number;
   note?: string;
@@ -104,7 +108,18 @@ export function describeResult(intent: string, meta?: ResultMeta | null): string
     bits.push(`${meta.style} style`);
     if (meta.tempo_bpm) bits.push(`${Math.round(meta.tempo_bpm)} BPM`);
   } else if (meta.enhanced) {
-    bits.push("vocals enhanced + denoised");
+    const target = meta.enhanced === "mix" ? "background noise" : "voice";
+    if (typeof meta.snr_after_db === "number") {
+      const gain = typeof meta.snr_gain_db === "number" ? meta.snr_gain_db : 0;
+      bits.push(
+        `${target} cleaned · speech-to-noise ${Math.round(meta.snr_after_db)} dB` +
+          (gain > 0 ? ` (+${Math.round(gain)} dB better)` : " (already clean)")
+      );
+    } else if (meta.method === "stem_remix" && typeof meta.vocal_boost_db === "number") {
+      bits.push(`vocals lifted +${meta.vocal_boost_db} dB over the mix`);
+    } else {
+      bits.push(`vocals enhanced + denoised`);
+    }
   } else if (meta.removed_stem) {
     bits.push(`removed ${meta.removed_stem}`);
   } else if (meta.isolated_stem) {

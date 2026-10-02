@@ -112,11 +112,19 @@ def test_disturbance_prompt_flags():
     assert regex_plan_from_prompt("bring horns forward").intent != Intent.ENHANCE_VOCALS
 
 
-def test_denoise_reports_disturbances(tmp_path):
+def test_denoise_reports_measured_snr(tmp_path):
+    """The spectral path reports measured SNR instead of an event count.
+
+    The old "disturbances_removed" tally came from profile subtraction that
+    could not actually improve speech (measured -5 to -7 dB). It was replaced by
+    a reported, measured SNR gain.
+    """
     y, _, _, _, _ = _speechy_with_disturbances()
     p = str(tmp_path / "d.wav")
     sf.write(p, y[0], SR)
     plan = regex_plan_from_prompt("remove background noise")
     res = AO.execute_plan(p, plan)
-    assert res["metadata"]["method"] == "mix_denoise"
-    assert "disturbances_removed" in res["metadata"]
+    assert res["metadata"]["method"] == "spectral_denoise"
+    assert "snr_before_db" in res["metadata"]
+    assert "snr_gain_db" in res["metadata"]
+    assert res["metadata"]["snr_after_db"] > 0
