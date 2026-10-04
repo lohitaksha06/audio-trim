@@ -1,0 +1,7 @@
+{
+  "val_loss": 0.9789549708366394,
+  "pairs": 1857,
+  "tracks": 13,
+  "arch": "5 -> 96 -> 96 -> 32",
+  "heads": "delta 15 bins (-7..+7), duration 16 bins (0=rest..15), velocity 1"
+}

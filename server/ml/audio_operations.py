@@ -696,7 +696,39 @@ def _timbre_family(instrument: str, wave: str = "") -> str | None:
         return None
 
 
+_PHRASING_ERROR = None
+
+
+def _energy_curve(y: np.ndarray, sr: int, tempo: float, steps: int) -> np.ndarray:
+    """Per-sixteenth loudness curve in 0..1, from the real audio.
+
+    This is what lets an added part respond to the track instead of playing
+    identically in a quiet intro and a loud drop.
+    """
+    try:
+        n = int(steps)
+        if n < 1:
+            return np.ones(1, dtype=np.float32)
+        hop = max(1, int((60.0 / max(tempo, 40.0) / 4.0) * sr))
+        usable = (len(y) // hop) * hop
+        if usable < hop:
+            return np.ones(n, dtype=np.float32)
+        frames = y[:usable].reshape(-1, hop)
+        rms = np.sqrt(np.mean(frames.astype(np.float64) ** 2, axis=1))
+        if rms.size == 0 or float(rms.max()) <= 1e-9:
+            return np.ones(n, dtype=np.float32)
+        lo, hi = float(rms.min()), float(rms.max())
+        norm = (rms - lo) / (hi - lo)
+        # Map frame count onto the requested step count (usually 1:1, but the
+        # generated part can cover a slightly longer grid than the audio).
+        idx = np.linspace(0, norm.size - 1, n)
+        return np.clip(np.interp(idx, np.arange(norm.size), norm), 0.0, 1.0).astype(np.float32)
+    except Exception:
+        return np.ones(max(steps, 1), dtype=np.float32)
+
+
 def _timbre_layer(
+    y: np.ndarray,
     instrument: str, tempo: float, beats: list[float], dur: float,
     sr: int, root_hz: float, groove: str, params: dict,
 ) -> tuple[np.ndarray, int, dict] | None:
@@ -708,6 +740,8 @@ def _timbre_layer(
     """
     from server.ml.synthesis import timbre
 
+    global _PHRASING_ERROR
+    _PHRASING_ERROR = None
     family = _timbre_family(instrument, params.get("wave", "") or "")
     if family is None:
         return None
@@ -721,6 +755,43 @@ def _timbre_layer(
     root_midi = max(24, min(72, root_midi))
     # Natural minor: safe, and fits most of what people ask to "add".
     scale = [0, 2, 3, 5, 7, 8, 10]
+
+    # Prefer the trained phrase model. It phrases, moves and rests like a real
+    # part; the fixed figure below repeats one idea for the whole track, which
+    # is what made added bass sound like a held note.
+    try:
+        from server.ml.synthesis import phrasing
+
+        if phrasing.available():
+            beat_sec = 60.0 / max(tempo, 40.0)
+            bars = max(1, int(np.ceil(dur / (beat_sec * 4.0))))
+            curve = _energy_curve(y[0] if y.ndim > 1 else y, sr, tempo, bars * 16)
+            fam = family.split("/")[0]
+            lo, hi = {
+                "bass": (28, 55), "keyboard": (40, 84), "guitar": (40, 88),
+                "flute": (60, 96), "synth_lead": (48, 96), "string": (36, 88),
+                "brass": (40, 84), "reed": (44, 88), "mallet": (48, 96),
+                "organ": (36, 84), "vocal": (40, 72),
+            }.get(fam, (32, 96))
+            part, pmeta = phrasing.generate_part(
+                fam, bpm=tempo, bars=bars, root_midi=root_midi,
+                scale=tuple(scale), energy=curve.tolist(),
+                density=float(params.get("density", 0.8)),
+                sr=sr, pitch_lo=lo, pitch_hi=hi,
+                seed=(params.get("seed") or None),
+            )
+            if np.any(part):
+                if len(part) < n:
+                    part = np.pad(part, (0, n - len(part)))
+                pmeta["timbre_family"] = family
+                pmeta["timbre_requested"] = instrument
+                pmeta["timbre_source"] = "trained model (NSynth recordings)"
+                pmeta["phrasing_source"] = "trained on real note sequences"
+                return part.astype(np.float32)[:n], int(pmeta.get("notes", 0)), pmeta
+    except Exception as exc:
+        # Fall back to the fixed figure, but keep the reason. A bare `except:
+        # pass` here hid a NameError for a whole session.
+        _PHRASING_ERROR = f"{type(exc).__name__}: {exc}"
 
     beat_sec = 60.0 / max(tempo, 40.0)
     # `div` is the note duration in beats; n_sub is how many notes fit per beat.
@@ -1748,7 +1819,7 @@ def _add_instrument(
             pass
     elif instrument == "bass":
         root = _detect_key_root(y, sr)
-        built = _timbre_layer(instrument, tempo, beats, dur, sr, root, groove, params)
+        built = _timbre_layer(y, instrument, tempo, beats, dur, sr, root, groove, params)
         if built is not None:
             gen, hits, timbre_meta = built
         else:
@@ -1756,7 +1827,7 @@ def _add_instrument(
             hits = len(beats) * 2
     elif instrument == "guitar":
         root = _detect_key_root(y, sr) * 2
-        built = _timbre_layer(instrument, tempo, beats, dur, sr, root, groove, params)
+        built = _timbre_layer(y, instrument, tempo, beats, dur, sr, root, groove, params)
         if built is not None:
             gen, hits, timbre_meta = built
         else:
@@ -1776,7 +1847,7 @@ def _add_instrument(
                 hits += 1
     elif instrument == "strings":
         root = _detect_key_root(y, sr) * 4
-        built = _timbre_layer("string", tempo, beats, dur, sr, root, groove, params)
+        built = _timbre_layer(y, "string", tempo, beats, dur, sr, root, groove, params)
         if built is not None:
             gen, hits, timbre_meta = built
         else:
@@ -1796,7 +1867,7 @@ def _add_instrument(
                           "lofi_keys"):
         # named waves / acoustic / sub families — each gets its own timbre
         root = _detect_key_root(y, sr)
-        built = _timbre_layer(instrument, tempo, beats, dur, sr, root, groove, params)
+        built = _timbre_layer(y, instrument, tempo, beats, dur, sr, root, groove, params)
         if built is not None:
             gen, hits, timbre_meta = built
         else:
@@ -1863,6 +1934,8 @@ def _add_instrument(
     }
     meta.update(auto_meta)
     meta.update(timbre_meta)
+    if _PHRASING_ERROR:
+        meta["phrasing_error"] = _PHRASING_ERROR
     return y, meta, layer
 
 
