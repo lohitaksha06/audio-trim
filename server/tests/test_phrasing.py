@@ -80,6 +80,69 @@ class TestMusicalConstraints:
             )
 
 
+class TestRegressions:
+    """Bugs found by measuring generated output, not by reading the code."""
+
+    def test_a_quiet_track_still_gets_a_part(self):
+        """Regression: a fully quiet energy curve produced ZERO notes.
+
+        The state fed the model the *note's own* loudness, which is
+        structurally 0 on every rest row, so it learned "energy 0 == rest" and
+        'add bass' on a quiet track rendered pure silence.
+        """
+        for e in (0.0, 0.05):
+            y, meta = _part(bars=8, energy=[e] * 128)
+            assert meta["notes"] > 0, (
+                f"energy={e} produced no notes - the part is silent"
+            )
+            assert np.any(y), f"energy={e} produced silent audio"
+
+    def test_fill_stays_in_a_usable_band(self):
+        """Left to the model the part came out ~10% filled - too sparse."""
+        for density in (0.5, 0.8, 1.0):
+            _, meta = _part(bars=8, density=density, energy=[0.6] * 128)
+            total = meta["notes"] + meta["rests"]
+            fill = meta["notes"] / max(total, 1)
+            assert 0.15 <= fill <= 0.95, (
+                f"density {density}: fill {fill:.0%} is not a usable part"
+            )
+
+    def test_no_stuttering_same_pitch_runs(self):
+        """Contiguous same-pitch notes must merge, not re-strike."""
+        for seed in (1, 5, 9):
+            _, meta = _part(bars=8, seed=seed)
+            pitches = meta["pitches"]
+            starts = meta["note_steps"]
+            lens = meta["note_lengths"]
+            for i in range(1, len(pitches)):
+                if pitches[i] == pitches[i - 1]:
+                    touching = starts[i] == starts[i - 1] + lens[i - 1]
+                    assert not touching, (
+                        f"seed {seed}: pitch {pitches[i]} re-struck at step "
+                        f"{starts[i]} instead of being held"
+                    )
+
+    def test_notes_have_varied_lengths(self):
+        """All-same-length notes are a machine-gun, not a part."""
+        _, meta = _part(bars=8, energy=[0.6] * 128)
+        assert len(set(meta["note_lengths"])) >= 3, (
+            f"note lengths: {sorted(set(meta['note_lengths']))}"
+        )
+
+    def test_energy_increases_density_monotonically(self):
+        fills = []
+        for e in (0.0, 0.5, 1.0):
+            _, meta = _part(bars=8, density=1.0, energy=[e] * 128)
+            fills.append(meta["notes"] / max(meta["notes"] + meta["rests"], 1))
+        assert fills[0] < fills[-1], f"density did not follow energy: {fills}"
+
+    def test_never_returns_silence_for_any_seed(self):
+        for seed in range(1, 25):
+            y, meta = _part(bars=4, seed=seed)
+            assert meta["notes"] > 0, f"seed {seed} produced no notes"
+            assert np.any(y), f"seed {seed} produced silent audio"
+
+
 class TestRespondsToContext:
     def test_energy_curve_changes_density(self):
         sr, steps = 22050, 64

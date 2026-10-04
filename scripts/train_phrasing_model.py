@@ -29,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import librosa
 
 from server.ml.synthesis.phrasing import (
+    ACT_DIM,
     DELTA_BINS,
     DUR_BINS,
     PHRASE_STEPS,
@@ -118,14 +119,40 @@ def _track_notes(y: np.ndarray, sr: int) -> list[tuple[float, float, int, float]
 
 
 def _tempo(y: np.ndarray, sr: int) -> float:
+    # `librosa.beat.tempo` is deprecated in 0.10+; `librosa.feature.rhythm.tempo`
+    # is the documented replacement but is not reachable through lazy_loader
+    # here, so resolve the best available name and fall back safely.
+    fn = None
     try:
-        return float(np.median(librosa.beat.tempo(y=y, sr=sr, aggregate=None)))
+        from librosa.feature.rhythm import tempo as fn  # type: ignore
+    except Exception:
+        fn = getattr(librosa.feature, "tempo", None)
+    if fn is None:
+        fn = librosa.beat.tempo
+    try:
+        return float(np.median(fn(y=y, sr=sr, aggregate=None)))
     except Exception:
         return 120.0
 
 
+def _grid_energy(y: np.ndarray, sr: int, bpm: float) -> np.ndarray:
+    """Per-sixteenth loudness of the isolated stem, normalised 0..1."""
+    step = 60.0 / bpm / 4.0
+    hop = max(1, int(step * sr))
+    usable = (len(y) // hop) * hop
+    if usable < hop:
+        return np.zeros(1, dtype=np.float32)
+    fr = y[:usable].reshape(-1, hop)
+    rms = np.sqrt(np.mean(fr.astype(np.float64) ** 2, axis=1))
+    top = float(rms.max())
+    if top <= 1e-9:
+        return np.zeros(1, dtype=np.float32)
+    return (rms / top).astype(np.float32)
+
+
 def _pairs_from_notes(
-    notes: list[tuple[float, float, int, float]], bpm: float
+    notes: list[tuple[float, float, int, float]], bpm: float,
+    env: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Turn one track's notes into (state, action) rows. Rests are included.
 
@@ -133,16 +160,19 @@ def _pairs_from_notes(
       0  semitones moved since the start of the current phrase, /24
       1  position through the phrase, 0..1
       2  previous pitch relative to the track's lowest note, /24
-      3  loudness of the sounding note (0 when resting)
-      4  local note density in the surrounding bar, 0..1
+      3  LOCAL loudness of the track at this step (0..1) -- NOT the note's own
+         loudness. An earlier version put the note's rms here, which is
+         structurally 0 on every rest row, so the model learned "energy 0 means
+         rest" and then produced total silence on any quiet passage.
+      4  loudness of the previously sounding note (0 before anything plays)
     Action:
       0  semitone delta to the next note (0 when resting)
       1  note length in sixteenth-note steps (0 when resting)
       2  velocity 0..1
     """
+    empty = (np.zeros((0, STATE_DIM), np.float32),
+             np.zeros((0, ACT_DIM), np.float32))
     if len(notes) < 6:
-        empty = (np.zeros((0, STATE_DIM), np.float32),
-                 np.zeros((0, ACT_DIM), np.float32))
         return empty
 
     step = 60.0 / bpm / 4.0
@@ -154,33 +184,38 @@ def _pairs_from_notes(
             continue  # pitch trackers double-report onsets
         clean.append((gs, dur, mid, rms))
     if len(clean) < 6:
-        return (np.zeros((0, STATE_DIM), np.float32),
-                np.zeros((0, ACT_DIM), np.float32))
+        return empty
 
     root = min(m for _, _, m, _ in clean)
     peak_rms = max((r for *_, r in clean), default=1.0) or 1.0
-    last_step = clean[-1][0]
+
+    def energy_at(step_index: int) -> float:
+        if env.size == 0:
+            return 0.5
+        i = int(np.clip(step_index, 0, env.size - 1))
+        return float(env[i])
 
     X: list[list[float]] = []
     Y: list[list[float]] = []
 
     prev_mid = clean[0][2]
     phrase_start_mid = prev_mid
+    prev_loud = 0.0
     since_reset = 0
 
     for idx, (gs, dur, mid, rms) in enumerate(clean):
         # Rests: one row per skipped step, up to a bar, so the model learns to
         # stop without learning to emit thousands of consecutive rests.
-        skipped = gs - (clean[idx - 1][0] + int(round(clean[idx - 1][1] / step))) \
-            if idx else 0
+        skipped = (gs - (clean[idx - 1][0] + int(round(clean[idx - 1][1] / step)))
+                   if idx else 0)
         for k in range(min(max(skipped, 0), 16)):
             at = (clean[idx - 1][0] + k + 1) if idx else k
             X.append([
                 (prev_mid - phrase_start_mid) / 24.0,
                 (at % PHRASE_STEPS) / PHRASE_STEPS,
                 (prev_mid - root) / 24.0,
-                0.0,
-                min(len(clean) / max(last_step / 16.0, 1.0) / 4.0, 1.0),
+                energy_at(at),
+                prev_loud,
             ])
             Y.append([0.0, 0.0, 0.0])
             since_reset += 1
@@ -193,8 +228,8 @@ def _pairs_from_notes(
             (prev_mid - phrase_start_mid) / 24.0,
             (gs % PHRASE_STEPS) / PHRASE_STEPS,
             (prev_mid - root) / 24.0,
-            float(rms / peak_rms),
-            min(len(clean) / max(last_step / 16.0, 1.0) / 4.0, 1.0),
+            energy_at(gs),
+            prev_loud,
         ])
         Y.append([
             float(np.clip(mid - prev_mid, -MAX_ABS_DELTA, MAX_ABS_DELTA)),
@@ -203,6 +238,7 @@ def _pairs_from_notes(
         ])
 
         prev_mid = mid
+        prev_loud = float(np.clip(rms / peak_rms, 0.0, 1.0))
         since_reset += int(round(dur / step))
 
     return np.asarray(X, np.float32), np.asarray(Y, np.float32)
@@ -234,7 +270,8 @@ def build(audio_dir: str, limit: int | None = None,
             notes = _track_notes(y, sr)
             if len(notes) < 8:
                 continue
-            X, Y = _pairs_from_notes(notes, _tempo(y, sr))
+            bpm = _tempo(y, sr)
+            X, Y = _pairs_from_notes(notes, bpm, _grid_energy(y, sr, bpm))
             if len(X) < 8:
                 continue
             Xs.append(X)

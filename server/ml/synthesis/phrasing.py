@@ -155,6 +155,7 @@ def generate_part(
 
     prev_midi = int(root_midi + 12)
     phrase_start_midi = prev_midi
+    prev_loud = 0.0
     since_reset = 0
     t = 0
     guard = 0
@@ -181,13 +182,15 @@ def generate_part(
             e = float(energy[t])
 
         # State layout must match `scripts/train_phrasing_model.py` exactly.
+        # Slot 3 is the TRACK's local loudness, not the note's own -- the model
+        # was trained that way. Slot 4 is the last note's loudness.
         state = torch.tensor(
             [[
                 (prev_midi - phrase_start_midi) / 24.0,
                 (t % PHRASE_STEPS) / PHRASE_STEPS,
                 (prev_midi - root_midi) / 24.0,
                 e,
-                float(np.clip(density, 0.0, 1.0)),
+                prev_loud,
             ]],
             dtype=torch.float32,
         )
@@ -196,16 +199,33 @@ def generate_part(
 
         # Sample the discrete choices instead of taking their mean -- this is
         # what makes the line move.
+        d = float(np.clip(density, 0.0, 1.0))
         d_p = _softmax(out[:DELTA_BINS] / SAMPLE_TEMP)
         u_p = _softmax(out[DELTA_BINS:DELTA_BINS + DUR_BINS] / SAMPLE_TEMP)
         vel = float(np.clip(out[-1], 0.0, 1.0))
         delta = int(rng.choice(DELTA_BINS, p=d_p)) - (DELTA_BINS // 2)
-        dur_steps = float(rng.choice(DUR_BINS, p=u_p))
 
-        # Energy opens the part up and quiet sections thin it out. This is a
-        # taste gate on top of what the model predicts, not a replacement.
-        if rng.random() > (0.25 + 0.7 * e * float(np.clip(density, 0.0, 1.0))):
+        # The model decides WHERE rests fall; the arrangement decides HOW MANY.
+        # Left entirely to the model the part came out ~10% filled -- closer to
+        # silence than to an instrument. Blending the model's rest-vs-note odds
+        # with a target fill (geometric mean) keeps its local sense of space
+        # while guaranteeing a usable density.
+        target_fill = float(np.clip(0.30 + 0.50 * e * d, 0.15, 0.85))
+        note_share = float(max(1.0 - u_p[0], 1e-6))
+        model_odds = float(u_p[0]) / note_share
+        target_odds = (1.0 - target_fill) / max(target_fill, 1e-6)
+        blended = float(np.sqrt(max(model_odds, 1e-6) * target_odds))
+        p_rest = blended / (1.0 + blended)
+
+        if rng.random() < p_rest:
             dur_steps = 0.0
+        else:
+            tail = u_p[1:]
+            ssum = float(tail.sum())
+            dur_steps = float(
+                rng.choice(np.arange(1, DUR_BINS), p=tail / ssum if ssum > 1e-9
+                           else np.full(DUR_BINS - 1, 1.0 / (DUR_BINS - 1)))
+            )
 
         if dur_steps < 1.0:
             rests += 1
@@ -232,8 +252,23 @@ def generate_part(
                          "velocity": velocity})
 
         prev_midi = midi
+        prev_loud = float(np.clip(velocity / 127.0, 0.0, 1.0))
         t += dur_steps
         since_reset += dur_steps
+
+    # Never hand back silence. If the plan came out empty -- a very quiet track,
+    # or a seed the model disliked -- fall back to a plain alternating root/fifth
+    # figure. A feature that quietly adds nothing is worse than a plain one.
+    if not plan and total_steps >= 4:
+        degs = (0, 7, 0, 7)
+        for k in range(0, total_steps, 2):
+            d = degs[(k // 2) % len(degs)]
+            plan.append({
+                "step": k,
+                "midi": _snap_to_scale(root_midi + d, root_midi, scale),
+                "steps": 2,
+                "velocity": 80,
+            })
 
     # ---- pass 2: render the planned notes ---------------------------------
     notes: list[dict] = []
