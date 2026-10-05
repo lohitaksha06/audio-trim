@@ -695,6 +695,14 @@ def classify_intent(prompt: str) -> Intent:
     if re.search(r"\b(remove|delete|drop|get rid of|cut|mute|kill)\b[^.]{0,30}\bspeakers?\b", lower):
         return Intent.REMOVE_SPEAKER
 
+    # "keep only the vocal / leave me just the voice" must be read as ISOLATE,
+    # and it has to be checked BEFORE the generic REMOVE branch -- otherwise
+    # "remove all instruments and keep the voice" removed the *voice* instead,
+    # which is the opposite of what was asked.
+    if re.search(r"\b(remove|strip|kill|get rid of|mute)\b[^.]{0,40}\b(instruments?|music|accompaniment|backing)\b", lower) \
+            and re.search(r"\b(keep|leave|only|just|want)\b[^.]{0,30}\b(voice|vocal|vocals|singer|singing)\b", lower):
+        return Intent.ISOLATE
+
     if _mentions_noise(prompt):
         return Intent.ENHANCE_VOCALS
     # stem mixer ("drums louder, vocals quieter", "balance the mix", "prioritize drums"):

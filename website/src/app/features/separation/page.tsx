@@ -63,8 +63,30 @@ export default function SeparationPage() {
 
         <Panel title="Isolate one instrument">
           <ActionButton label="Keep only the vocals" prompt="Keep only the vocals" />
+          <ActionButton
+            label="Voice only (strip instruments)"
+            hint="Removes every instrument and keeps the vocal"
+            prompt="Remove all instruments and keep the voice"
+            tone="accent"
+          />
           <ActionButton label="Extract just the drums" prompt="Give me just the drums as a stem" />
           <ActionButton label="Extract just the bass" prompt="Extract just the bass" />
+          <ActionButton
+            label="Extract just the piano"
+            hint="Six-stem model, so piano comes out on its own"
+            prompt="Extract just the piano"
+            tone="accent"
+          />
+          <ActionButton
+            label="Extract just the guitar"
+            hint="Six-stem model, so guitar comes out on its own"
+            prompt="Extract just the guitar"
+            tone="accent"
+          />
+          <p className="pt-1 text-xs text-white/58">
+            Vocals also get a measured de-noise and presence lift. Piano and guitar use a
+            six-stem model; vocals, drums and bass use a four-model ensemble.
+          </p>
         </Panel>
 
         <Panel title="Remove one instrument">

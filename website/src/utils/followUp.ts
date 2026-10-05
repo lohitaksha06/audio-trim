@@ -59,6 +59,14 @@ export interface ResultMeta {
   notes?: number;
   root_midi?: number;
   drum_source?: string;
+  isolate_model?: string;
+  isolate_sr?: number;
+  stem_seconds?: number;
+  stem_rms?: number;
+  vocal_denoised?: boolean;
+  vocal_presence_lifted?: boolean;
+  vocal_source?: string;
+  vocal_cleanup_error?: string;
   speakers?: string[];
   talk_time_seconds?: Record<string, number>;
   chapter_count?: number;
@@ -177,6 +185,11 @@ export function describeResult(intent: string, meta?: ResultMeta | null): string
     bits.push(`removed ${meta.removed_stem}`);
   } else if (meta.isolated_stem) {
     bits.push(`isolated ${meta.isolated_stem}`);
+    if (meta.vocal_denoised) bits.push("de-noised + presence lifted");
+    if (meta.isolate_model) bits.push(meta.isolate_model);
+    if (typeof meta.stem_seconds === "number") {
+      bits.push(`${meta.stem_seconds.toFixed(1)}s`);
+    }
   } else {
     return null;
   }

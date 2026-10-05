@@ -79,16 +79,21 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
         stems = separator.separate(audio_path)
         metadata["stems"] = stems
     elif plan.intent == Intent.ISOLATE:
-        separator = SourceSeparator()
-        target = plan.params.get("instrument", "vocals")
-        stem_path = separator.isolate(audio_path, target)
-        if stem_path:
-            output_path = stem_path
-            metadata["isolated_stem"] = target
+        # Model-aware isolation: htdemucs_ft for the four main stems,
+        # htdemucs_6s when piano/guitar is asked for (the only model that has
+        # them), plus measured clean-up on vocals. Previously this returned the
+        # raw stem from the single-model htdemucs, so "extract just the piano"
+        # came back as everything that is not drums/bass/vocals.
+        from server.ml.source_separation.isolate import isolate as _isolate
+
+        requested = plan.params.get("instrument", "vocals")
+        iso_meta = _isolate(audio_path, requested)
+        if iso_meta.get("path"):
+            output_path = iso_meta.pop("path")
+            metadata["isolated_stem"] = iso_meta.get("isolated_stem", requested)
+            metadata.update(iso_meta)
         else:
-            stems = separator.separate(audio_path)
-            metadata["stems"] = stems
-            metadata["note"] = f"Stem '{target}' not found; returning all stems"
+            metadata.update(iso_meta)
     elif plan.intent == Intent.CONVERT:
         target_format = plan.params.get("format", "mp3")
         output_path = convert_file(audio_path, target_format)

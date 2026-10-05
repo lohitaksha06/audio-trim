@@ -94,6 +94,15 @@ BENCH: list[dict[str, Any]] = [
     # ...but a level change is still a level change
     {"prompt": "balance the mix: drums +3dB", "intent": "mix",
      "params": {"instrument": "drums", "gains_db": {"drums": 3.0}}},
+    # Instrument extraction, including the six-stem-only instruments
+    {"prompt": "extract just the piano", "intent": "isolate", "params": {"instrument": "piano"}},
+    {"prompt": "extract just the guitar", "intent": "isolate", "params": {"instrument": "guitar"}},
+    {"prompt": "extract the voice", "intent": "isolate", "params": {"instrument": "vocals"}},
+    # "remove instruments, keep the voice" must NOT remove the voice
+    {"prompt": "remove all instruments and keep the voice", "intent": "isolate",
+     "params": {"instrument": "vocals"}},
+    {"prompt": "strip the music and keep just the singing", "intent": "isolate",
+     "params": {"instrument": "vocals"}},
     # CLASSIFY (3)
     {"prompt": "what genre is this?", "intent": "classify"},
     {"prompt": "what edm style is this?", "intent": "classify"},
