@@ -7,6 +7,7 @@ import FileUpload from "@/components/FileUpload";
 import AudioPreview from "@/components/AudioPreview";
 import ManualEditor from "@/components/ManualEditor";
 import StemMixer from "@/components/StemMixer";
+import JamMixer from "@/components/JamMixer";
 import OptimizePanel from "@/components/OptimizePanel";
 import { uploadFile, processAudio, downloadUrl, type UploadResponse, type ProcessResponse } from "@/services/api";
 
@@ -186,6 +187,7 @@ export default function MixPage() {
                   <div>
                     <p className="mb-2 text-xs uppercase tracking-wider text-white/58">2 · Prioritize a sound</p>
                     <StemMixer audioPath={activePath!} onResult={handleResult} disabled={quickBusy} />
+                    <JamMixer audioPath={activePath!} onResult={handleResult} disabled={quickBusy} />
                   </div>
                   <div>
                     <p className="mb-2 text-xs uppercase tracking-wider text-white/58">3 · Make it better</p>

@@ -652,8 +652,13 @@ def classify_intent(prompt: str) -> Intent:
     # import-your-own-stem: "mix my uploaded stem", "import a stem", "blend this stem in"
     # (must run before SEPARATE so "stems" doesn't hijack it)
     if "stem" in lower and any(
-        w in lower for w in ["import", "my stem", "my own", "own stem", "uploaded", "mix in", "blend", "mix my", "mix this", "add my stem"]
+        w in lower for w in ["import", "my stem", "my own", "own stem", "uploaded", "mix in", "blend", "mix my", "mix this", "add my stem", "second file", "other track", "another track"]
     ):
+        return Intent.MIX_STEM
+
+    # "jam this in" / "jam the loop with the track" -- bringing in a second file.
+    # Also ahead of MIX, because "jam" should not be read as a level change.
+    if re.search(r"\bjam\b", lower):
         return Intent.MIX_STEM
 
     # music / EDM style classification question ("what genre is this?",

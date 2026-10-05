@@ -1939,13 +1939,98 @@ def _add_instrument(
     return y, meta, layer
 
 
+def _estimate_key(y: np.ndarray, sr: int) -> tuple[int, float]:
+    """Estimate (tonic pitch-class, confidence 0..1) from a chroma profile.
+
+    Correlates the chroma vector against the 12 major and 12 minor key profiles
+    (Krumhansl-style) rather than just taking the strongest note, which reports
+    a "key" for music that has none.
+    """
+    try:
+        mono = y[0] if y.ndim > 1 else y
+        if mono.size < sr // 2:
+            return 0, 0.0
+        chroma = librosa.feature.chroma_cqt(y=mono, sr=sr)
+        prof = np.mean(chroma, axis=1)
+        if not np.any(prof) or float(prof.max()) <= 1e-9:
+            return 0, 0.0
+
+        major = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52,
+                          5.19, 2.39, 3.66, 2.29, 2.88])
+        minor = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54,
+                          4.75, 3.98, 2.69, 3.34, 3.17])
+        best, best_pc, second = -2.0, 0, -2.0
+        for shift in range(12):
+            for tmpl in (major, minor):
+                t = np.roll(tmpl, shift)
+                num = float(np.dot(prof, t))
+                den = float(np.linalg.norm(prof) * np.linalg.norm(t)) + 1e-9
+                score = num / den
+                if score > best:
+                    second = best
+                    best, best_pc = score, shift
+                elif score > second:
+                    second = score
+        # Confidence = margin over the runner-up. Ambiguous keys score low.
+        margin = max(0.0, best - max(second, 0.0))
+        return int(best_pc), float(min(1.0, margin * 6.0))
+    except Exception:
+        return 0, 0.0
+
+
+def _best_beat_offset(
+    y: np.ndarray, sr: int, ys: np.ndarray, period: float
+) -> float:
+    """Shift (seconds) that best lines the stem's onsets up with the track's.
+
+    Cross-correlates onset-strength envelopes over +/- one beat period. The old
+    code used `first_beat_of_track - first_beat_of_stem`, which assumes the
+    first detected beat is the downbeat in both files; it usually is not, which
+    put every kick and snare a fraction of a beat out of phase.
+    """
+    try:
+        period = float(period)
+        if period <= 0 or not np.isfinite(period):
+            return 0.0
+        hop = 256
+        oa = librosa.onset.onset_strength(
+            y=y[0] if y.ndim > 1 else y, sr=sr, hop_length=hop
+        )
+        ob = librosa.onset.onset_strength(y=ys, sr=sr, hop_length=hop)
+        n = min(len(oa), len(ob))
+        if n < 8:
+            return 0.0
+        oa = oa[:n] - float(np.mean(oa[:n]))
+        ob = ob[:n] - float(np.mean(ob[:n]))
+        denom = float(np.linalg.norm(oa) * np.linalg.norm(ob)) + 1e-9
+        if denom <= 1e-9:
+            return 0.0
+        corr = np.correlate(oa, ob, mode="full") / denom
+        max_lag = int(round(period * sr / hop))
+        max_lag = max(1, min(max_lag, len(corr) - 1))
+        mid = len(corr) // 2
+        lo, hi = mid - max_lag, mid + max_lag + 1
+        window = corr[lo:hi]
+        if window.size == 0:
+            return 0.0
+        # corr index (mid - lag) means "stem must move by +lag" to match.
+        best_lag = int(np.argmax(window)) + lo - mid
+        return float(best_lag * hop / sr)
+    except Exception:
+        return 0.0
+
+
 def mix_imported_stem(
     audio_path: str, stem_path: str, params: dict | None = None
 ) -> tuple[np.ndarray, dict, np.ndarray | None]:
-    """Mix a user-imported stem with the original song.
+    """Jam a second file against the track: tempo, key and phase all matched.
 
-    The AI listens to BOTH files: detects each BPM + beat grid, time-stretches
-    the stem to the song's tempo, beat-aligns downbeat to downbeat, then mixes.
+    The previous version stretched the stem to the track's tempo and shifted it
+    by the difference of the two *first detected beats*. Two problems with
+    that: the first detected beat is usually not the downbeat in either file, so
+    the parts sat out of phase; and nothing matched key at all, so two files a
+    few semitones apart beat against each other.
+
     Returns (mixed_audio[ch, n], metadata, aligned_stem_mono).
     """
     params = params or {}
@@ -1955,29 +2040,67 @@ def mix_imported_stem(
     y, sr = librosa.load(audio_path, sr=None, mono=False)
     if y.ndim == 1:
         y = y[np.newaxis, :]
-    ys, sr_s = librosa.load(stem_path, sr=sr, mono=True)
+    ys, _ = librosa.load(stem_path, sr=sr, mono=True)
 
     orig_tempo, orig_beats = _detect_beats(y, sr)
-    stem_mono2d = ys[np.newaxis, :]
-    stem_tempo, stem_beats = _detect_beats(stem_mono2d, sr)
+    stem_tempo, stem_beats = _detect_beats(ys[np.newaxis, :], sr)
+    # Keep the stem's own detected tempo for reporting. Overwriting it with the
+    # post-stretch value made the UI claim a 140 BPM file was already 120.
+    stem_tempo_detected = float(stem_tempo)
 
-    # 1. tempo match: stretch stem -> original tempo (skip if within 3%)
+    notes: list[str] = []
+
+    # ---- 1. key matching ---------------------------------------------------
+    # Both files are analysed, then the stem is transposed by the interval
+    # between them (choosing the octave that needs the smallest shift).
+    song_pc, song_conf = _estimate_key(y, sr)
+    stem_pc, stem_conf = _estimate_key(ys[np.newaxis, :], sr)
+    transpose = 0
+    # Gate is deliberately modest: a drum-heavy mix still resolves the right key
+    # but scores a low margin, and transposing to the right interval matters
+    # more than declining on a marginal detection. Anything above ~0.03 was
+    # correct on every test fixture.
+    key_gate = 0.03
+    if params.get("match_key", True) and song_conf > key_gate and stem_conf > key_gate:
+        diff = (song_pc - stem_pc) % 12
+        if diff > 6:
+            diff -= 12
+        if diff != 0:
+            transpose = int(diff)
+            ys = librosa.effects.pitch_shift(ys, sr=sr, n_steps=float(transpose))
+            notes.append(f"transposed stem {transpose:+d} semitones to match key")
+        else:
+            notes.append("keys already matched")
+    elif params.get("match_key", True):
+        notes.append("key unclear - left as-is")
+
+    # ---- 2. tempo: bring BOTH files to a common tempo ----------------------
+    # The user's own track is the reference, because stretching it would
+    # degrade the thing they already care about.
     stretch = 1.0
+    tempo_target = float(orig_tempo)
+    residual = 0.0
     if stem_tempo > 40 and orig_tempo > 40:
         ratio = stem_tempo / orig_tempo
-        if abs(ratio - 1.0) > 0.03 and 0.5 <= ratio <= 2.0:
-            ys = librosa.effects.time_stretch(ys, rate=float(ratio))
-            stretch = float(ratio)
-            # scale detected stem beats into stretched time
-            stem_beats = [b / ratio for b in stem_beats]
-            stem_tempo = orig_tempo
+        if abs(ratio - 1.0) > 0.02:
+            if 0.67 <= ratio <= 1.5:
+                ys = librosa.effects.time_stretch(ys, rate=float(ratio))
+                stretch = float(ratio)
+                stem_beats = [b / ratio for b in stem_beats]
+                stem_tempo = orig_tempo
+                notes.append(f"tempo matched by {stretch:.3f}x")
+            else:
+                # Beyond ~1.5x the artefacts are worse than the mismatch, so
+                # leave the audio alone and say so rather than pretend.
+                residual = float(stem_tempo - orig_tempo)
+                notes.append(
+                    f"tempo gap too large to stretch cleanly "
+                    f"({stem_tempo:.0f} vs {orig_tempo:.0f} BPM) - left alone"
+                )
 
-    # 2. beat-align: shift stem so downbeats coincide
-    offset_sec = 0.0
-    if orig_beats and stem_beats:
-        offset_sec = float(orig_beats[0]) - float(stem_beats[0])
-    elif orig_beats:
-        offset_sec = float(orig_beats[0])
+    # ---- 3. phase: align onsets, not just the first beat --------------------
+    period = 60.0 / max(tempo_target, 40.0)
+    offset_sec = _best_beat_offset(y, sr, ys, period)
 
     n = y.shape[1]
     aligned = np.zeros(n, dtype=np.float32)
@@ -1992,11 +2115,17 @@ def mix_imported_stem(
         if dst_len > 0:
             aligned[:dst_len] = ys[src_start: src_start + dst_len]
 
-    # 3. level-match stem to song (avoid one burying the other), then mix
-    peak_song = float(np.max(np.abs(y))) + 1e-9
-    peak_stem = float(np.max(np.abs(aligned))) + 1e-9
-    aligned = (aligned / peak_stem * 0.9 * stem_level).astype(np.float32)
-    mixed = y.copy()
+    # ---- 4. level: match loudness, not peak --------------------------------
+    # Peak matching lets one transient set the gain, so a stem with a single
+    # spike ended up far too quiet or far too hot. RMS is what you actually hear.
+    def _rms(x: np.ndarray) -> float:
+        return float(np.sqrt(np.mean(np.asarray(x, dtype=np.float64) ** 2))) + 1e-9
+
+    song_rms = _rms(y)
+    stem_rms = _rms(aligned)
+    aligned = (aligned / stem_rms * song_rms * stem_level).astype(np.float32)
+
+    mixed = y.astype(np.float32).copy()
     for ch in range(mixed.shape[0]):
         mixed[ch] = mixed[ch] * 0.85 + aligned * 0.65
     master = float(np.max(np.abs(mixed))) + 1e-9
@@ -2004,12 +2133,19 @@ def mix_imported_stem(
 
     meta = {
         "song_bpm": round(float(orig_tempo), 1),
-        "stem_bpm": round(float(stem_tempo), 1),
-        "tempo_bpm": round(float(orig_tempo), 1),
+        "stem_bpm": round(stem_tempo_detected, 1),
+        "stem_bpm_matched": round(float(stem_tempo), 1),
+        "tempo_bpm": round(tempo_target, 1),
         "stretch_factor": round(float(stretch), 3),
         "beat_offset_sec": round(float(offset_sec), 3),
         "stem_level": round(float(stem_level), 2),
         "beat_count": len(orig_beats),
+        "song_key_pc": int(song_pc),
+        "stem_key_pc": int(stem_pc),
+        "key_confidence": round(float(min(song_conf, stem_conf)), 3),
+        "transposed_semitones": int(transpose),
+        "tempo_residual_bpm": round(float(residual), 2),
+        "jam_notes": notes,
     }
     return mixed, meta, aligned
 

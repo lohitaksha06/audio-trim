@@ -86,6 +86,14 @@ BENCH: list[dict[str, Any]] = [
     {"prompt": "add house drums", "intent": "add_instrument", "params": {"instrument": "drums"}},
     {"prompt": "add afrobeat drums", "intent": "add_instrument", "params": {"instrument": "drums"}},
     {"prompt": "add garage drums", "intent": "add_instrument", "params": {"instrument": "drums"}},
+    # Two-file jamming ("jam" must beat the generic MIX level-change branch)
+    {"prompt": "jam this in", "intent": "mix_stem"},
+    {"prompt": "jam the loop with the track", "intent": "mix_stem"},
+    {"prompt": "jam the bass in", "intent": "mix_stem", "params": {"instrument": "bass"}},
+    {"prompt": "mix my stem in and match its key to the track", "intent": "mix_stem"},
+    # ...but a level change is still a level change
+    {"prompt": "balance the mix: drums +3dB", "intent": "mix",
+     "params": {"instrument": "drums", "gains_db": {"drums": 3.0}}},
     # CLASSIFY (3)
     {"prompt": "what genre is this?", "intent": "classify"},
     {"prompt": "what edm style is this?", "intent": "classify"},

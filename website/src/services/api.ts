@@ -1,4 +1,8 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// 127.0.0.1, not localhost: on this machine `localhost` resolves to ::1 first
+// (that is how the other local app wins port 3000), and the FastAPI backend
+// binds IPv4 only -- so `localhost:8000` fails to connect with "Failed to
+// fetch" while an explicit IPv4 literal works.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 export interface AnalysisResult {
   duration_seconds: number;
