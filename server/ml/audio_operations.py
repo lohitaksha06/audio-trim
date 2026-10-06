@@ -42,7 +42,19 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
             end = min(start + 0.5, y.shape[1] / sr)
         res = inpaint(audio_path, start, end)
         output_path = res["output_path"]
-        metadata["inpainted"] = {"removed_start": res["removed_start"], "removed_end": res["removed_end"]}
+        metadata["inpainted"] = {
+            "removed_start": res["removed_start"],
+            "removed_end": res["removed_end"],
+            "removed_seconds": res["removed_seconds"],
+            "method": res["inpaint_method"],
+            "reconstructed": res["inpaint_reconstructed"],
+            "original_duration_seconds": res["original_duration_seconds"],
+            "new_duration_seconds": res["new_duration_seconds"],
+        }
+        for key in ("fill_source_start", "fill_source_kind", "fill_match_distance",
+                    "fill_error"):
+            if key in res:
+                metadata["inpainted"][key.replace("fill_", "")] = res[key]
     elif plan.intent == Intent.FADE:
         y = _fade(y, sr, plan.params)
         output_path = _save_wav(y, sr)

@@ -1,6 +1,7 @@
 """Unit tests for Phase 1 understanding/diarization/inpainting modules."""
 
 import pytest
+import soundfile as sf
 
 from server.ml.audio_understanding import (
     classify_instruments,
@@ -43,7 +44,22 @@ def test_diarize_schema(speech_path):
 
 
 def test_inpaint_duration(tone_path):
+    """Inpainting reconstructs the region and keeps the timeline length.
+
+    The old implementation spliced the region out and crossfaded the ends, so
+    the file came back 2 s shorter -- which is a delete, not a fill.
+    """
+    original = sf.info(tone_path).duration
     res = inpaint(tone_path, 2.0, 4.0)
-    assert abs(res["new_duration_seconds"] - 8.0) < 0.1
+    assert abs(res["new_duration_seconds"] - original) < 0.1, (
+        f"fill changed the duration: {original:.2f}s -> "
+        f"{res['new_duration_seconds']:.2f}s"
+    )
     assert res["removed_start"] == 2.0
     assert res["removed_end"] == 4.0
+    assert res["inpaint_reconstructed"] is True
+
+    # The old splice-out behaviour is still available when asked for explicitly.
+    closed = inpaint(tone_path, 2.0, 4.0, mode="close")
+    assert closed["new_duration_seconds"] < original - 1.5
+    assert closed["inpaint_reconstructed"] is False

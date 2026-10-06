@@ -44,10 +44,19 @@ def test_convert(tone_path):
 
 
 def test_paint(tone_path):
+    """"...and fill smoothly" must reconstruct, not delete.
+
+    The old path returned a 0.5 s shorter file. Inpainting now keeps the
+    timeline and fills the hole, so the duration is unchanged.
+    """
     plan = regex_plan_from_prompt("remove that cymbal crash at 0:05 and fill smoothly")
     result = execute_plan(tone_path, plan)
     assert result["intent"] == "paint"
-    assert round(sf.info(result["output_path"]).duration, 1) == 9.5
+    assert round(sf.info(result["output_path"]).duration, 1) == 10.0
+
+    info = (result.get("metadata") or {}).get("inpainted") or {}
+    assert info.get("reconstructed") is True
+    assert info.get("method")
 
 
 def test_separate_returns_stems(tone_path):
