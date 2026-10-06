@@ -1,0 +1,46 @@
+{
+  "dataset": "GTZAN (storylinez/gtzan-music-genre-dataset mirror)",
+  "clips": 100,
+  "clips_per_genre": 10,
+  "genres": [
+    "blues",
+    "classical",
+    "country",
+    "disco",
+    "hiphop",
+    "jazz",
+    "metal",
+    "pop",
+    "reggae",
+    "rock"
+  ],
+  "feature_size": 75,
+  "model": "RandomForestClassifier(n_estimators=300)",
+  "seed": 7,
+  "cv_accuracy": 0.75,
+  "cv_std": 0.0894,
+  "cv_folds": [
+    0.85,
+    0.8,
+    0.7,
+    0.6,
+    0.8
+  ],
+  "holdout_accuracy": 0.7667,
+  "holdout_clips": 30,
+  "per_genre_holdout": {
+    "blues": 0.6667,
+    "classical": 0.6667,
+    "country": 1.0,
+    "disco": 1.0,
+    "hiphop": 0.6667,
+    "jazz": 0.6667,
+    "metal": 1.0,
+    "pop": 0.3333,
+    "reggae": 1.0,
+    "rock": 0.6667
+  },
+  "chance": 0.1,
+  "evaluated_utc": "2026-10-06T04:51:09+00:00",
+  "artifact": "C:\\Lohit\\software\\audio-trim\\server\\ml\\models\\genre_classifier.joblib"
+}

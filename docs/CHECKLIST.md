@@ -76,12 +76,42 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done and measured · `[-
 
 ## Known fakes still in the product
 
-- [ ] **Inpainting is a crossfade.** "Remove that cymbal crash and fill
-      smoothly" reconstructs nothing. Needs a generative model.
-- [ ] **Style presets are DSP**, not generative — "convert to phonk style"
+- [ ] **Style presets are DSP**, not generative - "convert to phonk style"
       applies EQ plus a drum pattern.
 - [ ] **MusicGen never benchmarked.** No GPU here (torch `2.10.0+cpu`,
       Ryzen 7 7840HS, 15.3 GB). Must be a bounded benchmark before it ships.
+- [ ] **Groove classifier trained on synthetic loops**, not real music, which
+      degrades "add drums that match your song". Retrain with
+      `train_groove_classifier.py --songs-dir <root>`.
+- [ ] **Audio→video muxing unconfirmed.** `video_extractor.py` handles extract.
+
+## Inpainting (done — was a crossfade)
+
+`server/ml/inpainting/inpainter.py`. "remove that cymbal crash and fill smoothly"
+used to splice the samples out and crossfade the ends. That is a delete, not a
+fill: the file came back shorter and the audio was still discontinuous.
+
+- [x] `mode="fill"` (default) keeps the timeline length and rebuilds the hole
+- [x] Strategy 1: bar-aligned repeat, using the existing beat detector, since the
+      right material for a ruined bar is the same musical position 4/8 bars back
+- [x] Strategy 2: log-mel feature search for similar material
+- [x] Fallback: spectral fill (log-magnitude interpolation + phase propagation)
+- [x] `mode="close"` keeps the old splice-out when explicitly asked for
+- [x] Provenance reported: strategy, source offset, match distance — a fallback is
+      never presented as a successful repeat
+
+Measured: duration preserved (8.00 s vs 7.50 s), filled region non-silent.
+
+**Not claimed:** recovery of the original notes. On through-composed material
+those notes no longer exist anywhere in the file.
+
+**Not claimed:** seam smoothness as an improvement. A 50 ms equal-gain crossfade
+can post a smaller single-sample step than the reconstructed splice, so
+`test_inpaint.py` asserts a bound rather than superiority.
+
+An intermediate design that minimised seam continuity as its refinement
+objective was **discarded after measurement** — that objective is minimised at
+any quiet point, so the matcher drifted away from the phase-correct repeat.
 
 ## Rebuilding the trained assets
 

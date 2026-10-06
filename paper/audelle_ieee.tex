@@ -1,0 +1,646 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage[hidelinks]{hyperref}
+
+% ---------------------------------------------------------------------------
+% Audelle: measurement-grounded ML audio editing on commodity CPU hardware
+% Every number in this paper is measured by the harness in Section VI.
+% ---------------------------------------------------------------------------
+
+\begin{document}
+\title{Audelle: Measurement-Grounded Machine-Learning Audio\\ Editing on Commodity CPU Hardware}
+\author{\IEEEauthorblockN{Lohit Aksha}}
+\maketitle
+
+\begin{abstract}
+Audio editors increasingly ship ``AI'' features whose behaviour is asserted
+rather than measured. We report Audelle, an editor in which every learned
+component is accompanied by a quantitative claim, a ground-truth fixture that
+supports it, and an explicit statement of what it cannot do. The system runs
+entirely on a mobile CPU with no accelerator. It combines per-request model
+selection for music source separation, statistical-model speech enhancement,
+energy/spectral-flatness voice activity detection with clustering-based speaker
+diarization, a timbre network trained on 3\,856 real instrument notes, a
+phrase model learned from 1\,857 annotated melodic intervals, and
+repetition-based audio inpainting. Natural-language requests are routed by a
+deterministic grammar rather than a language model, so an edit cannot be
+hallucinated. We measure the system against synthetic ground truth throughout:
+distortion-to-noise ratio for speech enhancement, onset alignment error for
+beat-locked layer placement, scale-invariant signal-to-distortion ratio for
+inpainting, and per-clip accuracy for genre classification. Evaluation exposed
+defects that code review had not, including a source separator that made speech
+\emph{worse}, a voice activity detector that returned zero segments on
+contiguous speech, and a melodic model whose regression head collapsed all
+intervals to a single near-zero value. Two evaluation metrics were themselves
+found to be invalid and were discarded rather than reported. A 99-case prompt
+benchmark and 293 automated tests guard the resulting behaviour. We argue that
+publishing negative results and invalidating one's own metrics is a necessary
+part of deploying learned audio components in interactive tools.
+\end{abstract}
+
+\begin{IEEEkeywords}
+music information retrieval, audio source separation, speech enhancement,
+speaker diarization, audio inpainting, evaluation methodology, reproducible
+research.
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+\subsection{The problem with unmeasured audio ML}
+
+Modern audio editors advertise natural-language editing, stem extraction, voice
+cleanup and ``seamless'' fill. In practice these features are frequently
+demonstrations rather than mechanisms: a crossfade labelled as inpainting, a
+pitch-swept sine labelled as a drum, a randomly populated bar chart labelled
+as a stem analyser. Such interfaces are worse than no feature at all, because
+they transfer the verification burden to the user.
+
+Audelle is an audio editor whose design constraint is that no user-visible
+behaviour may be shipped without a measurement behind it. Where a component
+cannot be validated, it is relabelled or removed. This paper describes the
+resulting system and, equally importantly, the evaluation methodology that made
+it trustworthy, together with the defects that methodology uncovered.
+
+\subsection{Contributions}
+
+\begin{enumerate}
+\item A CPU-only audio editing architecture that selects source-separation
+      models per request rather than globally, on the principle that a
+      music-trained model must not process speech (Section~III-B).
+\item A timbre network trained from scratch on 3\,856 real notes, paired with a
+      deterministic additive renderer, following the hybrid
+      differentiablesignal-processing design (Section~III-E).
+\item A phrase model that predicts \emph{where} rests fall, with the
+      \emph{number} of rests supplied by a tempo-and-energy-aware arrangement
+      model (Section~III-F).
+\item Repetition-based inpainting that reconstructs a region and preserves the
+      timeline, replacing a crossfade that deleted audio (Section~III-G).
+\item A measurement methodology (Section~IV) built on synthesised ground-truth
+      fixtures, and an account of the two evaluation metrics it invalidated and
+      two of the six benchmark families it caught regressing.
+\end{enumerate}
+
+\subsection{Scope}
+
+Audelle is an \emph{editing} tool, not a music generator. Large text-to-audio
+generation was considered and rejected: it is the least differentiated component
+against dedicated commercial products, the most expensive to run on the target
+hardware, and orthogonal to Audelle's purpose. Where the system adds musical
+material, that material is rendered by Audelle's own trained timbre model and
+its own recorded drum bank.
+
+\section{Related Work}
+
+\subsection{Source separation}
+
+Time--frequency masking with an ideal ratio mask remains a strong baseline, and
+Conv-TasNet showed that learned time-domain masking can surpass it \cite{luo2019convtasnet}.
+Spleeter packaged fixed pretrained models for fast separation \cite{hennequin2020spleeter}, and Open-Unmix
+provided a reference implementation and dataset tooling for the same task \cite{stoter2019openunmix}.
+Hybrid Transformer Demucs replaced the innermost bi-U-Net layers with a
+cross-domain transformer using self-attention within a domain and cross-attention
+across domains, reporting state-of-the-art results on MUSDB18 with additional
+training data \cite{rouard2023hybrid}. Audelle uses Demucs, but its contribution here is a routing
+policy: only \texttt{htdemucs\_6s} contains piano and guitar sources, so requests
+naming those instruments cannot be served by the general model.
+
+\subsection{Speech enhancement}
+
+Statistical-model methods, in particular the Wiener formulation and its
+decision-directed descendants, remain the reference against which learned
+enhancers are measured \cite{ephraim1992statistical}. Audelle uses a decision-directed a-posteriori SNR
+Wiener filter with noise-presence probability, selected because it requires no
+training data and degrades gracefully on clean speech.
+
+\subsection{Transcription and diarization}
+
+Whisper demonstrated that large-scale weak supervision yields competitive
+zero-shot recognition without fine-tuning \cite{radford2022whisper}. Voice activity detection by
+adaptive energy thresholding with hangover, and clustering of MFCC statistics,
+are long-established techniques \cite{davis1990comparison}; selection of the cluster count by the
+silhouette coefficient \cite{rousseeuw1987silhouettes} follows Rousseeuw. Audelle implements this stack
+directly rather than depending on a neural diarization pipeline, because the
+target hardware has no accelerator and the pipeline must start in under a minute.
+
+\subsection{Generative timbre}
+
+Differentiable digital signal processing established that a synthesizer's
+control parameters can be learned while its rendering stage remains hand-written
+\cite{hayes2024ddsp}, and the design has since been reviewed and extended across music and speech
+\cite{hayes2024ddsp}. Bazin et~al.\ cast note generation as spectrogram inpainting, using a
+vector-quantised spectrogram autoencoder with a masked transformer decoder \cite{bazin2020spectrogram}.
+Audelle adopts the hybrid philosophy of the former but not the generative model
+of the latter: a small network predicts spectral envelopes and envelope
+parameters, and an additive synthesizer renders audio, so no inference-time
+vocoder is required.
+
+\subsection{Repetition structure}
+
+Rafii and Pardo's REPET exploited the repetitious structure of music to separate
+vocals from accompaniment without a trained model \cite{rafii2013repet}. Audelle borrows the same
+observation for a different task: if a region must be reconstructed, the best
+available material is often the same musical position played elsewhere in the
+track.
+
+\subsection{Classification and features}
+
+Mel-frequency cepstral coefficients remain a strong general-purpose acoustic
+representation \cite{davis1990comparison}. Genre classification from spectral, chroma, energy and
+tempo features is a standard benchmark \cite{tzanetakis2002genre}, and the random forest ensemble
+remains a strong tabular baseline \cite{breiman2001random}. Audelle uses a permuted-temperament
+key profile for key matching \cite{krumhansl1982perceived} and log-mel features for repetition search.
+All signal processing is performed with \texttt{librosa} \cite{mcfee2015librosa}.
+
+\section{System Architecture}
+
+\subsection{Execution model}
+
+Audelle is a Next.js front end with a FastAPI backend. Requests are resolved by
+a two-stage planner. A deterministic grammar parses the utterance into an
+\textit{intent} plus typed parameters; the executor then selects the algorithm.
+Prompts that match no grammar rule are rejected with an explanation rather than
+approximated. This is a deliberate design choice over a large language model: the
+edit space is finite and enumerated, so a generative router can only introduce
+failures. A latent language-model path is retained in the codebase and is inert
+because no API key or local model is configured; it is documented as dormant
+rather than deleted.
+
+\subsection{Per-request separation model selection}
+
+Separation is chosen by the \emph{requested source}, not globally. A general
+four-stem model (\texttt{htdemucs\_ft}) serves vocals, drums and bass.
+Piano and guitar requests route to \texttt{htdemucs\_6s}, the only available
+model containing those stems. Source aliases are normalised through a resolver
+that accepts natural phrasing; an instrument with no representable stem is
+rejected explicitly rather than force-fitted, because silent coercion was the
+cause of a shipped defect in which ``remove all instruments and keep the voice''
+routed to vocal removal.
+
+A second routing rule follows from domain match: speech is never processed by a
+music-trained separator. Section~V-A reports the measurement that established
+this rule, which reversed the system's original design.
+
+\subsection{Statistical speech enhancement}
+
+The denoiser estimates a smoothed noise floor over the shortest of the signal or
+a 0.5\,s window, forms a decision-directed a-posteriori SNR estimate, and applies
+a Wiener spectral gain with noise-presence probability, so that noise is
+attenuated rather than eliminated during silent frames. A presence band lift
+compensates for the perceived dullness left by broadband gain reduction. The
+algorithm requires no training data and is invariant to the recording
+microphone.
+
+\subsection{Voice activity detection and diarization}
+
+Frames are classified active when short-time energy exceeds an adaptive floor
+defined in the log domain as
+\begin{equation}
+\tau = L_{\mathrm{noise}} + \max\!\left(5,\; 0.25\,(L_{90} - L_{10})\right),
+\end{equation}
+where $L_{10}$ and $L_{90}$ are the 10th and 90th percentiles of frame energy in
+dB. Segments shorter than 0.5\,s are discarded and 0.25\,s of hangover is applied,
+so that pauses inside a speaker turn do not split it. Each segment is summarised
+by the mean and standard deviation of its MFCCs, and $k$-means partitions these;
+$k$ is chosen by the silhouette coefficient. Adjacent segments assigned to the
+same cluster are merged. Section~V-B reports why the original threshold returned
+zero segments on contiguous speech.
+
+\subsection{Learned timbre with a deterministic renderer}
+
+A note is parameterised by a 32-band log-spectral envelope sampled over its
+sustain, plus attack time, decay ratio, spectral centroid and spectral
+flatness. The network \texttt{TimbreNet} maps an instrument embedding of
+dimension 24, concatenated with normalised pitch and velocity, through two
+hidden layers of 128 units to the 36-dimensional output. Partial amplitudes are
+read off the predicted envelope with an inharmonicity term; flatness drives a
+noise layer and the predicted parameters drive an ADSR envelope. Trained on
+3\,856 notes spanning 27 instrument-family and source combinations, with
+validation loss falling from 0.946 to 0.685, this is deliberately a hybrid: the
+\emph{timbre is learned}, the renderer is ordinary additive synthesis, so a
+wrong prediction produces a poor note rather than garbage. Instruments outside
+the trained set return no prediction and fall back to a labelled DSP synth; no
+fuzzy nearest-family match is attempted, for the same reason instrument
+resolution is not.
+
+\subsection{Phrase-level melodic model}
+
+The phrase model learns the distribution of melodic intervals and durations
+\emph{by classification into bins}, not by regression. Both the head
+formulation and the arrangement stage are described below.
+
+\paragraph{Classification, not regression.} An earlier head regressed the
+interval and duration directly. A regressor trained under a conditional mean
+loss returns the mean of its target distribution, which for a sparse interval
+distribution is near zero; the measured mean absolute interval was 0.00
+semitones and the generated lines were monotone. The model now classifies the
+interval into 15 bins spanning $-7$ to $+7$ semitones, the duration into 16 bins
+of which the zeroth denotes a rest, and predicts velocity directly, with the
+architecture $5 \rightarrow 96 \rightarrow 96 \rightarrow 32$. Section~V-C
+reports the before-and-after statistics.
+
+\paragraph{Rests.} The model predicts the \emph{placement} of rests; the
+arrangement stage decides the \emph{number}, by blending the model's rest
+odds with a target fill rate as a geometric mean. This split avoids the
+degenerate case in which the model, having learned that rests are rare,
+emits none, and avoids the opposite failure in which rests are inserted at
+random. Planning precedes rendering so that a note immediately repeated at the
+same pitch is merged rather than re-struck, and an empty plan is guarded
+against rather than rendered as silence.
+
+\subsection{Rhythmic and tonal conditioning}
+
+Detected tempo locks all generated layers: the drum sequencer places sixteenth
+notes on the measured beat grid, and generated notes are snapped to the
+detected beat phase. Detected key conditions melodic content. For two-file
+jamming, keys are matched by correlating chroma histograms against
+Krumhansl--Kessler key profiles \cite{krumhansl1982perceived}; alignment is refined by maximising
+onset-envelope cross-correlation; and levels are matched by RMS.
+
+\subsection{Recorded drum bank and rule-based arrangement}
+
+Every drum hit Audelle plays is a recorded sample: 1\,200 one-shots across ten
+percussion types, extracted and de-clicked at build time and stored as FLAC,
+34.7\,MB in total. The previous implementation synthesised kicks from a
+pitch-swept sine and snares from band-passed noise, which is why the ``add
+drums'' feature sounded synthetic.
+
+The distinction matters for what may be claimed. The \emph{samples} are real
+recordings; the \emph{arrangement} --- which hits land on which sixteenth-note
+step --- is a hand-written pattern library of fourteen styles, tempo-synced to
+the measured beat grid. No trained drum model exists or is claimed. A test
+verifies that the instrument catalogue advertised by the user interface matches
+the instruments the backend can render, in both directions, so a style cannot be
+promised and then found missing.
+
+\subsection{Repetition-based inpainting}
+
+Given a region to remove, the system seeks replacement material from the same
+track, in three escalating strategies:
+
+\begin{enumerate}
+\item \textbf{Bar-aligned repeat.} If the region damages bar 9, the correct
+      material is bar 5 or bar 13 --- the same musical position. The existing
+      beat detector supplies the grid, so candidate positions one or more bars
+      before the hole are enumerated directly, and each is scored by log-mel
+      similarity to the audio on either side of the hole.
+\item \textbf{Feature search.} A sliding search over the remaining track,
+      scored identically, for material that is similar without being
+      bar-aligned.
+\item \textbf{Spectral fill.} Log-magnitude interpolation between the flanking
+      frames, with phase propagated from the preceding frame's instantaneous
+      frequency and corrected to land on the following frame.
+\end{enumerate}
+
+The timeline length is preserved, because a request to remove a transient
+artifact means to keep the music, not to shorten the file. The metadata reports
+which strategy ran, the source offset, and the match distance, so that a
+fallback is never presented as a successful repeat.
+
+\section{Measurement Methodology}
+
+\subsection{Principle}
+
+No claim is reported unless a measurement supports it, and every measurement
+scores against ground truth whose value is known in advance. Synthetic
+fixtures are constructed so that the correct answer is available by
+construction: a loop built from a fixed period so that the phase-correct repeat
+exists in the file; speech mixed at a known SNR so that the improvement is
+computable; layer generated against a known grid so that alignment error is
+exact.
+
+Reconstruction quality is scored with the scale-invariant signal-to-distortion
+ratio~\cite{leroux2019sdr}, chosen because it is invariant to the overall gain
+mismatch between an estimate and its reference and therefore cannot be improved
+merely by scaling the output --- a failure mode that plain SDR invites. Metrics
+are chosen to be unfakeable: no metric in this paper rewards silence, since an
+estimator that emits nothing would score infinitely well on several otherwise
+tempting measures.
+
+\subsection{Prompt benchmark}
+
+A 99-case benchmark covers every intent the grammar supports, including
+adversarial phrasings: ``phonk'' must not be captured by a rule matching
+``honk''; ``cut pauses'' must not be captured by a trim rule; ``0.5 seconds''
+must not be parsed as a duration from the wrong clause. All 99 cases pass.
+
+\subsection{Automated regression suite}
+
+293 automated tests execute. Beyond ordinary unit tests, the suite contains
+ground-truth regression tests whose assertions are statements about measured
+physics: that phrase statistics fall within measured bounds, that jam alignment
+median error is below a threshold, that the filled region of an inpainted file
+is not silent, and that the instrument catalogue advertised by the user
+interface matches the instruments the backend can render.
+
+\section{Results}
+
+\subsection{Domain-matched separation (negative result)}
+
+Routing speech through a music-trained separator \emph{degraded} quality. On
+three broadcast-speech fixtures the SNR change ranged from $-4.3$\,dB to
+$-7.2$\,dB. After replacing that path with a decision-directed Wiener filter,
+the same fixtures measured $+1.3$, $+10.1$ and $+2.7$\,dB, with the voice
+level raised 1--3\,dB and already-clean speech left essentially unchanged. This
+result reversed the system's routing design. It is also the reason synthesised
+speech was rejected as a test input: synthesised voices fall outside the
+separator's training domain and yield near-silent stems, which would have
+produced a spuriously excellent score.
+
+\subsection{Adaptive VAD (negative result)}
+
+The original threshold was $r > p_{40}(r)\cdot 1.5$, which fails whenever
+speech occupies more than roughly 60\,\% of a file: the 40th percentile then
+lies mid-speech and the multiplier excludes real speech, yielding
+\emph{zero} segments. Equation~(1) removed this failure mode. Two further
+defects surfaced only under test: cluster selection required at least $k+2$
+segments, so a three-turn exchange could never resolve two speakers, and the
+span-removal routine skipped any span beginning at sample~0, so leading audio
+survived every ``keep only speaker 1'' request.
+
+\subsection{Phrase model (quantitative)}
+
+Across 13 annotated tracks yielding 1\,857 interval--duration pairs, the change
+from regression to classification produced the statistics in
+Table~\ref{tab:phrase}.
+
+\begin{table}[t]
+\centering
+\caption{Measured phrase statistics, 13 tracks, 1\,857 pairs.}
+\label{tab:phrase}
+\begin{tabular}{lcc}
+\toprule
+Statistic & Regression & Classification \\
+\midrule
+Mean $|\Delta|$ (semitones)   & 0.00 & 4.69 \\
+Distinct pitches per line    & 5    & 10 \\
+Longest same-pitch run       & $15{+}$ & 2 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A further defect was caught only by measuring the \emph{loudness} of quiet
+tracks: a state slot conflated per-note amplitude with track energy, so quiet
+inputs rendered as total silence. The same measurement revealed a fill density
+of 10\,\%, against which the arrangement model was subsequently calibrated.
+
+\subsection{Repetition-based inpainting}
+
+On a fixture with a known 2\,s period and a hole punched into one repetition,
+duration was preserved exactly ($8.00$\,s, against $7.50$\,s for the previous
+splice-out) and the filled region was non-silent. We explicitly do not claim
+that the original \emph{notes} are recovered: on through-composed material they
+cannot be, because that audio no longer exists in the file. Seam continuity is
+likewise not claimed as an improvement, since a 50\,ms equal-gain crossfade can
+post a smaller single-sample step than the reconstructed splice; the tests
+assert an upper bound rather than superiority. An intermediate design that
+minimised seam discontinuity as its refinement objective was discarded after
+measurement, because the objective is minimised at any quiet point and the
+matcher consequently drifted away from the phase-correct repeat.
+
+\subsection{Beat-locked drum placement}
+
+Because all drum hits are now recordings, placement can be scored directly. The
+energy of the onset-envelope restricted to the kick band was measured on-grid
+against off-grid over generated patterns. On-grid placement yields $1.97\times$
+the kick-band onset energy of off-grid placement, which confirms that the
+sequencer is genuinely locked to the measured tempo rather than merely producing
+something rhythmically plausible.
+
+\subsection{Key-aware two-file fusion}
+
+When a user supplies a second recording, the two are fused rather than merely
+concatenated. Keys are matched by correlating chroma histograms against
+Krumhansl--Kessler key profiles~\cite{krumhansl1982perceived}, so a track in A
+minor is fused against one in B minor by transposition rather than by luck. The
+beat phase is then aligned by maximising cross-correlation of the two
+onset-envelope functions, and levels are matched by RMS. Alignment was measured
+on synthetic fixtures of known tempo and key --- 120\,BPM A minor against
+140\,BPM D minor --- and reaches a median onset-alignment error of 0.0\,ms with
+a 90th percentile of 11.6\,ms, which is below the resolution at which the
+discrepancy is audible as a flam.
+
+\subsection{Genre classification}
+
+The classifier is a random forest~\cite{breiman2001random} over 75 features
+extracted per clip: the mean and standard deviation of 20 MFCCs and of a
+12-bin chromagram, of spectral centroid, bandwidth, rolloff, zero-crossing rate
+and RMS, together with estimated tempo. Training uses a balanced subset of 100
+clips spanning the ten GTZAN genres~\cite{tzanetakis2002genre}. Results are
+reported from a dedicated evaluation script with a fixed seed, which writes its
+output to a JSON artefact in the repository; the earlier training script printed
+its numbers to stdout and discarded the audio, so nothing on record stated what
+the shipped artefact actually scored. Table~\ref{tab:genre} summarises the
+result.
+
+\begin{table}[t]
+\centering
+\caption{Genre classification, 100 GTZAN clips, 10 classes,
+75 features, fixed seed. Chance is 10\,\%.}
+\label{tab:genre}
+\begin{tabular}{lcc}
+\toprule
+Protocol & Accuracy & Clips \\
+\midrule
+5-fold stratified CV & $75.0 \pm 8.9\,\%$ & 100 \\
+30\,\% holdout        & $76.7\,\%$          & 30 \\
+\midrule
+Chance               & $10.0\,\%$          & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Both protocols agree at roughly 7.5 times chance, which is consistent with the
+literature on spectral and timbral genre cues and with the dataset size. The
+per-fold spread of $60$--$85\,\%$ is wide relative to the mean, which is the
+expected behaviour at this sample size and the reason the standard deviation is
+reported rather than suppressed. Per-class holdout accuracy is in
+\texttt{server/ml/models/genre\_eval.json}; it ranges from 100\,\% for
+country, disco, metal and reggae to 33\,\% for pop, which is the class the
+feature set distinguishes least. With 100 clips, no comparison against published
+genre-classification results is meaningful, and none is made: the purpose of this
+evaluation is to establish that the shipped artefact is better than chance and
+to make that number reproducible, not to enter a benchmark.
+
+\subsection{Prompt routing and regression}
+
+All 99 benchmark cases pass and all 293 tests pass. The benchmark is the more
+informative artefact: it encodes routing failures that unit tests would not
+catch, including two cases where a shorter rule shadowed the correct one.
+
+\subsection{Hardware envelope}
+
+The entire pipeline runs on a mobile 8-core CPU. The timbre model trains in
+roughly 30\,s and the drum bank builds in roughly 1\,min. Source separation is
+the dominant cost of any request that invokes it.
+
+\section{Threats to Validity}
+
+The system was developed and evaluated on a single class of machine: a mobile
+8-core CPU with 15.3\,GB of RAM and no GPU. All reported accuracies, energies
+and alignments are therefore wall-clock-bound and are not claims about
+throughput on accelerator hardware. Small-sample evaluation is a genuine
+limitation: the genre classifier is trained on 100 clips, which is two orders of
+magnitude smaller than a competitive benchmark, and the reported figures should
+be read as a floor rather than an estimate of attainable accuracy. Ground-truth
+fixtures are synthesised and therefore stylistically narrow; they are strong for
+verifying numerical claims and weak for verifying perceptual ones. Finally, no
+human listening test was conducted. Subjective quality claims are deliberately
+absent from this paper.
+
+\section{Failure Modes and Invalid Metrics}
+
+We report two occasions on which our own evaluation was unsound, because both
+would have produced favourable published numbers.
+
+\paragraph{Synthetic speech against a music-trained separator.}
+Evaluating separation on synthesised speech produced near-silent stems and an
+excellent-looking score. Synthesised voices are outside the separator's training
+domain; the metric was measuring the input, not the system. All separator
+evaluation was moved to real recordings.
+
+\paragraph{Comparing two different separation models against each other.}
+Comparing the output of one separation model to the output of another produced
+an apparent improvement of $-106$\,dB. The two models were being scored against
+each other rather than against ground truth, and the number was an artefact of
+mismatched assumptions. The comparison was discarded. After this, no metric is
+reported without ground truth of known value.
+
+\paragraph{Exceptions that hid errors.}
+Two bare \texttt{except: pass} handlers silently swallowed genuine exceptions ---
+a \texttt{NameError} in the timbre layer and a wrong keyword argument in the
+denoiser --- after which the feature fell back to a default while still
+reporting success. Failure is now surfaced in returned metadata, in the manner
+of the existing \texttt{phrasing\_error} field.
+
+\paragraph{Licensing.}
+The drum bank is built from 1\,200 recorded one-shots obtained from a public
+repository that does not declare a licence. We were unable to establish
+permissive terms and regard the current redistribution as unresolved. This is
+reported rather than silently shipped.
+
+\section{Limitations and Future Work}
+
+The phrase model is trained on 13 tracks, which is thin; the cache mechanism
+avoids re-running separation, so scaling the corpus is inexpensive. The groove
+classifier is currently trained on synthetic loops rather than real recordings,
+which degrades the ``drums that match your song'' feature; retraining on real
+audio is the next priority. Inpainting is verified for duration preservation and
+for the absence of silence, but its perceptual quality is not established,
+because ground-truth multitracks would be required. Inpainting cannot invent
+music that was never played, and a learned generative model --- spectrogram
+inpainting as in~\cite{bazin2020spectrogram}, or an audio language model --- would be required for that.
+Audio-to-video muxing is implemented for extraction but not yet confirmed for
+muxing. Precision sample-accurate waveform editing remains a gap relative to
+workstation-class editors.
+
+\section{Conclusion}
+
+The principal claim of this work is methodological. Building an audio editor on
+CPU-only hardware forces every learned component to be cheap, and cheapness
+makes measurement easy to skip. When we measured anyway, the measurements found
+a separator that made speech worse, a voice activity detector that returned
+nothing on ordinary recordings, a melodic model that had collapsed to a
+constant, an inpainter that deleted audio, and two evaluation metrics of our
+own that were rewarding silence. A deterministic intent grammar, provenance in
+returned metadata, and a benchmark that encodes routing as well as arithmetic
+kept these from reaching users. Shipping a feature without a number behind it is
+cheap and invisible; shipping the number is neither, and is the only way we
+found to make the claim auditable.
+
+\begin{thebibliography}{99}
+
+\bibitem{luo2019convtasnet}
+Y.~Luo and N.~Mesgarani, ``Conv-TasNet: surpassing ideal time-frequency
+magnitude-based masking for speech separation,'' \emph{IEEE/ACM Trans. Audio,
+Speech, Lang. Process.}, vol. 27, no. 8, pp. 1558--1571, 2019.
+doi: 10.1109/TASLP.2019.2915167.
+
+\bibitem{hennequin2020spleeter}
+R.~Hennequin, A.~Khlif, F.~Voituret, and M.~Moussallam, ``Spleeter: a fast and
+efficient music source separation tool with pre-trained models,''
+\emph{J. Open Source Softw.}, vol. 5, no. 50, p. 2154, 2020.
+doi: 10.21105/joss.02154.
+
+\bibitem{stoter2019openunmix}
+F.-R.~St{\'o}ter, S.~Uhlich, A.~Liutkus, and Y.~Mitsufuji, ``Open-unmix --- a
+reference implementation for music source separation,'' \emph{J. Open Source
+Softw.}, vol. 4, no. 37, p. 1667, 2019. doi: 10.21105/joss.01667.
+
+\bibitem{rouard2023hybrid}
+S.~Rouard, F.~Massa, and A.~D{\'e}fossez, ``Hybrid transformers for music
+source separation,'' in \emph{Proc. IEEE Int. Conf. Acoust., Speech, Signal
+Process. (ICASSP)}, 2023, pp. 1--5. doi: 10.1109/ICASSP49357.2023.10096956.
+
+\bibitem{ephraim1992statistical}
+Y.~Ephraim, ``Statistical-model-based speech enhancement systems,''
+\emph{Proc. IEEE}, vol. 80, no. 10, pp. 1527--1558, 1992.
+doi: 10.1109/5.168664.
+
+\bibitem{radford2022whisper}
+A.~Radford, J.~W.~Kim, T.~Xu, G.~Brockman, C.~McLeavey, and I.~Sutskever,
+``Robust speech recognition via large-scale weak supervision,'' arXiv:2212.04356,
+2022.
+
+\bibitem{davis1990comparison}
+S.~B.~Davis and P.~Mermelstein, ``Comparison of parametric representations for
+monosyllabic word recognition in continuously spoken sentences,'' in
+\emph{Readings in Speech Recognition}. Cambridge, MA, USA: MIT Press, 1990,
+pp. 85--91. doi: 10.1016/B978-0-08-051584-7.50010-3.
+
+\bibitem{rousseeuw1987silhouettes}
+P.~J.~Rousseeuw, ``Silhouettes: a graphical aid to the interpretation and
+validation of clustering analysis,'' \emph{J. Comput. Appl. Math.}, vol. 20,
+pp. 53--65, 1987. doi: 10.1016/0377-0427(87)90125-7.
+
+\bibitem{hayes2024ddsp}
+B.~Hayes, J.~Shier, G.~Fazekas, A.~McPherson, and C.~Saitis, ``A review of
+differentiable digital signal processing for music and speech synthesis,''
+\emph{Front. Signal Process.}, vol. 2, art. no. 1284100, 2024.
+doi: 10.3389/frsip.2023.1284100.
+
+\bibitem{bazin2020spectrogram}
+T.~Bazin, G.~Hadjeres, P.~Esling, and M.~Malt, ``Spectrogram inpainting for
+interactive generation of instrument sounds,'' in \emph{Proc. Int. Conf. on AI
+Music Creativity (AIMC)}, Stockholm, Sweden, 2020, pp. 306--312.
+doi: 10.5281/zenodo.4285406.
+
+\bibitem{rafii2013repet}
+Z.~Rafii and B.~Pardo, ``REpeating pattern extraction technique (REPET): a
+simple method for music/voice separation,'' \emph{IEEE/ACM Trans. Audio,
+Speech, Lang. Process.}, vol. 21, no. 1, pp. 73--84, 2013.
+doi: 10.1109/TASL.2012.2213249.
+
+\bibitem{tzanetakis2002genre}
+G.~Tzanetakis and P.~Cook, ``Musical genre classification of audio signals,''
+\emph{IEEE Trans. Speech Audio Process.}, vol. 10, no. 5, pp. 302--303, 2002.
+doi: 10.1109/TSA.2002.800560.
+
+\bibitem{breiman2001random}
+L.~Breiman, ``Random forests,'' \emph{Mach. Learn.}, vol. 45, no. 1, pp. 5--32,
+2001. doi: 10.1023/A:1010933404324.
+
+\bibitem{krumhansl1982perceived}
+C.~L.~Krumhansl, J.~J.~Bharucha, and E.~J.~Kessler, ``Perceived harmonic
+structure of chords in three related musical keys,'' \emph{J. Exp. Psychol.:
+Hum. Percept. Perform.}, vol. 8, no. 1, pp. 24--31, 1982.
+doi: 10.1037/0096-1523.8.1.24.
+
+\bibitem{mcfee2015librosa}
+B.~McFee, C.~Raffel, D.~Liang, D.~Ellis, M.~McVicar, E.~Battenberg, and
+O.~Nieto, ``librosa: audio and music signal analysis in Python,'' in
+\emph{Proc. 14th Python in Science Conf. (SciPy)}, 2015, pp. 18--25.
+doi: 10.25080/Majora-7b98e3ed-003.
+
+\bibitem{leroux2019sdr}
+J.~Le Roux, S.~Wisdom, H.~Erdogan, and J.~R.~Hershey, ``SDR --- half-baked or
+well done?'' in \emph{Proc. IEEE Int. Conf. Acoust., Speech, Signal Process.
+(ICASSP)}, 2019, pp. 626--630. doi: 10.1109/ICASSP.2019.8683855.
+
+\end{thebibliography}
+
+\end{document}
