@@ -9,6 +9,7 @@ import AudioPreview from "@/components/AudioPreview";
 import {
   uploadFile,
   processAudio,
+  fetchSuggestions,
   understandAudio,
   exportZip,
   downloadUrl,
@@ -152,10 +153,18 @@ export default function PromptPage() {
     setPrompt("");
     setState("processing");
     try {
-      const result = await processAudio(srcPath, currentPrompt);
+      const result = await processAudio(srcPath, currentPrompt, {
+        // Video uploads: mux the edited audio back onto the original so the
+        // user gets a video out, not just a WAV.
+        sourceVideoPath: uploadResult?.source_video_path ?? null,
+      });
       setLastResult(result);
       if (result.intent === "unknown") {
-        setHistory((prev) => [...prev, { role: "ai", text: `I didn't understand "${currentPrompt}". Try: "Trim from 0:05 to 0:10" or "Remove the drums" — or see the Guide for everything I can do.` }]);
+        const ideas = await fetchSuggestions(currentPrompt);
+        const list = ideas.length
+          ? ideas.map((t) => `"${t}"`).join(", ")
+          : '"Trim from 0:05 to 0:10" or "Remove the drums"';
+        setHistory((prev) => [...prev, { role: "ai", text: `I couldn't turn "${currentPrompt}" into a specific edit yet. Things I can do near that: ${list}.` }]);
         setState("analyzed");
         return;
       }
@@ -628,6 +637,14 @@ export default function PromptPage() {
                               Download result
                             </button>
                           </div>
+                        )}
+                        {lastResult?.video_download_key && (
+                          <button
+                            onClick={() => handleDownload(lastResult.video_download_key)}
+                            className="w-full rounded-lg bg-neon-purple/15 px-3 py-2 text-[0.875rem] font-medium text-neon-purple hover:bg-neon-purple/25 transition-colors"
+                          >
+                            Download result as video
+                          </button>
                         )}
                         {lastResult?.layer_download_key && (
                           <button

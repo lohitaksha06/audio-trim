@@ -31,13 +31,14 @@ original take.
 from __future__ import annotations
 
 import os
-import tempfile
 from pathlib import Path
 from typing import Any
 
 import librosa
 import numpy as np
 import soundfile as sf
+
+from server.utils.tempfile_util import temp_output_path
 
 N_FFT = 2048
 HOP = 512
@@ -326,7 +327,7 @@ def inpaint(
     if peak > 1.0:
         out = (out / peak * 0.99).astype(np.float32)
 
-    out_path = tempfile.mktemp(suffix=".wav")
+    out_path = temp_output_path(".wav")
     sf.write(out_path, out.T if channels > 1 else out[0], sr)
 
     meta: dict[str, Any] = {

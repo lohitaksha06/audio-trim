@@ -48,7 +48,8 @@ def _artifact_card(path: Path, kind: str) -> dict[str, Any]:
             "artifact_bytes": path.stat().st_size,
             "kind": kind,
         }
-        for k in ("test_accuracy", "mae_db", "r2"):
+        for k in ("test_accuracy", "mae_db", "r2", "reg_model", "reg_baseline_r2",
+                  "reg_baseline_mae_db", "reg_usable", "reg_rows"):
             if k in art:
                 card[k] = art[k]
         return card
@@ -59,7 +60,15 @@ def _artifact_card(path: Path, kind: str) -> dict[str, Any]:
 def content_model_metrics() -> dict[str, Any]:
     card = _artifact_card(CONTENT_PATH, "classification+regression")
     if card.get("available"):
-        card["cv_note"] = "train via scripts/train_content_classifier.py — stratified 80/20 split logged to stdout; re-run to refresh"
+        card["cv_note"] = "train via scripts/train_content_classifier.py — clip-grouped split logged to stdout; re-run to refresh"
+        # A raw r2 near zero is unreadable on its own. The baseline is what the
+        # regressor has to beat, and whether it did is the honest headline.
+        if "reg_baseline_r2" in card:
+            card["regressor_note"] = (
+                "SNR regressor not shipped: did not beat a mean-predictor baseline"
+                if not card.get("reg_usable", True)
+                else f"SNR regressor ({card.get('reg_model')}) vs mean-predictor baseline"
+            )
     return card
 
 

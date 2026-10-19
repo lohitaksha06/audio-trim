@@ -32,10 +32,35 @@
   --color-neon-purple-light: #c084fc;
 }
 
-/* Fixed 16px root. Viewport-scaling the root made rem sizes drift by 20%
-   across breakpoints, so `text-xs` and `text-[10px]` had no stable ratio. */
+/* Root font size.
+
+   Continuous viewport scaling (vw units) was tried and rejected: rem sizes
+   drifted ~20% across breakpoints, so `text-xs` and `text-[10px]` lost a
+   stable ratio to each other.
+
+   Instead the root steps at three *discrete* viewport bands. Stepping means
+   the ratio between every size is constant inside a band, so nothing drifts;
+   the only change is which band you are in.
+
+   Why this exists: px are absolute, so 16px body text stays 16 physical px on
+   a 13" laptop and on a 27" monitor. Body text therefore occupies 1.75% of a
+   912px viewport but only 0.83% of a 1920px one — the same 16px reads as
+   roughly half the relative size on a large display. Stepping the root up
+   keeps text legible on big screens instead of shrinking into the layout. */
 html {
   font-size: 16px;
+}
+
+@media (min-width: 1600px) {
+  html {
+    font-size: 18px;
+  }
+}
+
+@media (min-width: 2200px) {
+  html {
+    font-size: 20px;
+  }
 }
 
 body {
@@ -103,12 +128,32 @@ body {
 
 /* Panel eyebrow — the one uppercase role in the app, used for section labels. */
 .eyebrow {
-  font-size: 0.6875rem;
-  line-height: 1rem;
+  font-size: 0.75rem;
+  line-height: 1.1rem;
   font-weight: 600;
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--ink-label);
+}
+
+/* Reading measure. Widening a layout to fill wide viewports is right for
+   chips, cards and grids, but prose must still sit in a comfortable 45-75ch
+   column or it becomes unreadable. Apply this to paragraphs rather than
+   shrinking the container back. */
+.measure {
+  max-width: 68ch;
+}
+
+/* Type roles. Body copy is 16px; anything smaller is a deliberate dense role
+   (chips, data labels, eyebrows) and never paragraph text. */
+.type-body {
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+.type-body-sm {
+  font-size: 0.9375rem;
+  line-height: 1.6;
 }
 
 @keyframes fade-in-up {

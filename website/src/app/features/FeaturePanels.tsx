@@ -31,15 +31,15 @@ export function NeedsData({
   if (!ctx?.hasFile) {
     return (
       <div className="rounded-xl border border-white/12 bg-white/[0.02] p-4">
-        <p className="text-sm text-white/84">{title}</p>
-        <p className="mt-1 text-sm text-white/58">{body}</p>
+        <p className="text-[0.9375rem] text-white/84">{title}</p>
+        <p className="mt-1 text-[0.9375rem] leading-relaxed text-white/58">{body}</p>
       </div>
     );
   }
   return (
     <div className="rounded-xl border border-white/12 bg-white/[0.02] p-4">
-      <p className="text-sm text-white/84">{title}</p>
-      <p className="mt-1 text-sm text-white/58">{body}</p>
+      <p className="text-[0.9375rem] text-white/84">{title}</p>
+      <p className="mt-1 text-[0.9375rem] leading-relaxed text-white/58">{body}</p>
       {actionLabel && (
         <button
           onClick={ctx.runAnalyze}
@@ -74,14 +74,14 @@ export function ActionButton({
       onClick={() => ctx?.triggerPrompt?.(prompt)}
       disabled={blocked}
       title={!ctx?.hasFile ? "Upload a file first" : hint}
-      className={`w-full rounded-xl border p-3 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
+      className={`w-full rounded-xl border p-3.5 text-left text-[0.9375rem] transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
         tone === "accent"
           ? "border-neon-purple/25 bg-neon-purple/[0.06] text-white/90 hover:border-neon-purple/45 hover:bg-neon-purple/10"
           : "border-white/10 bg-white/[0.02] text-white/84 hover:border-neon-blue/35 hover:bg-neon-blue/5 hover:text-neon-blue"
       }`}
     >
       {label}
-      {hint && <span className="mt-0.5 block text-xs text-white/58">{hint}</span>}
+      {hint && <span className="mt-1 block text-[0.8125rem] leading-snug text-white/58">{hint}</span>}
     </button>
   );
 }
@@ -89,8 +89,8 @@ export function ActionButton({
 export function Row({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.02] px-3.5 py-2.5">
-      <span className="text-sm text-white/78">{label}</span>
-      <span className="text-sm text-white/90">{value}</span>
+      <span className="text-[0.9375rem] text-white/78">{label}</span>
+      <span className="text-[0.9375rem] text-white/90">{value}</span>
     </div>
   );
 }
@@ -118,7 +118,7 @@ export function Conversation({
       {history.map((h, i) => (
         <div key={i} className={`flex ${h.role === "user" ? "justify-end" : "justify-start"}`}>
           <div
-            className={`max-w-[85%] rounded-xl px-4 py-2.5 text-sm leading-relaxed ${
+            className={`max-w-[85%] rounded-xl px-4 py-3 text-[0.9375rem] leading-relaxed ${
               h.role === "user"
                 ? "bg-gradient-to-r from-neon-blue/20 to-neon-purple/20 text-white/90"
                 : "border border-white/10 bg-white/[0.04] text-white/84"
@@ -129,7 +129,7 @@ export function Conversation({
         </div>
       ))}
       {busy && (
-        <div className="flex items-center gap-2 rounded-xl border border-neon-blue/25 bg-neon-blue/10 px-4 py-2.5 text-sm text-neon-blue">
+        <div className="flex items-center gap-2 rounded-xl border border-neon-blue/25 bg-neon-blue/10 px-4 py-3 text-[0.9375rem] text-neon-blue">
           <span className="h-3 w-3 animate-spin rounded-full border border-neon-blue border-t-transparent" />
           Processing…
         </div>

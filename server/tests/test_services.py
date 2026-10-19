@@ -1,5 +1,6 @@
 """Unit tests for Phase 2 services: storage, exporter, jobs."""
 
+import os
 import tempfile
 import zipfile
 
@@ -9,6 +10,35 @@ import server.services.storage as storage
 from server.services.exporter import export_edl, export_fcpxml, export_zip
 from server.services.jobs import job_manager
 import server.services.projects as projects_store
+
+
+class TestTempOutputPath:
+    """tempfile.mktemp only proposes a name, so concurrent jobs could be handed
+    the same path and overwrite each other's rendered output. These assert the
+    replacement actually reserves unique names."""
+
+    def test_returns_nonexistent_path_with_suffix(self):
+        from server.utils.tempfile_util import temp_output_path
+
+        p = temp_output_path(".wav")
+        assert p.endswith(".wav")
+        # Must not exist yet: callers hand it to an audio writer.
+        assert not os.path.exists(p)
+
+    def test_concurrent_calls_never_collide(self):
+        from server.utils.tempfile_util import temp_output_path
+
+        paths = [temp_output_path(".wav") for _ in range(200)]
+        assert len(set(paths)) == len(paths)
+
+    def test_threaded_calls_never_collide(self):
+        from concurrent.futures import ThreadPoolExecutor
+
+        from server.utils.tempfile_util import temp_output_path
+
+        with ThreadPoolExecutor(max_workers=16) as pool:
+            paths = list(pool.map(lambda _: temp_output_path(".wav"), range(200)))
+        assert len(set(paths)) == len(paths)
 
 
 class TestStorage:

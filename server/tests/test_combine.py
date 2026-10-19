@@ -1,6 +1,9 @@
 """RED: combine layers, boost quiet stems, base->bass, swing groove, strings."""
 
+import os
+
 import numpy as np
+import pytest
 import soundfile as sf
 
 from server.ml.prompt_engine import Intent, extract_instrument, regex_plan_from_prompt
@@ -98,6 +101,181 @@ def test_chained_tempo_stays_musical(tone_path):
         y = y[np.newaxis, :]
     y2, meta2, _ = _add_instrument(y, sr, "bass", {"groove": "default"})
     assert meta2["tempo_bpm"] <= 180, meta2
+
+
+class TestCompressedAudioUpload:
+    """.m4a/.aac must upload, not 500.
+
+    libsndfile has no AAC decoder and this machine has no ffmpeg/avconv/
+    gstreamer on PATH (audioread offers only RawAudioFile), so librosa.load
+    raised NoBackendError inside analyze_audio. The upload returned 500 while
+    the browser had already drawn the filename, so the UI said "upload a file
+    first" about a file that was sitting right there.
+    """
+
+    @staticmethod
+    def _make_m4a(tmpdir):
+        import os
+        import subprocess
+        import tempfile
+
+        import imageio_ffmpeg
+
+        sr = 22050
+        t = np.linspace(0, 3, sr * 3, endpoint=False)
+        wav = os.path.join(tmpdir, "src.wav")
+        sf.write(wav, 0.4 * np.sin(2 * np.pi * 220 * t), sr)
+        m4a = os.path.join(tmpdir, "clip.m4a")
+        subprocess.run(
+            [imageio_ffmpeg.get_ffmpeg_exe(), "-i", wav, "-c:a", "aac", "-b:a", "96k", m4a],
+            check=True,
+            capture_output=True,
+        )
+        return m4a
+
+    def test_m4a_uploads_and_is_decoded_to_wav(self, tmp_path):
+        from fastapi.testclient import TestClient
+        from server.main import app
+
+        m4a = self._make_m4a(str(tmp_path))
+        # sanity: librosa genuinely cannot read it, which is why we transcode
+        import librosa
+        with pytest.raises(Exception):
+            librosa.load(m4a, sr=None, mono=True)
+
+        c = TestClient(app)
+        up = c.post("/api/upload", files={"file": ("clip.m4a", open(m4a, "rb"), "audio/mp4")})
+        assert up.status_code == 200, up.text[:300]
+        body = up.json()
+        assert body["audio_path"].endswith(".wav")
+        assert body["analysis"]["duration_seconds"] > 0
+
+    def test_m4a_upload_is_processable(self, tmp_path):
+        from fastapi.testclient import TestClient
+        from server.main import app
+
+        m4a = self._make_m4a(str(tmp_path))
+        c = TestClient(app)
+        up = c.post("/api/upload", files={"file": ("clip.m4a", open(m4a, "rb"), "audio/mp4")})
+        assert up.status_code == 200, up.text[:300]
+        r = c.post("/api/process", json={"audio_path": up.json()["audio_path"], "prompt": "make it louder"})
+        assert r.status_code == 200, r.text[:300]
+        assert r.json()["intent"] != "unknown"
+
+    def test_wav_upload_still_works(self, tmp_path):
+        import os
+
+        sr = 22050
+        t = np.linspace(0, 3, sr * 3, endpoint=False)
+        p = str(tmp_path / "plain.wav")
+        sf.write(p, 0.4 * np.sin(2 * np.pi * 220 * t), sr)
+        from fastapi.testclient import TestClient
+        from server.main import app
+
+        c = TestClient(app)
+        up = c.post("/api/upload", files={"file": ("plain.wav", open(p, "rb"), "audio/wav")})
+        assert up.status_code == 200, up.text[:300]
+        assert os.path.exists(up.json()["audio_path"])
+
+
+class TestVideoMuxing:
+    """Edited audio must be written back onto the source video.
+
+    Muxing was listed as "unconfirmed" because only extraction had ever been
+    implemented. These tests build a real video, so they fail loudly if the
+    ffmpeg invocation is wrong rather than silently passing.
+    """
+
+    @staticmethod
+    def _make_video(path, seconds=2):
+        import subprocess
+
+        import imageio_ffmpeg
+
+        subprocess.run(
+            [
+                imageio_ffmpeg.get_ffmpeg_exe(), "-y",
+                "-f", "lavfi", "-i", f"testsrc=size=160x120:rate=15:duration={seconds}",
+                "-f", "lavfi", "-i", f"sine=frequency=440:duration={seconds}",
+                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", str(path),
+            ],
+            check=True,
+            capture_output=True,
+        )
+        return str(path)
+
+    def test_mux_keeps_video_and_replaces_audio(self, tmp_path):
+        import subprocess
+
+        import imageio_ffmpeg
+        import librosa
+
+        from server.services.video_extractor import extract_audio, mux_audio_onto_video
+
+        vid = self._make_video(tmp_path / "in.mp4")
+        sr = 22050
+        t = np.linspace(0, 2, sr * 2, endpoint=False)
+        # 880 Hz, deliberately not the 440 Hz in the source video.
+        edited = str(tmp_path / "edited.wav")
+        sf.write(edited, (0.4 * np.sin(2 * np.pi * 880 * t)).astype(np.float32), sr)
+
+        out = mux_audio_onto_video(vid, edited, str(tmp_path / "out.mp4"))
+        assert os.path.exists(out) and os.path.getsize(out) > 0
+
+        probe = subprocess.run(
+            [imageio_ffmpeg.get_ffmpeg_exe(), "-i", out], capture_output=True, text=True
+        ).stderr
+        assert "Video:" in probe, "video stream was lost"
+        assert "Audio:" in probe, "audio stream missing"
+
+        y, _ = librosa.load(extract_audio(out), sr=22050, mono=True)
+        spec = np.abs(np.fft.rfft(y))
+        peak = float(np.fft.rfftfreq(len(y), 1 / 22050)[np.argmax(spec)])
+        assert abs(peak - 880) < 40, f"audio not replaced (peak {peak:.0f} Hz)"
+
+    def test_mux_does_not_hang(self, tmp_path):
+        """`apad` + `-c:v copy` makes ffmpeg hang forever.
+
+        A plain call that never returns fails the suite, so this asserts a
+        bounded runtime instead of trusting the command shape.
+        """
+        import subprocess
+        import time
+
+        from server.services.video_extractor import mux_audio_onto_video
+
+        vid = self._make_video(tmp_path / "in.mp4")
+        sr = 22050
+        t = np.linspace(0, 2, sr * 2, endpoint=False)
+        edited = str(tmp_path / "e.wav")
+        sf.write(edited, (0.3 * np.sin(2 * np.pi * 880 * t)).astype(np.float32), sr)
+
+        started = time.time()
+        mux_audio_onto_video(vid, edited, str(tmp_path / "o.mp4"))
+        assert time.time() - started < 30, "muxing exceeded 30s - likely hung"
+
+    def test_process_returns_video_download_key(self, tmp_path):
+        from fastapi.testclient import TestClient
+        from server.main import app
+
+        vid = self._make_video(tmp_path / "in.mp4")
+        c = TestClient(app)
+        up = c.post("/api/upload", files={"file": ("clip.mp4", open(vid, "rb"), "video/mp4")})
+        assert up.status_code == 200, up.text[:300]
+        body = up.json()
+        assert body["is_video"] is True
+        assert body["source_video_path"], "video uploads must expose the original for muxing"
+
+        r = c.post(
+            "/api/process",
+            json={
+                "audio_path": body["audio_path"],
+                "prompt": "make it louder",
+                "source_video_path": body["source_video_path"],
+            },
+        )
+        assert r.status_code == 200, r.text[:300]
+        assert r.json()["video_download_key"], "expected a muxed video download key"
 
 
 def test_process_accepts_storage_key():

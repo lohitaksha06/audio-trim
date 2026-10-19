@@ -21,7 +21,7 @@ export default function CreatorPage() {
 
         <Panel title="Make the voice carry">
           <ActionButton
-            label="Clean up background noise"
+            label="Soften background noise"
             prompt="Remove background noise"
             tone="accent"
           />

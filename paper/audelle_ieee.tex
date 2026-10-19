@@ -36,9 +36,11 @@ inpainting, and per-clip accuracy for genre classification. Evaluation exposed
 defects that code review had not, including a source separator that made speech
 \emph{worse}, a voice activity detector that returned zero segments on
 contiguous speech, and a melodic model whose regression head collapsed all
-intervals to a single near-zero value. Two evaluation metrics were themselves
-found to be invalid and were discarded rather than reported. A 99-case prompt
-benchmark and 293 automated tests guard the resulting behaviour. We argue that
+intervals to a single near-zero value. Three evaluation metrics were themselves
+found to be invalid and were discarded or renamed rather than reported; one
+speech-enhancement figure was revised downward by a factor of two once its
+metric was replaced. A 99-case prompt benchmark and 328 automated tests guard
+the resulting behaviour. We argue that
 publishing negative results and invalidating one's own metrics is a necessary
 part of deploying learned audio components in interactive tools.
 \end{abstract}
@@ -113,9 +115,10 @@ naming those instruments cannot be served by the general model.
 
 Statistical-model methods, in particular the Wiener formulation and its
 decision-directed descendants, remain the reference against which learned
-enhancers are measured \cite{ephraim1992statistical}. Audelle uses a decision-directed a-posteriori SNR
-Wiener filter with noise-presence probability, selected because it requires no
-training data and degrades gracefully on clean speech.
+enhancers are measured \cite{ephraim1992statistical}. Audelle implements the
+classical decision-directed Wiener estimator with over-subtraction and a
+spectral floor, selected because it requires no training data and degrades
+gracefully on clean speech.
 
 \subsection{Transcription and diarization}
 
@@ -187,13 +190,16 @@ this rule, which reversed the system's original design.
 
 \subsection{Statistical speech enhancement}
 
-The denoiser estimates a smoothed noise floor over the shortest of the signal or
-a 0.5\,s window, forms a decision-directed a-posteriori SNR estimate, and applies
-a Wiener spectral gain with noise-presence probability, so that noise is
-attenuated rather than eliminated during silent frames. A presence band lift
-compensates for the perceived dullness left by broadband gain reduction. The
+The denoiser estimates the noise floor as a per-bin low percentile of the
+short-time magnitude spectrum, forms an instantaneous SNR from that floor, and
+applies a Wiener gain with a controlled over-subtraction factor and a spectral
+floor, smoothed in time to suppress musical-noise pumping. A noise-aware
+presence lift compensates for the dullness left by broadband gain reduction,
+gated per bin so that bins already dominated by noise are not boosted. The
 algorithm requires no training data and is invariant to the recording
-microphone.
+microphone. The floor is a single file-wide percentile and therefore assumes a
+stationary noise floor; Section~VIII records the failed attempt to make it
+adaptive.
 
 \subsection{Voice activity detection and diarization}
 
@@ -343,13 +349,28 @@ interface matches the instruments the backend can render.
 
 Routing speech through a music-trained separator \emph{degraded} quality. On
 three broadcast-speech fixtures the SNR change ranged from $-4.3$\,dB to
-$-7.2$\,dB. After replacing that path with a decision-directed Wiener filter,
-the same fixtures measured $+1.3$, $+10.1$ and $+2.7$\,dB, with the voice
-level raised 1--3\,dB and already-clean speech left essentially unchanged. This
-result reversed the system's routing design. It is also the reason synthesised
-speech was rejected as a test input: synthesised voices fall outside the
-separator's training domain and yield near-silent stems, which would have
-produced a spuriously excellent score.
+$-7.2$\,dB. After replacing that path with a Wiener filter and noise-aware
+presence lift, the same fixtures improved by $+0.3$ to $+0.7$\,dB true SNR
+across the three strength settings, with the voice level raised 1.9--2.9\,dB
+and already-clean speech returned byte-identical.
+
+These figures were revised downward after the metric itself was corrected. The
+earlier report quoted $+1.3$, $+10.1$ and $+2.7$\,dB, but those were produced
+by a file-level proxy comparing the 90th-percentile frame against the 10th.
+That quantity rises when a denoiser attenuates quiet frames, which is not the
+same as improving signal-to-noise ratio. Measured against the known clean
+reference, the proxy overstated the improvement by roughly a factor of two; the
+field was renamed \texttt{dynamic\_range\_gain\_db} and the metadata now
+reports the noise-floor drop and voice-level lift that are directly measurable
+at inference. Section~VII records this as the second invalidated metric.
+
+The honest conclusion is that this filter is a gentle cleanup, not a
+denoiser: it reliably makes speech more audible against a steady noise floor
+and cannot make worse speech worse, but half a decibel is a small effect and no
+listening test was conducted. This result reversed the system's routing design.
+It is also the reason synthesised speech was rejected as a test input:
+synthesised voices fall outside the separator's training domain and yield
+near-silent stems, which would have produced a spuriously excellent score.
 
 \subsection{Adaptive VAD (negative result)}
 
@@ -510,6 +531,18 @@ each other rather than against ground truth, and the number was an artefact of
 mismatched assumptions. The comparison was discarded. After this, no metric is
 reported without ground truth of known value.
 
+\paragraph{A dynamic-range proxy reported as SNR.}
+The speech-enhancement figure was computed with \texttt{broadband\_snr\_db},
+which compares the 90th-percentile frame against the 10th and is therefore a
+measure of dynamic range, not of signal-to-noise ratio. A denoiser attenuates
+quiet frames, so the proxy rises substantially even when true SNR barely
+moves. Measured against a known clean reference the proxy overreported the
+improvement by roughly a factor of two. The metric was renamed and the reported
+quantity replaced with the noise-floor drop and voice-level lift, which are
+directly observable without a reference signal. True SNR is not computable at
+inference at all, because it requires the clean audio that the input no longer
+contains.
+
 \paragraph{Exceptions that hid errors.}
 Two bare \texttt{except: pass} handlers silently swallowed genuine exceptions ---
 a \texttt{NameError} in the timbre layer and a wrong keyword argument in the
@@ -534,9 +567,11 @@ for the absence of silence, but its perceptual quality is not established,
 because ground-truth multitracks would be required. Inpainting cannot invent
 music that was never played, and a learned generative model --- spectrogram
 inpainting as in~\cite{bazin2020spectrogram}, or an audio language model --- would be required for that.
-Audio-to-video muxing is implemented for extraction but not yet confirmed for
-muxing. Precision sample-accurate waveform editing remains a gap relative to
-workstation-class editors.
+Audio-to-video round-tripping is implemented: a video upload retains its
+original, and any edit producing audio is muxed back with the video stream
+copied rather than re-encoded. It was verified by demuxing the result and
+confirming the edited audio replaced the source. Precision sample-accurate
+waveform editing remains a gap relative to workstation-class editors.
 
 \section{Conclusion}
 

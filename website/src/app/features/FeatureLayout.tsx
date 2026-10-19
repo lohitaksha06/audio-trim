@@ -5,7 +5,7 @@ import Nav from "@/components/Nav";
 import Sidebar from "@/components/Sidebar";
 import FileUpload from "@/components/FileUpload";
 import AudioPreview from "@/components/AudioPreview";
-import { uploadFile, processAudio, understandAudio, exportZip, downloadUrl, type UploadResponse, type UnderstandResponse, type ProcessResponse } from "@/services/api";
+import { uploadFile, processAudio, fetchSuggestions, understandAudio, exportZip, downloadUrl, type UploadResponse, type UnderstandResponse, type ProcessResponse } from "@/services/api";
 import { describeResult, isOutputFollowUp, type ResultMeta } from "@/utils/followUp";
 import { FeaturePromptContext } from "./FeaturePromptContext";
 import { Conversation } from "./FeaturePanels";
@@ -105,7 +105,11 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
       const result = await processAudio(srcPath, currentPrompt);
       setLastResult(result);
       if (result.intent === "unknown") {
-        setHistory((prev) => [...prev, { role: "ai", text: `I didn't understand "${currentPrompt}". Try: "Trim from 0:05 to 0:10" or "Remove the drums"` }]);
+        const ideas = await fetchSuggestions(currentPrompt);
+        const list = ideas.length
+          ? ideas.map((t) => `"${t}"`).join(", ")
+          : '"Trim from 0:05 to 0:10" or "Remove the drums"';
+        setHistory((prev) => [...prev, { role: "ai", text: `I couldn't turn "${currentPrompt}" into a specific edit yet. Things I can do near that: ${list}.` }]);
         setState("analyzed");
         return;
       }
@@ -208,15 +212,15 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
           {/* Page Header */}
           <div className="shrink-0 border-b border-white/5 px-4 sm:px-6 py-3 flex items-center justify-between">
             <div>
-              <h1 className="text-lg sm:text-xl font-bold text-white">{title}</h1>
-              <p className="text-xs text-white/68">{subtitle}</p>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">{title}</h1>
+              <p className="text-[0.9375rem] text-white/72">{subtitle}</p>
             </div>
             {file && (
               <div className="flex gap-2">
-                <button onClick={newChat} title="Clear conversation, keep this file" className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/68 hover:border-white/20 hover:text-white/90 transition-colors">
+                <button onClick={newChat} title="Clear conversation, keep this file" className="rounded-lg border border-white/10 px-3 py-1.5 text-[0.8125rem] text-white/68 hover:border-white/20 hover:text-white/90 transition-colors">
                   New chat
                 </button>
-                <button onClick={reset} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/68 hover:border-white/20 hover:text-white/90 transition-colors">
+                <button onClick={reset} className="rounded-lg border border-white/10 px-3 py-1.5 text-[0.8125rem] text-white/68 hover:border-white/20 hover:text-white/90 transition-colors">
                   New file
                 </button>
               </div>
@@ -262,16 +266,16 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
                 <div className="w-full max-w-xl">
                   <FileUpload onFileSelected={handleFileSelected} onInvalid={setErrorMsg} />
                 </div>
-                {errorMsg && <p className="mt-3 text-xs text-red-400">{errorMsg}</p>}
+                {errorMsg && <p className="mt-3 text-sm text-red-400">{errorMsg}</p>}
               </div>
             ) : (
               <>
                 {/* Analysis panel (shared) */}
                 <div className="mb-4 grid gap-3">
                   <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 grid grid-cols-3 gap-2">
-                    <div className="rounded-lg border border-white/5 bg-black/40 p-2 text-center"><div className="text-xs text-white/58">Duration</div><div className="text-sm text-white">{analysis ? formatDuration(analysis.duration_seconds) : "—"}</div></div>
-                    <div className="rounded-lg border border-white/5 bg-black/40 p-2 text-center"><div className="text-xs text-white/58">BPM</div><div className="text-sm text-white">{analysis?.bpm?.toFixed(0) ?? "—"}</div></div>
-                    <div className="rounded-lg border border-white/5 bg-black/40 p-2 text-center"><div className="text-xs text-white/58">Key</div><div className="text-sm text-white">{analysis?.key ?? "—"}</div></div>
+                    <div className="rounded-lg border border-white/5 bg-black/40 p-2.5 text-center"><div className="text-[0.8125rem] text-white/58">Duration</div><div className="mt-0.5 text-[0.9375rem] text-white">{analysis ? formatDuration(analysis.duration_seconds) : "—"}</div></div>
+                    <div className="rounded-lg border border-white/5 bg-black/40 p-2.5 text-center"><div className="text-[0.8125rem] text-white/58">BPM</div><div className="mt-0.5 text-[0.9375rem] text-white">{analysis?.bpm?.toFixed(0) ?? "—"}</div></div>
+                    <div className="rounded-lg border border-white/5 bg-black/40 p-2.5 text-center"><div className="text-[0.8125rem] text-white/58">Key</div><div className="mt-0.5 text-[0.9375rem] text-white">{analysis?.key ?? "—"}</div></div>
                   </div>
                   {!understand ? (
                     <button onClick={handleAnalyze} disabled={analyzing} className="w-full rounded-xl bg-neon-blue/15 px-4 py-2.5 text-sm font-medium text-neon-blue hover:bg-neon-blue/25 transition-colors disabled:opacity-50">
@@ -280,20 +284,20 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
                   ) : (
                     <div className="grid gap-2">
                       {inst && <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3"><div className="text-xs text-white/68 uppercase tracking-wider mb-1">Instruments</div><div className="flex flex-wrap gap-1.5">{inst.instruments.map((el) => <span key={el.instrument} className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-white/78">{el.instrument} · {(el.confidence*100).toFixed(0)}%</span>)}</div></div>}
-                      {understand?.genre && <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3"><div className="text-xs text-white/68 uppercase tracking-wider mb-1">Genre / Style</div><div className="text-xs text-white/84">{understand.genre.genre} · {(understand.genre.confidence*100).toFixed(0)}%{understand?.rhythm ? ` · ${understand.rhythm.auto_groove.replace(/_/g, " ")} · ${Math.round(understand.rhythm.tempo_bpm)} BPM` : ""}</div></div>}
-                      {sections.length>0 && <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3"><div className="text-xs text-white/68 uppercase tracking-wider mb-1">Structure</div>{sections.map((s,i)=><div key={i} className="flex justify-between text-xs"><span className="text-white/84 capitalize">{s.label}</span><span className="text-white/58">{formatDuration(s.start)}–{formatDuration(s.end)}</span></div>)}</div>}
+                      {understand?.genre && <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3"><div className="text-xs text-white/68 uppercase tracking-wider mb-1">Genre / Style</div><div className="text-[0.875rem] text-white/84">{understand.genre.genre} · {(understand.genre.confidence*100).toFixed(0)}%{understand?.rhythm ? ` · ${understand.rhythm.auto_groove.replace(/_/g, " ")} · ${Math.round(understand.rhythm.tempo_bpm)} BPM` : ""}</div></div>}
+                      {sections.length>0 && <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3"><div className="eyebrow mb-1.5">Structure</div>{sections.map((s,i)=><div key={i} className="flex justify-between text-[0.875rem]"><span className="text-white/84 capitalize">{s.label}</span><span className="text-white/58">{formatDuration(s.start)}–{formatDuration(s.end)}</span></div>)}</div>}
                     </div>
                   )}
                   {hasResult && lastResult?.download_key && (
                     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
                       <AudioPreview src={downloadUrl(lastResult.download_key)} height={48} />
                       {lastResult.layer_download_key && (
-                        <button onClick={()=>handleDownload(lastResult.layer_download_key)} className="mt-2 w-full rounded-lg bg-neon-blue/10 px-3 py-2 text-xs font-medium text-neon-blue hover:bg-neon-blue/20 transition-colors">Download {lastResult.layer_label ?? "added layer"} only</button>
+                        <button onClick={()=>handleDownload(lastResult.layer_download_key)} className="mt-2 w-full rounded-lg bg-neon-blue/10 px-3 py-2.5 text-[0.875rem] font-medium text-neon-blue hover:bg-neon-blue/20 transition-colors">Download {lastResult.layer_label ?? "added layer"} only</button>
                       )}
                       <div className="mt-2 flex gap-2">
-                        <button onClick={()=>handleDownload(lastResult.download_key)} className="flex-1 rounded-lg bg-neon-blue/15 px-3 py-2 text-xs font-medium text-neon-blue hover:bg-neon-blue/25 transition-colors">Download result</button>
+                        <button onClick={()=>handleDownload(lastResult.download_key)} className="flex-1 rounded-lg bg-neon-blue/15 px-3 py-2.5 text-[0.875rem] font-medium text-neon-blue hover:bg-neon-blue/25 transition-colors">Download result</button>
                         {lastResult.stems_keys && Object.keys(lastResult.stems_keys).length>0 && (
-                          <button onClick={handleExportZip} disabled={exporting} className="flex-1 rounded-lg bg-neon-purple/15 px-3 py-2 text-xs font-medium text-neon-purple hover:bg-neon-purple/25 disabled:opacity-50 transition-colors">{exporting?"Zipping...":`Stems ZIP (${Object.keys(lastResult.stems_keys).length})`}</button>
+                          <button onClick={handleExportZip} disabled={exporting} className="flex-1 rounded-lg bg-neon-purple/15 px-3 py-2.5 text-[0.875rem] font-medium text-neon-purple hover:bg-neon-purple/25 disabled:opacity-50 transition-colors">{exporting?"Zipping...":`Stems ZIP (${Object.keys(lastResult.stems_keys).length})`}</button>
                         )}
                       </div>
                     </div>
@@ -317,8 +321,8 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
                 {notice}
               </p>
             )}
-            <p className="mb-2 text-xs text-white/58">
-              {file ? "Press Enter to send" : "Upload a file first, then describe what you want"}
+            <p className="mb-2 text-[0.8125rem] text-white/58">
+              {file ? "Press Enter to send · mic for voice input" : "Upload a file first, then describe what you want"}
             </p>
             <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-3">
               <input

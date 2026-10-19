@@ -118,17 +118,27 @@ def predict_content(audio_path: str) -> dict[str, Any] | None:
         probs = art["clf"].predict_proba(feats)[0]
         classes = list(art["classes"])
         idx = int(np.argmax(probs))
-        snr = float(art["reg"].predict(feats)[0])
-        snr = max(-5.0, min(45.0, snr))
-        quality = round(max(0.0, min(100.0, snr / 40.0 * 100.0)), 1)
-        return {
-            "condition": classes[idx],
+        condition = classes[idx]
+
+        # The SNR regressor ships only if it beat a mean-predictor baseline at
+        # training time (see scripts/train_content_classifier.py). When it did
+        # not, `reg` is None and we omit the score rather than publishing a
+        # number from a model with no skill.
+        reg = art.get("reg")
+        result = {
+            "condition": condition,
             "confidence": round(float(probs[idx]), 3),
             "probs": {c: round(float(p), 3) for c, p in zip(classes, probs)},
-            "snr_db": round(snr, 1),
-            "quality_score": quality,
-            "suggested_action": CONDITION_ACTIONS.get(classes[idx], ""),
+            "snr_db": None,
+            "quality_score": None,
+            "suggested_action": CONDITION_ACTIONS.get(condition, ""),
         }
+        if reg is not None:
+            snr = float(reg.predict(feats)[0])
+            snr = max(-5.0, min(45.0, snr))
+            result["snr_db"] = round(snr, 1)
+            result["quality_score"] = round(max(0.0, min(100.0, snr / 40.0 * 100.0)), 1)
+        return result
     except Exception:
         return None
 

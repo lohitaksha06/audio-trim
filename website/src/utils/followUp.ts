@@ -34,9 +34,11 @@ export interface ResultMeta {
   gain_db?: number;
   gains_db?: Record<string, number>;
   method?: string;
-  snr_before_db?: number;
-  snr_after_db?: number;
-  snr_gain_db?: number;
+  dynamic_range_before_db?: number;
+  dynamic_range_after_db?: number;
+  dynamic_range_gain_db?: number;
+  noise_floor_drop_db?: number;
+  level_gain_db?: number;
   vocal_boost_db?: number;
   fillers_removed?: number;
   seconds_saved?: number;
@@ -166,18 +168,27 @@ export function describeResult(intent: string, meta?: ResultMeta | null): string
     if (meta.edm_style) bits.push(`style: ${String(meta.edm_style).replace(/_/g, " ")}`);
     if (typeof meta.song_bpm === "number") bits.push(`${Math.round(meta.song_bpm)} BPM`);
   } else if (meta.style) {
-    bits.push(`${meta.style} style`);
+    // "treated as X", not "converted to X" — a recorded-drum pattern plus a
+    // synth voice and sidechain pump under the original is not a conversion.
+    bits.push(`treated as ${String(meta.style).replace(/_/g, " ")}`);
     if (meta.tempo_bpm) bits.push(`${Math.round(meta.tempo_bpm)} BPM`);
   } else if (meta.enhanced) {
     const target = meta.enhanced === "mix" ? "background noise" : "voice";
-    if (typeof meta.snr_after_db === "number") {
-      const gain = typeof meta.snr_gain_db === "number" ? meta.snr_gain_db : 0;
-      bits.push(
-        `${target} cleaned · speech-to-noise ${Math.round(meta.snr_after_db)} dB` +
-          (gain > 0 ? ` (+${Math.round(gain)} dB better)` : " (already clean)")
-      );
+    // Report what is directly measurable at inference (noise-floor drop and
+    // level lift) rather than a "dB better" figure that implies an SNR
+    // improvement we cannot actually compute without a clean reference.
+    const drop = meta.noise_floor_drop_db;
+    const level = meta.level_gain_db;
+    if (typeof drop === "number" && drop > 0.2) {
+      const bits2 = [`${target} softened · background down ${drop.toFixed(1)} dB`];
+      if (typeof level === "number" && level > 0.2) {
+        bits2.push(`voice +${level.toFixed(1)} dB`);
+      }
+      bits.push(bits2.join(" · "));
     } else if (meta.method === "stem_remix" && typeof meta.vocal_boost_db === "number") {
       bits.push(`vocals lifted +${meta.vocal_boost_db} dB over the mix`);
+    } else if (meta.method === "spectral_denoise") {
+      bits.push(`already clean — left untouched`);
     } else {
       bits.push(`vocals enhanced + denoised`);
     }

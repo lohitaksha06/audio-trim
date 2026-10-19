@@ -290,51 +290,51 @@ export default function GuidePage() {
       <div className="flex flex-1 mt-[var(--nav-h)] overflow-hidden">
         <Sidebar onPromptSelect={copy} />
         <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 py-8 sm:py-12">
-          <h1 className="text-2xl sm:text-4xl font-bold text-white">What can I ask Audelle?</h1>
-          <p className="mt-2 text-sm sm:text-base text-white/68">
+        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-white">What can I ask Audelle?</h1>
+          <p className="measure mt-3 text-base sm:text-lg text-white/72">
             Everything below is real and covered by the backend test-suite.
             Click any prompt to copy it, then paste it in the <Link href="/prompt" className="text-neon-blue hover:underline">Editor</Link> — or open
             the <Link href="/features/mix" className="text-neon-purple hover:underline">Mix Lab</Link> for hands-on faders and mix tips.
           </p>
 
-          <div className="mt-6 grid gap-2 rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5">
-            <h2 className="text-xs font-semibold tracking-widest text-white/78 uppercase">How layering works</h2>
-            <ul className="space-y-1.5 text-xs sm:text-sm leading-relaxed text-white/78 list-disc list-inside">
+          <div className="measure mt-8 grid gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">
+            <h2 className="eyebrow">How layering works</h2>
+            <ul className="space-y-2 text-base leading-relaxed text-white/78 list-disc list-inside">
               <li>Each edit builds on your <b className="text-white/90">latest output</b> — add drums, then say “add bass too” and you get piano + drums + bass.</li>
               <li>“New chat” clears the conversation but keeps your file; “New file” starts over completely.</li>
               <li>Every “add” also saves the instrument-only stem — download it solo from the Output panel.</li>
             </ul>
           </div>
 
-          <div className="mt-8 rounded-2xl border border-neon-purple/20 bg-neon-purple/[0.04] p-4 sm:p-5">
-            <h2 className="text-base sm:text-lg font-semibold text-white">Separated stems — what&apos;s inside your song</h2>
-            <p className="mt-1 text-xs sm:text-sm text-white/68">
+          <div className="mt-10 rounded-2xl border border-neon-purple/20 bg-neon-purple/[0.04] p-5 sm:p-6">
+            <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">Separated stems — what&apos;s inside your song</h2>
+            <p className="measure mt-2 text-base text-white/72">
               Upload anything and Demucs splits it into 4 stems. Isolate one, remove one, or rebalance them with Mix Lab.
             </p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {STEM_INFO.map((s) => (
-                <div key={s.name} className="rounded-xl border border-white/10 bg-black/40 p-3">
-                  <div className="text-sm font-semibold text-neon-purple">{s.name}</div>
-                  <div className="mt-0.5 text-xs text-white/78">{s.contains}</div>
+                <div key={s.name} className="rounded-xl border border-white/10 bg-black/40 p-4">
+                  <div className="text-base font-semibold text-neon-purple">{s.name}</div>
+                  <div className="mt-1 text-[0.9375rem] leading-snug text-white/78">{s.contains}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5">
-            <h2 className="text-base sm:text-lg font-semibold text-white">
-              Instruments you can add {catalog ? <span className="text-xs font-normal text-white/58">· live from your backend</span> : <span className="text-xs font-normal text-white/58">· connecting…</span>}
+          <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">
+            <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">
+              Instruments you can add {catalog ? <span className="text-sm font-normal text-white/58">· live from your backend</span> : <span className="text-sm font-normal text-white/58">· connecting…</span>}
             </h2>
-            <p className="mt-1 text-xs sm:text-sm text-white/68">
+            <p className="measure mt-2 text-base text-white/72">
               Beat-, key- and tempo-matched to your track. Click one to copy its prompt.
             </p>
             {grouped ? (
-              <div className="mt-3 space-y-4">
+              <div className="mt-5 space-y-5">
                 {grouped.map((g) => (
                   <div key={g.family}>
-                    <div className="text-xs font-semibold tracking-widest text-white/68 uppercase">{g.family}</div>
-                    <div className="mt-2 flex flex-wrap gap-2">
+                    <div className="eyebrow">{g.family}</div>
+                    <div className="mt-2.5 flex flex-wrap gap-2">
                       {g.items.map((inst) => {
                         const prompt = `Add ${inst.name}`;
                         return (
@@ -342,7 +342,7 @@ export default function GuidePage() {
                             key={inst.id}
                             onClick={() => copy(prompt)}
                             title={inst.blurb}
-                            className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs sm:text-sm text-white/84 transition-colors hover:border-neon-blue/40 hover:text-neon-blue"
+                            className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[0.9375rem] text-white/84 transition-colors hover:border-neon-blue/40 hover:text-neon-blue"
                           >
                             {copied === prompt ? "Copied!" : `${inst.name} — ${inst.blurb}`}
                           </button>
@@ -353,35 +353,35 @@ export default function GuidePage() {
                 ))}
               </div>
             ) : (
-              <p className="mt-2 text-xs text-white/58">Start the backend to browse all {`45+`} instruments live — the prompt lists below work regardless.</p>
+              <p className="mt-2 text-[0.9375rem] text-white/58">Start the backend to browse all {`45+`} instruments live — the prompt lists below work regardless.</p>
             )}
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
-            <span className="text-xs text-white/58 py-1">Grooves:</span>
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            <span className="eyebrow">Grooves</span>
             {grooves.map((g) => (
-              <span key={g} className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-white/78">{g}</span>
+              <span key={g} className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[0.9375rem] text-white/78">{g}</span>
             ))}
           </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <span className="text-xs text-white/58 py-1">Styles:</span>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="eyebrow">Styles</span>
             {STYLES.map((s) => (
-              <span key={s} className="rounded-full border border-neon-blue/20 bg-neon-blue/[0.05] px-2.5 py-1 text-xs text-neon-blue/80">{s}</span>
+              <span key={s} className="rounded-full border border-neon-blue/20 bg-neon-blue/[0.05] px-3 py-1.5 text-[0.9375rem] text-neon-blue/80">{s}</span>
             ))}
           </div>
 
-          <div className="mt-8 space-y-6">
+          <div className="mt-12 space-y-4">
             {SECTIONS.map((sec) => (
-              <div key={sec.title} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5">
-                <h2 className="text-base sm:text-lg font-semibold text-white">{sec.title}</h2>
-                <p className="mt-1 text-xs sm:text-sm text-white/68">{sec.hint}</p>
-                <div className="mt-3 flex flex-wrap gap-2">
+              <div key={sec.title} className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">
+                <h2 className="text-xl font-semibold tracking-tight text-white">{sec.title}</h2>
+                <p className="measure mt-1.5 text-base text-white/72">{sec.hint}</p>
+                <div className="mt-4 flex flex-wrap gap-2">
                   {sec.prompts.map((p) => (
                     <button
                       key={p}
                       onClick={() => copy(p)}
                       title="Click to copy"
-                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs sm:text-sm text-white/84 transition-colors hover:border-neon-blue/40 hover:text-neon-blue"
+                      className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[0.9375rem] text-white/84 transition-colors hover:border-neon-blue/40 hover:text-neon-blue"
                     >
                       {copied === p ? "Copied!" : p}
                     </button>

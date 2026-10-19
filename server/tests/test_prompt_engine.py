@@ -7,10 +7,76 @@ from server.ml.prompt_engine import (
     classify_intent,
     extract_instrument,
     extract_time_range,
+    normalize_prompt,
     parse_timestamp,
     plan_from_prompt,
     regex_plan_from_prompt,
+    suggest_alternatives,
 )
+
+
+class TestCasualPhrasing:
+    """Everyday wording must reach the same intent as the formal phrasing.
+
+    The prompt bench is written alongside the keyword tables, so it confirms
+    the rules agree with themselves rather than with how people speak. These
+    cases are the ones that were previously falling through to UNKNOWN.
+    """
+
+    CASES = [
+        ("pls cut the boring intro its too long", Intent.TRIM),
+        ("get rid of that awful silence in the middle", Intent.REMOVE_SILENCE),
+        ("kill the hiss", Intent.REMOVE),
+        ("take out the ums and ahs", Intent.REMOVE_FILLERS),
+        ("i want just the singing no music", Intent.ISOLATE),
+        ("just the vocals no music", Intent.ISOLATE),
+        ("boost the vocals a bit pls", Intent.BOOST),
+        ("too quiet can you turn it up", Intent.BOOST),
+        ("shorten to 30 secs for reels", Intent.TRIM),
+        ("make it sound darker and moodier", Intent.MOOD),
+        ("make it darker", Intent.MOOD),
+        ("can we make it more cinematic", Intent.STYLE),
+        ("add some drums that fit", Intent.ADD_INSTRUMENT),
+        ("same speakers same volume pls", Intent.NORMALIZE),
+        ("fade the end out pls", Intent.FADE),
+        ("match it with my other track", Intent.MIX_STEM),
+        ("combine these two files", Intent.MIX_STEM),
+        ("2x speed", Intent.SPEED),
+        # normalize_prompt rewrites these to a bare "boost", which used to
+        # match neither "boost " nor "boost the" and fall through to UNKNOWN.
+        ("make it louder", Intent.BOOST),
+        ("boost", Intent.BOOST),
+        ("amplify this", Intent.BOOST),
+    ]
+
+    @pytest.mark.parametrize("prompt,expected", CASES)
+    def test_casual_prompt_is_accepted(self, prompt, expected):
+        assert classify_intent(prompt) == expected, (
+            f"{prompt!r} -> {classify_intent(prompt)}, expected {expected}"
+        )
+
+    def test_just_is_not_treated_as_filler(self):
+        """"just the vocals" means *only*; stripping it broke ISOLATE."""
+        assert "just" in normalize_prompt("just the vocals")
+
+    def test_darker_stays_a_mood_request(self):
+        """STYLE is matched before MOOD, so "dark" must not swallow "darker"."""
+        assert classify_intent("make it darker") == Intent.MOOD
+        assert classify_intent("make it darker") != Intent.STYLE
+
+    def test_vague_prompt_returns_usable_suggestions(self):
+        for prompt in ("can u make it sound way better", "asdf qwerty", "hmm do something cool"):
+            ideas = suggest_alternatives(prompt)
+            assert ideas, f"no suggestions for {prompt!r}"
+            # Suggestions must themselves be prompts the engine understands,
+            # otherwise we are sending the user in circles.
+            for idea in ideas:
+                assert classify_intent(idea) != Intent.UNKNOWN, idea
+
+    def test_suggestions_follow_the_topic(self):
+        assert any(
+            "voice" in s.lower() for s in suggest_alternatives("my voice is bad")
+        )
 
 
 class TestIntentClassification:

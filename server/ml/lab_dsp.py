@@ -8,7 +8,8 @@ Falls back to simple gains if scipy unavailable.
 import numpy as np
 import librosa
 import soundfile as sf
-import tempfile
+
+from server.utils.tempfile_util import temp_output_path
 
 try:
     from scipy.signal import iirpeak, lfilter  # type: ignore
@@ -25,7 +26,7 @@ def _load(path: str):
 
 
 def _save(y: np.ndarray, sr: int) -> str:
-    out = tempfile.mktemp(suffix=".wav")
+    out = temp_output_path(".wav")
     sf.write(out, y.T if y.shape[0] > 1 else y[0], sr)
     return out
 

@@ -1,8 +1,9 @@
-import tempfile
 from pathlib import Path
 
 import librosa
 import numpy as np
+
+from server.utils.tempfile_util import temp_output_path
 
 
 def analyze_audio(audio_path: str | Path) -> dict:
@@ -33,7 +34,7 @@ def analyze_audio(audio_path: str | Path) -> dict:
 def remove_silence(audio_path: str | Path) -> str:
     y, sr = librosa.load(str(audio_path), sr=None)
     y_trimmed, _ = librosa.effects.trim(y, top_db=20)
-    output_path = tempfile.mktemp(suffix=".wav")
+    output_path = temp_output_path(".wav")
     import soundfile as sf
     sf.write(output_path, y_trimmed, sr)
     return output_path

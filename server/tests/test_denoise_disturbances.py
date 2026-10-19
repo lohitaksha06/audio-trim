@@ -125,6 +125,7 @@ def test_denoise_reports_measured_snr(tmp_path):
     plan = regex_plan_from_prompt("remove background noise")
     res = AO.execute_plan(p, plan)
     assert res["metadata"]["method"] == "spectral_denoise"
-    assert "snr_before_db" in res["metadata"]
-    assert "snr_gain_db" in res["metadata"]
-    assert res["metadata"]["snr_after_db"] > 0
+    assert "dynamic_range_before_db" in res["metadata"]
+    assert "dynamic_range_gain_db" in res["metadata"]
+    assert "noise_floor_drop_db" in res["metadata"]
+    assert res["metadata"]["dynamic_range_after_db"] > 0

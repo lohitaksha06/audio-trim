@@ -106,7 +106,24 @@ class TestEnhance:
     def test_reports_measured_snr(self, noisy):
         _, meta = enhance_voice_speech(noisy, SR)
         assert meta["method"] == "spectral_denoise"
-        assert meta["snr_gain_db"] > 0.5, meta
+        assert meta["dynamic_range_gain_db"] > 0.5, meta
+
+    def test_metadata_does_not_claim_snr(self, noisy):
+        """The old metadata called a loud-vs-quiet-frame ratio `snr_gain_db`.
+
+        That is a dynamic-range proxy, not SNR, and overstated the real
+        improvement by roughly 2x when checked against a known-clean signal.
+        SNR is unmeasurable at inference (no clean reference exists), so the
+        fields must be named for what they are and the removed SNR names must
+        not come back.
+        """
+        _, meta = enhance_voice_speech(noisy, SR)
+        for banned in ("snr_gain_db", "snr_before_db", "snr_after_db"):
+            assert banned not in meta, f"{banned} reappeared: {meta}"
+        # The honest headline: how much background was actually removed.
+        assert meta["noise_floor_drop_db"] > 0.0, meta
+        # And the voice should be carried, not ducked.
+        assert meta["level_gain_db"] > 0.0, meta
 
     def test_clean_audio_untouched_end_to_end(self, speech):
         out, _ = enhance_voice_speech(speech, SR)

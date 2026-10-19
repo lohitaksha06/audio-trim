@@ -62,9 +62,15 @@ def test_predict_schema_when_available(tmp_path):
         assert not model_available()
         return
     assert 0.0 <= res["confidence"] <= 1.0
-    assert -5.0 <= res["snr_db"] <= 45.0
-    assert 0.0 <= res["quality_score"] <= 100.0
     assert abs(sum(res["probs"].values()) - 1.0) < 0.01
+    # snr_db/quality_score are present but may be None when the trained
+    # regressor failed to beat a mean-predictor baseline and was not shipped.
+    # The classifier half is still valid in that case.
+    if res["snr_db"] is None:
+        assert res["quality_score"] is None
+    else:
+        assert -5.0 <= res["snr_db"] <= 45.0
+        assert 0.0 <= res["quality_score"] <= 100.0
 
 
 def test_metrics_cards_shape():

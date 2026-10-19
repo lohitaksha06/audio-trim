@@ -5,7 +5,10 @@ import Nav from "@/components/Nav";
 import FileUpload from "@/components/FileUpload";
 import { uploadFile, downloadUrl, type UploadResponse } from "@/services/api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// 127.0.0.1, not localhost: `localhost` resolves to ::1 first on this machine
+// and the backend binds IPv4 only, so Suggest/Export fail with "Failed to
+// fetch". Keep in sync with services/api.ts.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 const BANDS = [60, 230, 910, 4000, 14000] as const;
 
 type Gains = Record<string, number>;

@@ -256,10 +256,28 @@ def enhance_voice_speech(
         d, sr, presence_db=presence_db, makeup_db=makeup_db, compress=compress
     )
     after = broadband_snr_db(out, sr)
+
+    # `broadband_snr_db` compares the 90th percentile frame against the 10th, so
+    # the difference below is a change in **dynamic range**, not SNR. SNR
+    # cannot be computed here at all: it needs the clean reference signal,
+    # which does not exist at inference. The field was previously named
+    # `snr_gain_db` and reported as "X dB better", which overstated it roughly
+    # 2x when checked against a known-clean signal (measured on the repo
+    # fixture: reported +1.10 dB, true +0.53 dB at strength 2.0).
+    noise_before = float(np.percentile(np.abs(_stft(y, sr)), 12.0))
+    noise_after = float(np.percentile(np.abs(_stft(out, sr)), 12.0))
+    level_in = float(np.sqrt(np.mean(y ** 2)))
+    level_out = float(np.sqrt(np.mean(out ** 2)))
     return out, {
         "method": "spectral_denoise",
-        "snr_before_db": round(before, 1),
-        "snr_after_db": round(after, 1),
-        "snr_gain_db": round(after - before, 1),
+        "dynamic_range_before_db": round(before, 1),
+        "dynamic_range_after_db": round(after, 1),
+        "dynamic_range_gain_db": round(after - before, 1),
+        # Noise-floor drop is directly measurable without a reference, and is
+        # the honest headline: how much background was actually removed.
+        "noise_floor_drop_db": round(
+            20.0 * np.log10((noise_before + 1e-12) / (noise_after + 1e-12)), 1
+        ),
+        "level_gain_db": round(20.0 * np.log10((level_out + 1e-12) / (level_in + 1e-12)), 1),
         "strength": strength,
     }

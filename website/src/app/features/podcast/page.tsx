@@ -43,13 +43,13 @@ function SpeakerSummary() {
               <span className="text-sm text-white/84">
                 Speaker {i + 1} <span className="text-white/48">({s})</span>
               </span>
-              <span className="font-mono text-xs text-white/58">
+              <span className="font-mono text-[0.8125rem] text-white/58">
                 {meta.talk_time_seconds?.[s]?.toFixed(1)}s talking
               </span>
             </div>
           ))}
         </div>
-        <p className="text-xs text-white/48">
+        <p className="text-[0.8125rem] leading-relaxed text-white/50">
           Anonymous clusters from this recording — not names, and only valid for this file.
         </p>
       </Panel>
@@ -126,7 +126,7 @@ export default function PodcastPage() {
             label="Normalize speaker volume"
             prompt="Normalize all speakers to the same volume level"
           />
-          <ActionButton label="Remove room noise" prompt="Remove background noise" />
+          <ActionButton label="Soften room tone" prompt="Remove background noise" />
         </Panel>
 
         <Panel title="Tighter cuts">

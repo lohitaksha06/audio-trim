@@ -209,7 +209,7 @@ _QUALIFIED_KINDS = (
 
 def extract_wave(prompt: str) -> str | None:
     """Named oscillator/timbre wave, e.g. 'supersaw', 'square', 'acid', '808'."""
-    lower = prompt.lower()
+    lower = normalize_prompt(prompt)
     for wave, kws in WAVE_KEYWORDS.items():
         for kw in kws:
             if kw in lower:
@@ -223,7 +223,7 @@ _GROOVE_KINDS = {"tropical", "future", "dubstep", "edm", "house", "deep_house",
 
 
 def extract_instrument(prompt: str) -> str | None:
-    lower = prompt.lower()
+    lower = normalize_prompt(prompt)
     # "base guitar" = user's spelling of bass; word-boundary so "based" is safe
     if re.search(r"\bbase\b", lower):
         return "bass"
@@ -257,7 +257,7 @@ def extract_instrument(prompt: str) -> str | None:
 
 def extract_instruments(prompt: str) -> list[str]:
     """All instruments mentioned, in canonical order, de-duplicated."""
-    lower = prompt.lower()
+    lower = normalize_prompt(prompt)
     found: list[str] = []
     if re.search(r"\bbase\b", lower):
         found.append("bass")
@@ -322,7 +322,7 @@ def extract_instruments(prompt: str) -> list[str]:
 
 def extract_target_bpm(prompt: str) -> float | None:
     """Target tempo like '128 bpm', '128bpm', 'tempo 128', 'to 128 bpm'."""
-    lower = prompt.lower()
+    lower = normalize_prompt(prompt)
     m = re.search(r"(\d{2,3}(?:\.\d+)?)\s*bpm\b", lower)
     if m:
         try:
@@ -363,7 +363,7 @@ def extract_mix_gains(prompt: str) -> dict[str, float]:
 
     Returns {mix_stem: gain_db} clamped to [-12, +12]. Empty if nothing found.
     """
-    lower = prompt.lower()
+    lower = normalize_prompt(prompt)
     mentioned = extract_instruments(prompt)
     if not mentioned:
         return {}
@@ -438,6 +438,65 @@ def extract_mix_gains(prompt: str) -> dict[str, float]:
 _FILLER_PATTERN = re.compile(r"(?<![a-z])(um+|uh+|ah+|er+)s?(?![a-z])")
 
 
+# --- Casual / conversational prompt normalisation -----------------------------
+# Measured on 20 everyday phrasings: 5 fell through to Intent.UNKNOWN, almost
+# all because of wording rather than missing capability -- "kill the hiss",
+# "take out the ums", "can u make it cinematic". Matching here is phrase-based,
+# so the vocabulary gap, not the logic, is the failure mode.
+#
+# This maps casual wording onto the canonical terms the keyword tables already
+# use. It deliberately does NOT expand contractions: the tables carry literal
+# forms like "cant hear the voice" alongside "can't hear the voice", and
+# rewriting "cant" to "can not" would silently break them. Both spellings stay
+# listed instead.
+_CASUAL_TERMS = [
+    # politeness / filler that carries no intent
+    (r"\b(please|pls|plz|kindly|thanks|thank you|thx)\b", " "),
+    # NB: "just" is NOT filler. "just the vocals" means *only* the vocals and
+    # the tables rely on it; stripping it dropped "just the vocals no music"
+    # from ISOLATE to UNKNOWN.
+    (r"\b(hey|ok|okay|so|well|now|really|actually|perhaps)\b", " "),
+    # text-speak
+    (r"\bu\b", "you"),
+    (r"\bpls\b", " "),
+    (r"\bwanna\b", "want to"),
+    (r"\bgonna\b", "going to"),
+    (r"\bgotta\b", "got to"),
+    (r"\bcuz\b", "because"),
+    (r"\bsounds?\s+good\b", " "),
+    # casual verbs -> canonical ones the keyword tables already match
+    (r"\bget rid of\b", "remove"),
+    (r"\btake out\b", "remove"),
+    (r"\bdo away with\b", "remove"),
+    (r"\b(clean out|clear out)\b", "remove"),
+    (r"\b(kill|nuke|wipe|scrub)\b", "remove"),
+    (r"\bmute(d)?\b", "remove"),
+    (r"\bbury\b", "remove"),
+    (r"\b(lift|bring up|bring forward|push up)\b", "boost"),
+    (r"\b(turn up|volume up|make it louder|much louder)\b", "boost"),
+    (r"\b(turn down|volume down|quieter)\b", "reduce"),
+    (r"\b(speed up|quicker|faster)\b", "speed"),
+    (r"\b(slow down|slower)\b", "slow"),
+    (r"\b(chop|chopped)\b", "cut"),
+    (r"\b(blend in|mix in|layer in)\b", "add"),
+    (r"\bduet with\b", "combine"),
+    (r"\bmix (it )?with\b", "combine"),
+]
+
+
+def normalize_prompt(prompt: str) -> str:
+    """Lowercase and rewrite casual wording into the canonical vocabulary.
+
+    Applied at every site that previously did ``prompt.lower()`` so intent,
+    instrument, time-range and duration extraction all see the same normalised
+    text.
+    """
+    lower = prompt.lower()
+    for pattern, repl in _CASUAL_TERMS:
+        lower = re.sub(pattern, repl, lower)
+    return re.sub(r"\s+", " ", lower).strip()
+
+
 STYLE_KEYWORDS = {
     # deep_house first: "deep house" contains the substring "house"
     "deep_house": ["deep house", "deep-house", "deep_house", "deep house style"],
@@ -461,6 +520,31 @@ STYLE_KEYWORDS = {
     "lofi": ["lo-fi", "lofi", "chillhop"],
     "acoustic": ["acoustic style", "unplugged"],
 }
+
+# People describe a *feeling* far more often than a genre ("make it
+# cinematic", "make it heavier"). These route to the nearest existing
+# treatment rather than failing to Intent.UNKNOWN. The UI says "treated as X",
+# so the substitution stays visible and is not passed off as a conversion.
+#
+# Kept as a separate table and merged below: defining these keys inside
+# STYLE_KEYWORDS itself would silently overwrite the real style words.
+STYLE_FEELING_WORDS = {
+    "lofi": ["mellow", "laid back", "chill", "chilled out", "drowsy"],
+    "futuristic": ["cinematic", "epic", "trailer", "widescreen", "huge", "spacious"],
+    "acoustic": ["raw", "natural", "organic", "stripped back"],
+    # NOTE: "dark"/"brighter"/"energetic" are deliberately absent -- they belong to
+    # MOOD, and STYLE is matched *before* MOOD, so "dark" as a substring swallowed
+    # "make it darker" and turned a mood request into a style conversion.
+    "techno": ["industrial", "mechanical", "driving"],
+    "house": ["groovy", "sunny", "upbeat", "happy", "bouncy"],
+    "trap": ["aggressive", "hard hitting", "punchy", "trap heavy"],
+    "dubstep": ["heavy", "dirty", "monster", "wobble heavy"],
+    "trance": ["euphoric", "emotional", "dreamy", "floaty", "uplifting"],
+}
+
+for _style, _feelings in STYLE_FEELING_WORDS.items():
+    if _style in STYLE_KEYWORDS:
+        STYLE_KEYWORDS[_style] = STYLE_KEYWORDS[_style] + _feelings
 
 ENHANCE_KEYWORDS = [
     "make voices clearer", "voices clearer", "enhance vocal", "clear vocal",
@@ -503,7 +587,7 @@ def _mentions_noise(prompt: str) -> bool:
     contains "honk", so without this a phonk request is read as "remove the car
     horn" and hijacks the intent.
     """
-    lower = prompt.lower()
+    lower = normalize_prompt(prompt)
     if "phonk" in lower:
         return False
     return any(k in lower for k in ENHANCE_KEYWORDS)
@@ -511,7 +595,7 @@ def _mentions_noise(prompt: str) -> bool:
 
 def voice_flags(prompt: str) -> dict:
     """Shared vocal-clarity params: aggression, audibility lift, mix-denoise."""
-    lower = prompt.lower()
+    lower = normalize_prompt(prompt)
     voice_words = ("vocal", "voice", "voices", "speech", "speak", "sing",
                    "dialogue", "podcast", "singer", "vocalist", "narrat")
     noise_words = ("noise", "hiss", "disturbance", "denoise", "de-noise",
@@ -545,7 +629,7 @@ def extract_drum_parts(prompt: str) -> list[str] | None:
     - "add kick and snare" -> ["kick", "snare"]
     - "add drums without hats" -> ["kick", "snare"]
     """
-    lower = prompt.lower()
+    lower = normalize_prompt(prompt)
     if not re.search(r"\b(drum|drums|kick|snare|hat|hihat|hi-hat|cymbal|percussion|rim|rimshot|clap|ride|crash|shaker)\b", lower):
         return None
     found: list[str] = []
@@ -579,7 +663,7 @@ def extract_drum_parts(prompt: str) -> list[str] | None:
 
 
 def extract_groove(prompt: str) -> str:
-    lower = prompt.lower()
+    lower = normalize_prompt(prompt)
     if any(k in lower for k in ["hardstyle", "rawstyle", "reverse bass"]):
         return "hardstyle"
     if any(k in lower for k in ["uk garage", "speed garage", "2-step", "2step", "two-step", "two step"]) or re.search(r"\bgarage\b", lower):
@@ -635,7 +719,7 @@ def extract_groove(prompt: str) -> str:
 
 
 def extract_style(prompt: str) -> str | None:
-    lower = prompt.lower()
+    lower = normalize_prompt(prompt)
     for style, keys in STYLE_KEYWORDS.items():
         if any(k in lower for k in keys):
             return style
@@ -647,12 +731,25 @@ def extract_style(prompt: str) -> str | None:
 
 
 def classify_intent(prompt: str) -> Intent:
-    lower = prompt.lower()
+    lower = normalize_prompt(prompt)
 
     # import-your-own-stem: "mix my uploaded stem", "import a stem", "blend this stem in"
     # (must run before SEPARATE so "stems" doesn't hijack it)
     if "stem" in lower and any(
         w in lower for w in ["import", "my stem", "my own", "own stem", "uploaded", "mix in", "blend", "mix my", "mix this", "add my stem", "second file", "other track", "another track"]
+    ):
+        return Intent.MIX_STEM
+
+    # A second *file* is the common case and people rarely say "stem".
+    # "combine these two files", "merge with the second recording",
+    # "match it with my other track" all mean MIX_STEM. Requires an explicit
+    # second-file cue so it cannot swallow plain instrument COMBINE.
+    if re.search(
+        r"\b(second|other|another|2nd|backing|these)\b.*\b(two|track|file|recording|song|take|audio|clip)\b",
+        lower,
+    ) or re.search(
+        r"\b(combine|merge|blend|match|jam|layer)\b.*\b(with|and|together)\b.*\b(track|file|recording|song|take|audio|clip)\b",
+        lower,
     ):
         return Intent.MIX_STEM
 
@@ -730,7 +827,11 @@ def classify_intent(prompt: str) -> Intent:
     if any(
         w in lower
         for w in ["cant hear", "can't hear", "cannot hear", "too quiet", "too soft", "louder", "turn it up", "turn up the", "bring up the", "pump up", "boost the", "boost "]
-    ):
+    ) or re.search(r"\b(boost|lift|amplify|raise|turn ?up)\b", lower):
+        # The whole-word arm exists because normalise_prompt rewrites
+        # "make it louder" to a bare "boost", which matches neither "boost "
+        # nor "boost the" -- that silently broke one of the most common
+        # phrasings in the product.
         return Intent.BOOST
 
     # combine first: "add both drums and bass" must beat the single-add branch
@@ -805,7 +906,7 @@ def classify_intent(prompt: str) -> Intent:
 
 def extract_format(prompt: str) -> str | None:
     formats = ["mp3", "wav", "flac", "aac", "ogg", "m4a"]
-    lower = prompt.lower()
+    lower = normalize_prompt(prompt)
     for fmt in formats:
         # word boundary so "synthwave" doesn't match "wav"
         if re.search(rf"\b{re.escape(fmt)}\b", lower):
@@ -822,6 +923,47 @@ def extract_duration_seconds(prompt: str) -> float | None:
     if match:
         return float(match.group(1)) * 60
     return None
+
+
+def suggest_alternatives(prompt: str, limit: int = 3) -> list[str]:
+    """Concrete follow-up prompts when a request falls through to UNKNOWN.
+
+    A vague ask like "make it sound better" is not a parsing failure, it is an
+    under-specified one. Rather than a dead end, offer the nearest things this
+    engine can actually do, chosen from whatever the prompt *did* mention.
+    """
+    lower = normalize_prompt(prompt)
+    out: list[str] = []
+
+    def add(*items: str) -> None:
+        for i in items:
+            if i not in out:
+                out.append(i)
+
+    # Prefer the topic the user actually raised.
+    if any(w in lower for w in ("voice", "vocal", "speech", "podcast", "talk", "she", "he", "speaker")):
+        add("Make her voice clear and audible", "Remove background noise", "Normalize all speakers to the same volume")
+    if any(w in lower for w in ("noise", "hiss", "hum", "static", "room", "background", "echo", "reverb")):
+        add("Remove background noise", "Make the voice clearer and louder", "Remove room noise")
+    if any(w in lower for w in ("quiet", "loud", "volume", "boost", "turn up", "turn down", "soft")):
+        add("Boost the vocals", "Normalize the volume", "Turn it up")
+    if any(w in lower for w in ("beat", "drum", "kick", "snare", "groove", "rhythm")):
+        add("Add drums that match the track", "Give me the drums as a stem")
+    if any(w in lower for w in ("music", "instrument", "guitar", "piano", "bass", "synth")):
+        add("Add a bass line", "Keep only the vocals", "Give me the drums as a separate stem")
+    if any(w in lower for w in ("short", "shorten", "trim", "cut", "long", "length", "intro", "outro")):
+        add("Trim from 0:00 to 0:30", "Remove the first 10 seconds", "Make a highlight reel from the best parts")
+    if any(w in lower for w in ("better", "good", "improve", "nicer", "clean", "clear", "fix")):
+        add("Make this section sound darker", "Clean up the vocals", "Add drums that match the track")
+
+    # Nothing matched: offer the three most common real jobs.
+    if not out:
+        add(
+            "Trim from 0:00 to 0:30",
+            "Remove background noise",
+            "Add drums that match the track",
+        )
+    return out[:limit]
 
 
 def regex_plan_from_prompt(prompt: str) -> PromptPlan:
@@ -850,7 +992,7 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
         return PromptPlan(intent=intent, params={}, raw_prompt=prompt)
 
     if intent == Intent.MOOD:
-        lower = prompt.lower()
+        lower = normalize_prompt(prompt)
         if "dark" in lower:
             params["mood"] = "dark"
         elif "bright" in lower:
@@ -861,7 +1003,7 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
             params["mood"] = "calm"
 
     if intent == Intent.FADE:
-        lower = prompt.lower()
+        lower = normalize_prompt(prompt)
         params["fade_in"] = bool(
             re.search(r"fade[\s-]*in\b", lower) or ("fade" in lower and re.search(r"\bin\b", lower))
         )
@@ -883,7 +1025,7 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
     if intent == Intent.GAIN:
         import math
 
-        lower = prompt.lower()
+        lower = normalize_prompt(prompt)
         m_db = re.search(r"([+-]?\d+(?:\.\d+)?)\s*db\b", lower)
         m_pct = re.search(r"(\d+(?:\.\d+)?)\s*%", lower)
         if m_db:
@@ -899,7 +1041,7 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
             params["gain_db"] = 0.0
 
     if intent == Intent.SPEED:
-        lower = prompt.lower()
+        lower = normalize_prompt(prompt)
         target_bpm = extract_target_bpm(prompt)
         if target_bpm:
             params["target_bpm"] = target_bpm
@@ -935,7 +1077,7 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
 
     if intent == Intent.REMOVE_FILLERS:
         # Acoustic pause bounds: "cut pauses over 0.5s" / "maximum pause 1.5s".
-        lower = prompt.lower()
+        lower = normalize_prompt(prompt)
         m = re.search(r"(?:maximum|max|up to)\s*(?:a\s*)?(?:pause|gap)?\s*(?:of\s*)?(\d+(?:\.\d+)?)\s*(?:s|sec|second)", lower)
         if m:
             params["max_pause"] = float(m.group(1))
@@ -949,15 +1091,15 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
 
     if intent in (Intent.KEEP_SPEAKER, Intent.REMOVE_SPEAKER, Intent.SPLIT_SPEAKERS):
         # "speaker 2" / "the second speaker" / "both speakers"
-        m = re.search(r"\bspeaker\s*#?\s*(\d+)\b", prompt.lower())
+        m = re.search(r"\bspeaker\s*#?\s*(\d+)\b", normalize_prompt(prompt))
         if not m:
-            m = re.search(r"\b(third|second|fourth|first)\s+(?:speaker|voice)\b", prompt.lower())
+            m = re.search(r"\b(third|second|fourth|first)\s+(?:speaker|voice)\b", normalize_prompt(prompt))
             if m:
                 words = {"first": 1, "second": 2, "third": 3, "fourth": 4}
                 params["speaker_index"] = words[m.group(1)]
         elif m:
             params["speaker_index"] = int(m.group(1))
-        if re.search(r"\b(all|every|each|both)\s+(?:of the\s+)?(?:the\s+)?speakers?\b", prompt.lower()):
+        if re.search(r"\b(all|every|each|both)\s+(?:of the\s+)?(?:the\s+)?speakers?\b", normalize_prompt(prompt)):
             params["all_speakers"] = True
 
     if intent == Intent.REVERB:
@@ -968,7 +1110,7 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
         pass
 
     if intent == Intent.REPEAT:
-        lower = prompt.lower()
+        lower = normalize_prompt(prompt)
         m = re.search(r"(\d+)\s*(?:x|times)\b", lower)
         if m:
             params["times"] = max(2, min(8, int(m.group(1))))
@@ -976,7 +1118,7 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
             params["times"] = 2
 
     if intent == Intent.TRANSPOSE:
-        lower = prompt.lower()
+        lower = normalize_prompt(prompt)
         m = re.search(r"([+-]?\d+(?:\.\d+)?)\s*semitones?\b", lower)
         if m:
             semi = float(m.group(1))
@@ -1001,7 +1143,7 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
     if intent == Intent.ADD_INSTRUMENT:
         # ensure we have an instrument even if keyword was "synth" mapped to keys
         if not params.get("instrument"):
-            lower = prompt.lower()
+            lower = normalize_prompt(prompt)
             wave = extract_wave(prompt)
             if wave == "808":
                 params["instrument"] = "808"
@@ -1071,7 +1213,7 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
         if wave:
             params["wave"] = wave
         params["groove"] = extract_groove(prompt)
-        m_bpm = re.search(r"(\d{2,3})\s*bpm", prompt.lower())
+        m_bpm = re.search(r"(\d{2,3})\s*bpm", normalize_prompt(prompt))
         if m_bpm:
             params["target_bpm"] = float(m_bpm.group(1))
         # selective drum pieces ("add only snare", "add a kick drum")
@@ -1093,7 +1235,7 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
         params["groove"] = extract_groove(prompt)
 
     if intent == Intent.ENHANCE_VOCALS:
-        lower = prompt.lower()
+        lower = normalize_prompt(prompt)
         params["denoise"] = any(k in lower for k in ["noise", "hiss", "disturbance", "denoise", "clean", "audible", "clear", "hear", "crisp", "muffl", "horn", "honk", "drill", "siren", "traffic", "construction"])
         params["clarity"] = True
         params.update(voice_flags(prompt))
@@ -1130,7 +1272,7 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
         if wave:
             params["wave"] = wave
         params["groove"] = extract_groove(prompt)
-        m_bpm = re.search(r"(\d{2,3})\s*bpm", prompt.lower())
+        m_bpm = re.search(r"(\d{2,3})\s*bpm", normalize_prompt(prompt))
         if m_bpm:
             params["target_bpm"] = float(m_bpm.group(1))
         # selective drum piece inside a combo ("add snare and bass")
@@ -1160,7 +1302,7 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
         m = re.search(r"(\d{1,3})\s*%", prompt)
         if m:
             params["stem_level"] = min(100, max(5, int(m.group(1)))) / 100.0
-        if "quiet" in prompt.lower() or "background" in prompt.lower():
+        if "quiet" in normalize_prompt(prompt) or "background" in normalize_prompt(prompt):
             params.setdefault("stem_level", 0.35)
         params["groove"] = extract_groove(prompt)
 

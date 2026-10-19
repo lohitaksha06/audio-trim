@@ -1,8 +1,21 @@
-// 127.0.0.1, not localhost: on this machine `localhost` resolves to ::1 first
-// (that is how the other local app wins port 3000), and the FastAPI backend
-// binds IPv4 only -- so `localhost:8000` fails to connect with "Failed to
-// fetch" while an explicit IPv4 literal works.
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+// Backend origin.
+//
+// Locally the FastAPI backend binds 127.0.0.1 (not `localhost`, which resolves
+// to ::1 first on this machine and then fails to connect).
+//
+// In production this must be set via NEXT_PUBLIC_API_URL. A hard-coded
+// 127.0.0.1 fallback is actively harmful on a public deploy: every visitor's
+// browser would try *their own* machine and fail with an opaque network error.
+// So when the variable is absent we report that plainly rather than pretending.
+const CONFIGURED_API = process.env.NEXT_PUBLIC_API_URL?.trim();
+const API_BASE = CONFIGURED_API || "http://127.0.0.1:8000";
+
+/** True when this build has no backend to talk to. */
+export const isBackendConfigured = Boolean(CONFIGURED_API);
+
+export const BACKEND_MISSING_MESSAGE =
+  "No backend is configured for this deployment. Set NEXT_PUBLIC_API_URL to a running Audelle backend, " +
+  "or run the DSP tools client-side (no backend needed).";
 
 export interface AnalysisResult {
   duration_seconds: number;
@@ -18,12 +31,17 @@ export interface UploadResponse {
   size_bytes: number;
   is_video: boolean;
   audio_path: string;
+  /** Untouched original, present only for video uploads, so an edit can be
+   *  muxed back onto it. */
+  source_video_path?: string | null;
   analysis: AnalysisResult;
 }
 
 export interface ProcessResponse {
   output_path?: string | null;
   download_key?: string | null;
+  /** Edited audio muxed back onto the source video (video uploads only). */
+  video_download_key?: string | null;
   layer_download_key?: string | null;
   layer_label?: string | null;
   stems?: Record<string, string> | null;
@@ -125,6 +143,7 @@ export interface ZipResponse {
 }
 
 export async function uploadFile(file: File): Promise<UploadResponse> {
+  if (!isBackendConfigured) throw new Error(BACKEND_MISSING_MESSAGE);
   const form = new FormData();
   form.append("file", file);
 
@@ -141,11 +160,18 @@ export async function uploadFile(file: File): Promise<UploadResponse> {
   return res.json();
 }
 
-export async function processAudio(audioPath: string, prompt: string, opts?: { stemPath?: string | null; stemLevel?: number | null }): Promise<ProcessResponse> {
+export async function processAudio(audioPath: string, prompt: string, opts?: { stemPath?: string | null; stemLevel?: number | null; sourceVideoPath?: string | null }): Promise<ProcessResponse> {
+  if (!isBackendConfigured) throw new Error(BACKEND_MISSING_MESSAGE);
   const res = await fetch(`${API_BASE}/api/process`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ audio_path: audioPath, prompt, stem_path: opts?.stemPath ?? null, stem_level: opts?.stemLevel ?? null }),
+    body: JSON.stringify({
+      audio_path: audioPath,
+      prompt,
+      stem_path: opts?.stemPath ?? null,
+      stem_level: opts?.stemLevel ?? null,
+      source_video_path: opts?.sourceVideoPath ?? null,
+    }),
   });
 
   if (!res.ok) {
@@ -154,6 +180,22 @@ export async function processAudio(audioPath: string, prompt: string, opts?: { s
   }
 
   return res.json();
+}
+
+export async function fetchSuggestions(prompt: string): Promise<string[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/suggest`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    });
+    if (!res.ok) return [];
+    const j = await res.json();
+    return Array.isArray(j.suggestions) ? j.suggestions : [];
+  } catch {
+    // Suggestions are a nicety: never let this break the prompt flow.
+    return [];
+  }
 }
 
 export async function transcribeAudio(audioPath: string): Promise<TranscribeResponse> {

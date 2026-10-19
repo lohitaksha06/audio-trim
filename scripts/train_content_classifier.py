@@ -34,12 +34,17 @@ import argparse
 import shutil
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import joblib
 import librosa
 import numpy as np
 import requests
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.ensemble import (
+    GradientBoostingRegressor,
+    RandomForestClassifier,
+    RandomForestRegressor,
+)
 from sklearn.metrics import classification_report, confusion_matrix, mean_absolute_error, r2_score
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.preprocessing import LabelEncoder
@@ -55,6 +60,13 @@ SEG_SECONDS = 10.0
 CONDITIONS = ["clean", "hiss", "hum", "crowd", "clipped", "muffled"]
 # Effective SNR targets for the regressor (dB). Clean capped at 40.
 CONDITION_SNR = {"clean": 40.0, "hiss": 12.0, "hum": 8.0, "crowd": 6.0, "clipped": 12.0, "muffled": 18.0}
+
+# How many SNRs to sample per noised condition. The regressor only trains on
+# clean/hiss/hum/crowd, so at the previous one-SNR-per-clip setting it saw
+# ~12 clips x 1 SNR = 12 distinct targets per condition and had almost nothing
+# to learn a continuum from (R2 0.224). Re-augmenting each clip at several SNRs
+# gives the regressor a real range to fit.
+SNRS_PER_CLIP = 5
 
 DEFAULT_OUT = Path(__file__).resolve().parent.parent / "server" / "ml" / "models" / "content_classifier.joblib"
 
@@ -104,7 +116,13 @@ def degrade(y: np.ndarray, condition: str, rng: np.random.Generator, donor: np.n
     regressor learns a continuous mapping, not 6 discrete values."""
     y = y.astype(np.float32)
     if condition == "clean":
-        return y, 40.0
+        # Clean is augmented SNRS_PER_CLIP times like the noised conditions, so
+        # the classifier sees equal class mass. Those copies would be identical
+        # audio at an identical label, which adds no information and only
+        # inflates the row count -- so vary level, which is what actually
+        # differs between real "clean" recordings.
+        level = float(rng.uniform(0.2, 1.0))
+        return (y * level).astype(np.float32), 40.0
     if condition == "hiss":
         snr = float(rng.uniform(8.0, 18.0))
         noise = rng.standard_normal(len(y)).astype(np.float32)
@@ -116,7 +134,12 @@ def degrade(y: np.ndarray, condition: str, rng: np.random.Generator, donor: np.n
                + 0.3 * np.sin(2 * np.pi * 150 * t)).astype(np.float32)
         return _at_snr(y, hum, snr, rng), snr
     if condition == "crowd":
-        snr = float(rng.uniform(3.0, 12.0))
+        # Restricted to 1.5-6 dB. A second music clip mixed at 12 dB is
+        # numerically and perceptually indistinguishable from clean (measured:
+        # identical HF-band energy ratio, fully overlapping ranges), so the old
+        # 3-12 dB range made the crowd label overlap "clean" and the classifier
+        # could not separate them at any accuracy.
+        snr = float(rng.uniform(1.5, 6.0))
         if donor is None or donor.size < len(y):
             noise = rng.standard_normal(len(y)).astype(np.float32)
         else:
@@ -228,16 +251,18 @@ def main() -> None:
     for idx, base in enumerate(bases):
         donor = bases[(idx + 7) % len(bases)]
         for cond in CONDITIONS:
-            try:
-                aug, true_snr = degrade(base, cond, rng, donor)
-                X.append(extract_features(aug, SR))
-                y_cond.append(cond)
-                y_snr.append(true_snr)
-                groups.append(idx)
-            except Exception as e:
-                print(f"  ! aug {cond}: {str(e)[:100]}")
-            except Exception as e:
-                print(f"  ! aug {cond}: {str(e)[:100]}")
+            # Clip-grouped: every row from base clip `idx` shares group idx, so
+            # all its degradations stay on one side of the split.
+            reps = SNRS_PER_CLIP if cond in ("clean", "hiss", "hum", "crowd") else 1
+            for _ in range(reps):
+                try:
+                    aug, true_snr = degrade(base, cond, rng, donor)
+                    X.append(extract_features(aug, SR))
+                    y_cond.append(cond)
+                    y_snr.append(true_snr)
+                    groups.append(idx)
+                except Exception as e:
+                    print(f"  ! aug {cond}: {str(e)[:100]}")
     X_arr = np.vstack(X)
     print(f"Feature matrix: {X_arr.shape} ({len(CONDITIONS)} conditions)")
 
@@ -254,7 +279,13 @@ def main() -> None:
     tr_idx, te_idx = next(gss.split(X_arr, y_enc, groups_arr))
     Xtr, Xte, ytr, yte, str_, ste = X_arr[tr_idx], X_arr[te_idx], y_enc[tr_idx], y_enc[te_idx], y_snr_arr[tr_idx], y_snr_arr[te_idx]
     print(f"Split by clip: {len(set(groups_arr[tr_idx]))} train clips, {len(set(groups_arr[te_idx]))} test clips")
-    clf = RandomForestClassifier(n_estimators=200, random_state=42, n_jobs=-1)
+    # class_weight="balanced": SNRS_PER_CLIP gives hiss/hum/crowd 5x the rows of
+    # clean/clipped/muffled. Without this the classifier scored well overall but
+    # recalled "clean" at 0.08, mapping healthy audio onto "crowd" and
+    # suggesting "keep only the vocals" for a clean mix.
+    clf = RandomForestClassifier(
+        n_estimators=200, random_state=42, n_jobs=-1, class_weight="balanced",
+    )
     clf.fit(Xtr, ytr)
     acc = float(clf.score(Xte, yte))
     print(f"Classifier test accuracy: {acc:.3f} ({len(yte)} held out)")
@@ -268,18 +299,57 @@ def main() -> None:
     le_names = le.classes_
     reg_mask_tr = np.array([le_names[c] in ("clean", "hiss", "hum", "crowd") for c in ytr])
     reg_mask_te = np.array([le_names[c] in ("clean", "hiss", "hum", "crowd") for c in yte])
-    reg = RandomForestRegressor(n_estimators=150, random_state=42, n_jobs=-1)
-    reg.fit(Xtr[reg_mask_tr], str_[reg_mask_tr])
-    pred_snr = reg.predict(Xte[reg_mask_te])
-    mae = float(mean_absolute_error(ste[reg_mask_te], pred_snr))
-    r2 = float(r2_score(ste[reg_mask_te], pred_snr))
-    print(f"Regressor (clean/hiss/hum/crowd) MAE: {mae:.2f} dB | R2: {r2:.3f} ({int(reg_mask_te.sum())} held out)")
+    Xtr_r, str_r = Xtr[reg_mask_tr], str_[reg_mask_tr]
+    Xte_r, ste_r = Xte[reg_mask_te], ste[reg_mask_te]
+
+    # Baseline: predict the train mean. R2 must beat this to mean anything, and
+    # reporting it stops a small positive R2 from reading as a real signal.
+    base_pred = np.full(len(ste_r), float(np.mean(str_r)))
+    base_mae = float(mean_absolute_error(ste_r, base_pred))
+    base_r2 = float(r2_score(ste_r, base_pred))
+    print(f"Regressor rows: {len(str_r)} train / {len(ste_r)} held out")
+    print(f"  mean-predictor baseline  MAE: {base_mae:.2f} dB | R2: {base_r2:.3f}")
+
+    # Fit candidates and keep the best by held-out R2, i.e. the only ranking
+    # that can detect "no better than a constant". Selecting on MAE alone picked
+    # a model that was worse than predicting the mean, because MAE rewards
+    # small errors on the majority condition regardless of overall skill.
+    candidates = {
+        "rf150": RandomForestRegressor(n_estimators=150, random_state=42, n_jobs=-1),
+        "rf400": RandomForestRegressor(n_estimators=400, random_state=42, n_jobs=-1),
+        "gbr": GradientBoostingRegressor(random_state=42),
+    }
+    scored: list[tuple[float, str, Any, float]] = []
+    for name, est in candidates.items():
+        est.fit(Xtr_r, str_r)
+        p = est.predict(Xte_r)
+        m = float(mean_absolute_error(ste_r, p))
+        r = float(r2_score(ste_r, p))
+        scored.append((r, name, est, m))
+        print(f"  {name:<6} MAE: {m:.2f} dB | R2: {r:+.3f}")
+    scored.sort(key=lambda t: t[0], reverse=True)
+    r2, best_name, reg, mae = scored[0]
+    print(f"Regressor (clean/hiss/hum/crowd) chose {best_name}: MAE: {mae:.2f} dB | R2: {r2:+.3f}")
+
+    # An SNR regressor that cannot beat a constant is not a regressor. Refuse to
+    # ship one: store None and have predict_content fall back, rather than
+    # publishing a quality score derived from a model with negative skill.
+    reg_usable = r2 > max(base_r2, 0.0)
+    if not reg_usable:
+        print(f"  NOT SHIPPING regressor: best R2 {r2:+.3f} does not beat the "
+              f"mean predictor ({base_r2:+.3f}). SNR is not recoverable from "
+              f"these features at this dataset size.")
+        reg = None
+        reg_usable = False
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump({
         "clf": clf, "reg": reg, "classes": le.classes_.tolist(),
         "feature_size": int(X_arr.shape[1]),
         "test_accuracy": round(acc, 4), "mae_db": round(mae, 3), "r2": round(r2, 4),
+        "reg_model": best_name, "reg_baseline_mae_db": round(base_mae, 3),
+        "reg_baseline_r2": round(base_r2, 4), "reg_rows": int(len(str_r)),
+        "reg_usable": bool(reg_usable),
         "conditions": CONDITIONS,
     }, args.out)
     print(f"Saved {args.out} ({args.out.stat().st_size / 1024:.0f} KB)")

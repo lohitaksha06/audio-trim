@@ -8,17 +8,10 @@ export default function Home() {
     <>
       <Nav />
       {/* Hero Section */}
-      <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 pt-[var(--nav-h)] pb-20 sm:px-8">
+      <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 pt-[var(--nav-h)] pb-8 sm:px-8">
         <div className="absolute inset-0 bg-gradient-to-b from-black via-black/95 to-black" />
-        <AudioWave />
 
         <div className="relative z-10 flex max-w-5xl flex-col items-center text-center">
-          <div className="animate-fade-in-up mb-6 sm:mb-8">
-            <span className="inline-block rounded-full border border-neon-blue/30 bg-neon-blue/10 px-5 py-2 text-xs sm:text-sm font-medium tracking-wider text-neon-blue uppercase">
-              AI-Powered Audio Editor
-            </span>
-          </div>
-
           <h1 className="animate-fade-in-up animate-delay-1 mb-6 sm:mb-8 text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tight text-white leading-tight">
             Describe what you want.
             <br />
@@ -63,7 +56,14 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="animate-fade-in-up animate-delay-4 absolute bottom-8 z-10">
+        {/* Decorative equalizer. In flow beneath the copy so it never sits
+            behind the headline or buttons at any window size. Masked at the
+            sides to avoid hard edges; the canvas fades its own top and bottom. */}
+        <div className="pointer-events-none relative z-0 mt-4 h-[clamp(120px,17vh,230px)] w-full max-w-5xl opacity-90 [mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)] [-webkit-mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)] sm:mt-8">
+          <AudioWave />
+        </div>
+
+        <div className="animate-fade-in-up animate-delay-4 absolute bottom-2 z-10">
           <div className="flex flex-col items-center gap-1.5 text-white/58">
             <span className="text-sm">Scroll</span>
             <svg className="h-4 w-4 animate-nudge" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

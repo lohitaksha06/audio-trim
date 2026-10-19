@@ -15,7 +15,20 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done and measured · `[-
 - [x] **Voice clarity / background noise** (`server/ml/speech/voice.py`)
       Was routing speech through Demucs (music-trained) and measuring
       **−5 to −7 dB SNR**. Now Wiener denoise + noise-aware presence.
-      Measured **+1.3 to +10.1 dB**, voice 1–3 dB *louder*, clean untouched.
+      **Correction (2026-10-10):** an earlier version of this file claimed
+      "+1.3 to +10.1 dB". That figure came from `broadband_snr_db`, which
+      compares the 90th-percentile frame to the 10th — a *dynamic-range* proxy,
+      not SNR. SNR is not computable at inference because it needs a clean
+      reference that does not exist. Checked against a known-clean signal on
+      the repo's own fixture, the true SNR gain is **+0.28 dB (strength 1),
+      +0.53 dB (2), +0.73 dB (3)**, while the proxy reported +0.60/+1.10/+1.52
+      — roughly 2x optimistic. The metadata field was renamed
+      `snr_gain_db` → `dynamic_range_gain_db` and the UI now reports the
+      directly-measurable `noise_floor_drop_db` and `level_gain_db` instead of
+      "X dB better". Measured: **voice +1.9 to +2.9 dB louder**, background
+      floor down ~0.3–1.0 dB, clean input returned byte-identical.
+      Honest scope: this is a gentle broadband denoise and presence lift for
+      **stationary** noise (hiss, hum, fan). It is not a noise remover.
 - [x] **Prompt routing bugs**
       `phonk`→"honk" hijack, `duration` parsed out of "0.5 seconds",
       "cut pauses"→TRIM. Bench now 73/73, full suite green.
@@ -76,14 +89,39 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done and measured · `[-
 
 ## Known fakes still in the product
 
-- [ ] **Style presets are DSP**, not generative - "convert to phonk style"
-      applies EQ plus a drum pattern.
+- [ ] **Style presets are DSP**, not generative. Corrected 2026-10-10: this
+      entry used to say "applies EQ plus a drum pattern", which *understated*
+      the work. Each preset lays a beat-locked recorded-drum pattern, a
+      key-aware synth voice and a sidechain pump under the ducked original, at
+      the detected tempo and detected key root. That is a real stylistic
+      treatment — but it is still a layered DSP treatment, not a conversion or
+      a re-recording, so the metadata now carries `generative: false` and the UI
+      says "treated as X" rather than implying a conversion.
+      Making it genuinely generative needs a model this CPU box cannot run
+      (see MusicGen below).
 - [ ] **MusicGen never benchmarked.** No GPU here (torch `2.10.0+cpu`,
       Ryzen 7 7840HS, 15.3 GB). Must be a bounded benchmark before it ships.
 - [ ] **Groove classifier trained on synthetic loops**, not real music, which
       degrades "add drums that match your song". Retrain with
       `train_groove_classifier.py --songs-dir <root>`.
-- [ ] **Audio→video muxing unconfirmed.** `video_extractor.py` handles extract.
+      **Blocked, not forgotten:** the retrain needs a labelled folder of real
+      songs per feel (`data/songs/<label>/`). No such corpus is in the repo and
+      the script downloads nothing — it only reads what you point it at. Until
+      real audio exists this cannot be closed honestly.
+- [x] **Audio→video muxing.** Was "unconfirmed" — `video_extractor.py` only ever
+      extracted. A video upload now carries its original through
+      `source_video_path`, and any edit that produces audio is muxed back onto
+      that video (`POST /api/process` → `video_download_key`, "Download result
+      as video"). Video is **stream-copied** (`-c:v copy`), never re-encoded.
+      Verified against a real generated clip: video stream preserved and the
+      audio genuinely replaced (880 Hz edit over a 440 Hz source, measured on
+      the demuxed result, not just a 200 response).
+      *Trap recorded:* `-af apad` combined with `-c:v copy` makes ffmpeg **hang
+      indefinitely**. Measured — no output after 45 s, versus 0.2 s with
+      `-shortest` alone. Padding is unnecessary because a stream-copied video
+      already fixes the duration. `test_mux_does_not_hang` guards this.
+      Muxing failure never fails the whole edit; it is reported as
+      `video_mux_error` and the audio download still works.
 
 ## Inpainting (done — was a crossfade)
 

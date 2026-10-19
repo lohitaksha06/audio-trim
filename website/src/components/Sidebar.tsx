@@ -121,7 +121,7 @@ export default function Sidebar({}: SidebarProps) {
                 key={cat.name}
                 href={cat.href}
                 aria-current={isActive ? "page" : undefined}
-                className={`group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] transition-colors ${
+                className={`group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-[0.9375rem] transition-colors ${
                   isActive
                     ? "bg-neon-blue/12 font-medium text-white"
                     : "text-white/72 hover:bg-white/[0.06] hover:text-white"
@@ -149,7 +149,7 @@ export default function Sidebar({}: SidebarProps) {
         <Link
           href="/guide"
           aria-current={guideActive ? "page" : undefined}
-          className={`group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] transition-colors ${
+          className={`group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-[0.9375rem] transition-colors ${
             guideActive
               ? "bg-neon-purple/12 font-medium text-white"
               : "text-white/72 hover:bg-white/[0.06] hover:text-white"
@@ -166,7 +166,7 @@ export default function Sidebar({}: SidebarProps) {
           </span>
           <span className="min-w-0">
             <span className="block truncate">All features &amp; prompts</span>
-            <span className="block text-xs text-white/58">Stems, instruments, examples</span>
+            <span className="block text-[0.8125rem] text-white/58">Stems, instruments, examples</span>
           </span>
         </Link>
 
@@ -176,13 +176,13 @@ export default function Sidebar({}: SidebarProps) {
             cannot push Settings out of view. */}
         <div className="px-3">
           <div className="eyebrow pb-2">Coming soon</div>
-          <ul className="space-y-1.5 text-xs leading-relaxed text-white/58">
+          <ul className="space-y-2 text-[0.8125rem] leading-relaxed text-white/58">
             {COMING_SOON.map((item) => (
               <li key={item.name} className="flex items-baseline gap-2">
                 <span className="h-1 w-1 shrink-0 translate-y-[-2px] rounded-full bg-white/30" />
                 <span>
                   <span className="text-white/78">{item.name}</span>
-                  <span className="block text-white/48">{item.desc}</span>
+                  <span className="block text-white/50">{item.desc}</span>
                 </span>
               </li>
             ))}

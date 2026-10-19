@@ -38,7 +38,8 @@ mix tips (thresholds). The prompt bench (`server/ml/eval/prompt_bench.py`)
   `n_estimators=200, random_state=42, n_jobs=-1`, 84-dim features,
   stratified 80/20 split, `classification_report` + confusion matrix.
 * **Quality: `sklearn.ensemble.RandomForestRegressor`**,
-  `n_estimators=150`, same split, MAE (dB) + R².
+  `n_estimators=150` or `GradientBoostingRegressor` (chosen by held-out R²),
+  same split, MAE (dB) + R² against a mean-predictor baseline.
 * **Groove: `RandomForestClassifier(150, max_depth=12, min_samples_leaf=2)`**,
   8-dim rhythm features, stratified 75/25 split.
 * **Genre: `RandomForestClassifier(200)`**, 75-dim features, 80/20 split +
@@ -54,7 +55,7 @@ serializes to ~1 MB joblibs, reproducible with fixed seeds.
 
 | Model | Source | Size | Storage |
 |-------|--------|------|---------|
-| Content/noise | **Real:** GTZAN subset, HuggingFace `storylinez/gtzan-music-genre-dataset`, `--clips-per-genre` (default 6) × 10 genres, first 10 s each. **Synthetic:** 6 labeled degradations per clip in RAM with per-clip sampled SNRs (hiss 8–18 dB, hum 50+100+150 Hz 5–15 dB, crowd/babble 3–12 dB, hard-clip, 1 kHz lowpass). Measured 2026-09-23, clip-grouped split (no leakage): classifier **acc 0.85** (12 held-out clips → 72 samples; muffled 1.00 / hiss 0.92 / clipped 0.96 / hum 0.86 / clean 0.67 / crowd 0.67 F1); regressor (clean/hiss/hum/crowd) **MAE 9.4 dB, R² 0.22** — modest baseline, see §7. | ~360 samples × 84 feats | Temp dir only, deleted after training |
+| Content/noise | **Real:** GTZAN subset, HuggingFace `storylinez/gtzan-music-genre-dataset`, `--clips-per-genre` (default 6) × 10 genres, first 10 s each. **Synthetic:** 6 labeled degradations per clip in RAM, with clean/hiss/hum/crowd each re-augmented at 5 sampled SNRs per clip (hiss 8–18 dB, hum 50+100+150 Hz 5–15 dB, crowd/babble 1.5–6 dB, hard-clip, 1 kHz lowpass). Clip-grouped split (no leakage): classifier **acc 0.76** (12 held-out clips → 264 samples; clipped 1.00 / muffled 1.00 / hiss 0.92 / hum 0.78 / crowd 0.62 / clean 0.64 F1); regressor (clean/hiss/hum/crowd) **MAE 7.67 dB, R² 0.424** vs a mean-predictor baseline of R² −0.000. See §7. | ~1320 samples × 84 feats | Temp dir only, deleted after training |
 | Groove | **Synthetic in RAM:** `render_loops()` 8 s loops, 15 feels × BPM/key/swing/humanize × polished/bare, ~164 clips. Optional real songs `--songs-dir data/songs/<label>/`. | ~164 × 8 feats | No dataset folder at all |
 | Genre | **GTZAN subset** as above, 10 clips × 10 genres. | 100 × 75 feats | Temp dir only, deleted after |
 
@@ -115,12 +116,15 @@ missing-artifact fallback, so the product never breaks.
   so musical content can't leak); confusion matrices in training logs;
   forests capped on groove (`max_depth=12`); noise features are band-ratios,
   not memorized spectra.
-* *Weak spots?* Clean↔crowd (5 clean→crowd) is the residual confusion —
-  babble *is* music mixed with music; documented in the report with the
-  confusion matrix. The SNR regressor is a modest baseline (MAE 9.4 dB,
-  R² 0.22): clip-level spectral means carry condition strongly but level
-  weakly — improvement path is frame-dynamics/level-aware features, stated
-  as future work rather than hidden.
+* *Weak spots?* Clean↔crowd is the residual confusion. The cause was measured,
+  not guessed: a second music clip mixed at 12 dB is numerically identical to
+  clean (HF-band energy ratio 0.0150 for both, fully overlapping ranges), so the
+  old 3–12 dB crowd label overlapped "clean" and the classifier could not
+  separate them at any accuracy — clean recall sat at 0.08. Restricting crowd to
+  1.5–6 dB, where the condition is actually audible, raised clean recall to
+  0.55. Remaining gap: level-aware SNR. The regressor is now MAE 7.67 dB,
+  R² 0.424 against a mean-predictor baseline of R² −0.000, so it beats the
+  constant predictor but still explains little variance.
 * *Why not deep learning?* <500 labeled clips per head; forests beat CNNs
   there, run on CPU in CI, and stay explainable.
 * *Data leakage?* Groove synth shares **no code** with playback patterns;
