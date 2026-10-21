@@ -179,7 +179,13 @@ they did not work.
 
 `website/` can deploy without the FastAPI server. When `NEXT_PUBLIC_API_URL` is
 unset, the prompt page decodes the upload in an `OfflineAudioContext` and runs
-`website/src/lib/audio/*` on the main thread. Nothing is uploaded.
+`website/src/lib/audio/*` in a Web Worker. Nothing is uploaded.
+
+The worker takes channel buffers in and returns the finished WAV plus the edited
+float channels (all transferred, no copies), so chaining an edit never
+re-quantises the audio. One worker per job, terminated when it finishes. If
+`new Worker` throws (old browser, strict CSP) the same pure `applyPlan` runs on
+the main thread, which still produces the right file.
 
 | Operation | Method | Measured |
 |---|---|---|
@@ -192,10 +198,22 @@ Unsupported prompts (stem separation, generated instruments, two-stem balance,
 non-WAV export) return an explicit "that one needs the server" message; they do
 not silently no-op.
 
-Cost on mono 44.1 kHz (Bun/JSC; V8 is comparable): denoise **1.6 s per 60 s**
-and 7.7 s per 180 s; phase-vocoder stretch **2.3 s per 60 s** and 7.9 s per
-180 s. The DSP is synchronous, so a long file freezes the tab for roughly that
-long. A Web Worker is the next step, not a claim.
+Cost on mono 44.1 kHz, measured on this machine:
+
+| Job | Bun/JSC | Chromium worker |
+|---|---|---|
+| denoise, 180 s | 8.1 s | 25.6 s on the 144 s file (≈32 s at 180 s) |
+| speed 1.25x, 180 s | 7.0 s | **27.5 s** |
+
+The earlier note that "V8 is comparable" was wrong: this Chromium build is
+~3.5× slower than Bun/JSC on the same loops, so the browser timings — not the
+Bun ones — are what a user sees.
+
+Responsiveness is measured, not assumed. A 20 s denoise stalls the main thread
+for **3.04 s** when run in-process and for at most **65 ms** in the worker
+(50 ms heartbeat sampled across the whole job). Progress arrives in 2% steps and
+renders as a labelled bar ("Denoising 42%"); a second click during a job is
+ignored by a ref guard as well as the disabled button.
 
 Known limit, same as the server: the denoiser assumes the noise floor is visible
 in gaps. A continuous tone has no gaps, so its own magnitude becomes the 12th

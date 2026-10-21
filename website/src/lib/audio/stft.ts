@@ -40,6 +40,7 @@ export function applySpectralGain(
   nFft: number,
   hop: number,
   gainFor: (mag: Float32Array, bins: number, frames: number) => Float32Array,
+  onProgress?: (fraction: number) => void,
 ): Float32Array {
   const n = x.length;
   if (n === 0) return new Float32Array(0);
@@ -49,6 +50,8 @@ export function applySpectralGain(
   const pad = nFft >> 1;
   const total = n + 2 * pad;
   const frames = 1 + Math.floor((total - nFft) / hop);
+
+  onProgress?.(0);
 
   // Forward transform.
   const re = new Float32Array(frames * bins);
@@ -68,7 +71,9 @@ export function applySpectralGain(
       re[f * bins + b] = fr[b];
       im[f * bins + b] = fi[b];
     }
+    if (onProgress && (f & 255) === 0) onProgress(0.45 * (f / frames));
   }
+  onProgress?.(0.45);
 
   const mag = new Float32Array(bins * frames);
   for (let f = 0; f < frames; f++) {
@@ -77,7 +82,10 @@ export function applySpectralGain(
     }
   }
 
+  // The gain function is where the per-bin percentile work happens; it is a
+  // single opaque step, so progress jumps from 45% to 55% across it.
   const gain = gainFor(mag, bins, frames);
+  onProgress?.(0.55);
 
   // Inverse transform + overlap-add.
   const out = new Float32Array(total);
@@ -102,7 +110,9 @@ export function applySpectralGain(
       out[start + i] += fr[i] * win[i];
       wsum[start + i] += win[i] * win[i];
     }
+    if (onProgress && (f & 255) === 0) onProgress(0.55 + 0.45 * (f / frames));
   }
+  onProgress?.(1);
 
   const y = new Float32Array(n);
   for (let i = 0; i < n; i++) {

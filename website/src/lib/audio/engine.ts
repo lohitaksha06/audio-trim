@@ -54,8 +54,26 @@ export function analyzeLocal(audio: LocalAudio): LocalAnalysis {
   };
 }
 
-export async function runLocalPlan(source: LocalAudio, plan: LocalPlan): Promise<LocalResult> {
-  await nextTick();
+export type LocalProgress = (fraction: number, label: string) => void;
+
+export interface PlanOutput {
+  audio: LocalAudio;
+  metadata: Record<string, unknown>;
+  summary: string;
+}
+
+/**
+ * Apply a plan with no I/O: channel buffers in, channel buffers out.
+ *
+ * Split from `runLocalPlan` so the same code can run inside a Web Worker (where
+ * creating a Blob is fine but the UI thread must stay free) and in tests.
+ * `onProgress` is 0..1 and may fire thousands of times; callers throttle.
+ */
+export function applyPlan(source: LocalAudio, plan: LocalPlan, onProgress?: LocalProgress): PlanOutput {
+  // Spectral operations know how far along their STFT is; time-domain ones are
+  // effectively instant, so they report nothing until the end.
+  const spectral = (label: string) =>
+    onProgress ? (fraction: number) => onProgress(fraction, label) : undefined;
 
   const duration = durationOf(source);
   let audio: LocalAudio = cloneAudio(source);
@@ -107,14 +125,14 @@ export async function runLocalPlan(source: LocalAudio, plan: LocalPlan): Promise
       // takes a stretch factor, so it is the reciprocal. Getting this backwards
       // is exactly the bug the browser smoke test caught.
       const stretch = 1 / factor;
-      audio = stretchAudio(source, stretch);
+      audio = stretchAudio(source, stretch, spectral("Changing speed"));
       metadata.speed_factor = factor;
       metadata.stretch_factor = stretch;
       metadata.duration_seconds = durationOf(audio);
       break;
     }
     case "denoise": {
-      audio = denoiseAudio(source, Number(plan.params.strength ?? 2));
+      audio = denoiseAudio(source, Number(plan.params.strength ?? 2), spectral("Denoising"));
       metadata.enhanced = "voice";
       metadata.method = "spectral_denoise";
       break;
@@ -122,7 +140,7 @@ export async function runLocalPlan(source: LocalAudio, plan: LocalPlan): Promise
     case "boost": {
       const target = String(plan.params.target ?? "vocals") as "vocals" | "drums" | "bass" | "other";
       const direction = plan.params.direction === "down" ? "down" : "up";
-      audio = boostTarget(source, target, direction);
+      audio = boostTarget(source, target, direction, spectral(`${direction === "up" ? "Boosting" : "Cutting"} ${target}`));
       metadata.boosted = target;
       metadata.direction = direction;
       break;
@@ -142,11 +160,23 @@ export async function runLocalPlan(source: LocalAudio, plan: LocalPlan): Promise
     summary = `${summary} · ${durationOf(audio).toFixed(1)} s left`;
   }
 
+  onProgress?.(1, "Done");
+  return { audio, metadata, summary };
+}
+
+export async function runLocalPlan(
+  source: LocalAudio,
+  plan: LocalPlan,
+  onProgress?: LocalProgress,
+): Promise<LocalResult> {
+  await nextTick();
+  const output = applyPlan(source, plan, onProgress);
+  onProgress?.(1, "Encoding WAV");
   return {
-    audio,
-    plan: { ...plan, summary },
-    metadata,
-    blob: encodeWav(audio),
+    audio: output.audio,
+    plan: { ...plan, summary: output.summary },
+    metadata: output.metadata,
+    blob: encodeWav(output.audio),
   };
 }
 

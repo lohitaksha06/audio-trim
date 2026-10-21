@@ -24,7 +24,7 @@ import {
   durationOf,
   LOCAL_PROMPTS,
   parseLocalPrompt,
-  runLocalPlan,
+  runLocalPlanAsync,
   type LocalAudio,
 } from "@/lib/audio";
 import { describeResult, isOutputFollowUp, type ResultMeta } from "@/utils/followUp";
@@ -48,6 +48,10 @@ export default function PromptPage() {
   const [localAudio, setLocalAudio] = useState<LocalAudio | null>(null);
   const [localOriginal, setLocalOriginal] = useState<LocalAudio | null>(null);
   const [localUrl, setLocalUrl] = useState<string | null>(null);
+  // 0..1 from the DSP worker; null when nothing is running in the browser.
+  const [localProgress, setLocalProgress] = useState<{ fraction: number; label: string } | null>(null);
+  // Guards against a second click landing before React re-renders the button.
+  const processingRef = useRef(false);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [urlInput, setUrlInput] = useState("");
   const [urlLoading, setUrlLoading] = useState(false);
@@ -202,6 +206,7 @@ export default function PromptPage() {
 
     if (!isBackendConfigured) {
       // Browser-only edit. Nothing leaves the machine.
+      if (processingRef.current) return;
       const base = (!fromOriginal && localAudio) || localOriginal;
       setNotice("");
       setHistory((prev) => [...prev, { role: "user", text: prompt }]);
@@ -222,8 +227,14 @@ export default function PromptPage() {
         return;
       }
       setState("processing");
+      processingRef.current = true;
+      setLocalProgress({ fraction: 0, label: "Starting" });
       try {
-        const result = await runLocalPlan(base, plan);
+        // The worker keeps the tab responsive; the progress callback is already
+        // throttled to 2% steps there, so setState per message is fine.
+        const result = await runLocalPlanAsync(base, plan, (fraction, label) => {
+          setLocalProgress({ fraction, label });
+        });
         const url = URL.createObjectURL(result.blob);
         setLocalUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev);
@@ -246,6 +257,9 @@ export default function PromptPage() {
         const msg = e instanceof Error ? e.message : "Processing failed";
         setHistory((prev) => [...prev, { role: "ai", text: `Error: ${msg}` }]);
         setState("analyzed");
+      } finally {
+        processingRef.current = false;
+        setLocalProgress(null);
       }
       return;
     }
@@ -863,10 +877,31 @@ export default function PromptPage() {
                         </div>
                       ))}
                       {state === "processing" && (
-                        <div className="flex justify-start">
-                          <div className="flex items-center gap-2 rounded-xl bg-neon-blue/10 px-4 py-2.5 text-sm text-neon-blue">
-                            <div className="h-3 w-3 animate-spin rounded-full border border-neon-blue border-t-transparent" />
-                            Processing...
+                        <div className="flex w-full justify-start">
+                          <div className="w-full max-w-md rounded-xl bg-neon-blue/10 px-4 py-2.5 text-sm text-neon-blue">
+                            <div className="flex items-center gap-2">
+                              <div className="h-3 w-3 shrink-0 animate-spin rounded-full border border-neon-blue border-t-transparent" />
+                              <span className="flex-1">
+                                {localProgress
+                                  ? `${localProgress.label} ${Math.round(localProgress.fraction * 100)}%`
+                                  : "Processing..."}
+                              </span>
+                            </div>
+                            {localProgress && (
+                              <div
+                                className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10"
+                                role="progressbar"
+                                aria-label={localProgress.label}
+                                aria-valuemin={0}
+                                aria-valuemax={100}
+                                aria-valuenow={Math.round(localProgress.fraction * 100)}
+                              >
+                                <div
+                                  className="h-full rounded-full bg-neon-blue transition-[width] duration-150"
+                                  style={{ width: `${Math.max(2, localProgress.fraction * 100)}%` }}
+                                />
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}

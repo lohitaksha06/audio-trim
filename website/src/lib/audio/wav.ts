@@ -12,7 +12,7 @@ function writeAscii(view: DataView, offset: number, text: string): void {
   for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i));
 }
 
-export function encodeWav(audio: LocalAudio): Blob {
+export function encodeWavBuffer(audio: LocalAudio): ArrayBuffer {
   const channels = audio.channels.length;
   const frames = audio.channels[0]?.length ?? 0;
   const bytesPerSample = 2;
@@ -44,7 +44,11 @@ export function encodeWav(audio: LocalAudio): Blob {
     }
   }
 
-  return new Blob([buffer], { type: "audio/wav" });
+  return buffer;
+}
+
+export function encodeWav(audio: LocalAudio): Blob {
+  return new Blob([encodeWavBuffer(audio)], { type: "audio/wav" });
 }
 
 export function peakOf(audio: LocalAudio): number {

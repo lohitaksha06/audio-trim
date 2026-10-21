@@ -22,9 +22,10 @@ import {
   trim,
 } from "./ops";
 import { LOCAL_PROMPTS, parseLocalPrompt, parseTime } from "./parse";
-import { durationOf, encodeWav } from "./wav";
-import { runLocalPlan } from "./engine";
-import type { LocalAudio } from "./types";
+import { durationOf, encodeWav, encodeWavBuffer } from "./wav";
+import { applyPlan, runLocalPlan } from "./engine";
+import { runLocalPlanAsync } from "./client";
+import type { LocalAudio, LocalPlan } from "./types";
 
 const SR = 22050;
 
@@ -311,5 +312,52 @@ describe("prompt parsing", () => {
       expect(plan.intent).not.toBe("unknown");
       expect(plan.unsupported).toBeUndefined();
     }
+  });
+});
+
+describe("worker handoff", () => {
+  test("applyPlan reports monotonic progress and ends at 100%", () => {
+    const audio: LocalAudio = { sampleRate: SR, channels: [sine(440, 0.5, 0.4)] };
+    const plan = parseLocalPrompt("Remove the background noise", 0.5);
+    const seen: number[] = [];
+    applyPlan(audio, plan, (fraction) => seen.push(fraction));
+
+    expect(seen.length).toBeGreaterThan(1);
+    for (let i = 1; i < seen.length; i++) {
+      // A progress bar that goes backwards is worse than no progress bar.
+      expect(seen[i]).toBeGreaterThanOrEqual(seen[i - 1]);
+    }
+    expect(seen[seen.length - 1]).toBe(1);
+    for (const fraction of seen) {
+      expect(fraction).toBeGreaterThanOrEqual(0);
+      expect(fraction).toBeLessThanOrEqual(1);
+    }
+  });
+
+  test("async client falls back to the main thread when there is no window", async () => {
+    // Bun has no `window`, so this exercises the exact code path an old
+    // browser would take: same audio, just computed on the calling thread.
+    expect(typeof window).toBe("undefined");
+    const audio: LocalAudio = {
+      sampleRate: SR,
+      channels: [Float32Array.from([0, 0.1, 0.2, 0.3])],
+    };
+    const plan: LocalPlan = { intent: "reverse", params: {}, summary: "Reversed" };
+    const result = await runLocalPlanAsync(audio, plan);
+    const out = Array.from(result.audio.channels[0]);
+    expect(out.length).toBe(4);
+    expect(out[0]).toBeCloseTo(0.3, 5);
+    expect(out[1]).toBeCloseTo(0.2, 5);
+    expect(out[2]).toBeCloseTo(0.1, 5);
+    expect(out[3]).toBeCloseTo(0, 5);
+    expect(result.plan.summary).toBe("Reversed");
+  });
+
+  test("encodeWavBuffer and encodeWav produce the same bytes", async () => {
+    const audio: LocalAudio = { sampleRate: SR, channels: [sine(440, 0.05, 0.5)] };
+    const buffer = encodeWavBuffer(audio);
+    const blobBytes = new Uint8Array(await encodeWav(audio).arrayBuffer());
+    expect(buffer.byteLength).toBe(blobBytes.byteLength);
+    expect(new Uint8Array(buffer)).toEqual(blobBytes);
   });
 });

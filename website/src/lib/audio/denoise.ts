@@ -64,6 +64,7 @@ export function denoiseChannel(
   strength = 2,
   nFft: number = DEFAULT_N_FFT,
   hop: number = DEFAULT_HOP,
+  onProgress?: (fraction: number) => void,
 ): Float32Array {
   if (x.length === 0) return x;
   const s = Math.min(3, Math.max(1, strength));
@@ -87,7 +88,7 @@ export function denoiseChannel(
     smoothPerBin(gain, bins, frames, (0.02 * sampleRate) / hop);
     for (let i = 0; i < gain.length; i++) gain[i] = Math.min(1, Math.max(floor, gain[i]));
     return gain;
-  });
+  }, onProgress);
 
   // Keep a hot denoise from clipping the file on the way out.
   let peak = 0;

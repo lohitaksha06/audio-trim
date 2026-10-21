@@ -111,6 +111,7 @@ export function timeStretch(
   factor: number,
   nFft: number = DEFAULT_N_FFT,
   hop: number = DEFAULT_HOP,
+  onProgress?: (fraction: number) => void,
 ): Float32Array {
   if (x.length === 0 || Math.abs(factor - 1) < 1e-6) return new Float32Array(x);
 
@@ -119,6 +120,7 @@ export function timeStretch(
   const pad = nFft >> 1;
   const total = x.length + 2 * pad;
   const frames = 1 + Math.floor((total - nFft) / hop);
+  onProgress?.(0);
   const synHop = Math.max(1, Math.round(hop * factor));
   const ratio = synHop / hop;
   const outLength = Math.max(1, Math.round(x.length * factor));
@@ -167,7 +169,9 @@ export function timeStretch(
       out[at + i] += fr[i] * win[i];
       wsum[at + i] += win[i] * win[i];
     }
+    if (onProgress && (f & 63) === 0) onProgress(f / frames);
   }
+  onProgress?.(1);
 
   const offset = Math.round(pad * ratio);
   const y = new Float32Array(outLength);
@@ -178,11 +182,18 @@ export function timeStretch(
   return y;
 }
 
-export function stretchAudio(audio: LocalAudio, factor: number): LocalAudio {
+export function stretchAudio(
+  audio: LocalAudio,
+  factor: number,
+  onProgress?: (fraction: number) => void,
+): LocalAudio {
   if (Math.abs(factor - 1) < 1e-6) return cloneAudio(audio);
+  const count = audio.channels.length;
   return {
     sampleRate: audio.sampleRate,
-    channels: audio.channels.map((c) => timeStretch(c, factor)),
+    channels: audio.channels.map((c, i) =>
+      timeStretch(c, factor, DEFAULT_N_FFT, DEFAULT_HOP, onProgress ? (f) => onProgress((i + f) / count) : undefined),
+    ),
   };
 }
 
@@ -205,13 +216,15 @@ export function boostTarget(
   audio: LocalAudio,
   target: BoostTarget,
   direction: "up" | "down" = "up",
+  onProgress?: (fraction: number) => void,
 ): LocalAudio {
   const sr = audio.sampleRate;
   const up = direction === "up";
+  const count = audio.channels.length;
   // Shelf amounts: the "up" numbers are 1.7x / 1.9x / 1.5x / 1.8x, matching the
   // server's `_boost_target`; the cuts are gentler so a negative shelf does not
   // hollow out the band.
-  const channels = audio.channels.map((channel) => {
+  const channels = audio.channels.map((channel, index) => {
     const out = applySpectralGain(channel, DEFAULT_N_FFT, DEFAULT_HOP, (_mag, bins, frames) => {
       const gain = new Float32Array(bins * frames);
       for (let b = 0; b < bins; b++) {
@@ -229,7 +242,7 @@ export function boostTarget(
         for (let f = 0; f < frames; f++) gain[base + f] = g;
       }
       return gain;
-    });
+    }, onProgress ? (fraction) => onProgress((index + fraction) / count) : undefined);
     return out;
   });
 
@@ -244,9 +257,23 @@ export function boostTarget(
   return boosted;
 }
 
-export function denoiseAudio(audio: LocalAudio, strength = 2): LocalAudio {
+export function denoiseAudio(
+  audio: LocalAudio,
+  strength = 2,
+  onProgress?: (fraction: number) => void,
+): LocalAudio {
+  const count = audio.channels.length;
   return {
     sampleRate: audio.sampleRate,
-    channels: audio.channels.map((c) => denoiseChannel(c, audio.sampleRate, strength)),
+    channels: audio.channels.map((c, i) =>
+      denoiseChannel(
+        c,
+        audio.sampleRate,
+        strength,
+        DEFAULT_N_FFT,
+        DEFAULT_HOP,
+        onProgress ? (f) => onProgress((i + f) / count) : undefined,
+      ),
+    ),
   };
 }
