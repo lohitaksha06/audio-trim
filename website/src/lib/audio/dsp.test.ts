@@ -283,6 +283,9 @@ describe("prompt parsing", () => {
   test("speed reads multipliers", () => {
     expect(parseLocalPrompt("Speed up 1.25x", 60).params.factor).toBe(1.25);
     expect(parseLocalPrompt("Slow down to 0.8x", 60).params.factor).toBe(0.8);
+    expect(parseLocalPrompt("Speed up by 20%", 60).params.factor).toBeCloseTo(1.2, 5);
+    expect(parseLocalPrompt("Slow it down by 25%", 60).params.factor).toBeCloseTo(0.75, 5);
+    expect(parseLocalPrompt("Set speed to 150%", 60).params.factor).toBeCloseTo(1.5, 5);
   });
 
   test("boost keeps its direction", () => {

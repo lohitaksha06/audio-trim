@@ -194,18 +194,22 @@ function fadePlan(lower: string, duration: number): LocalPlan {
 
 function speedPlan(lower: string): LocalPlan {
   let factor: number | null = null;
+  const slower = /\bslow(?:er|\s*down)?\b|\bdown\b/.test(lower);
 
   const times = /(\d+(?:\.\d+)?)\s*(?:x|×|times)\b/.exec(lower);
   if (times) factor = Number(times[1]);
 
   if (factor === null) {
     const percent = /(\d+(?:\.\d+)?)\s*%/.exec(lower);
-    if (percent) factor = Number(percent[1]) / 100;
+    if (percent) {
+      const p = Number(percent[1]);
+      // "speed up by 20%" is 1.2x, while "150% speed" is 1.5x. Treating both
+      // as p/100 made the first one 0.2x and fall out of range.
+      factor = /\bby\b/.test(lower) ? (slower ? 1 - p / 100 : 1 + p / 100) : p / 100;
+    }
   }
   if (factor === null && /\bdouble\b/.test(lower)) factor = 2;
   if (factor === null && /\bhalf\b/.test(lower)) factor = 0.5;
-
-  const slower = /\bslow(?:er|\s*down)?\b/.test(lower);
   if (factor === null) factor = slower ? 0.8 : 1.25;
 
   if (!Number.isFinite(factor) || factor <= 0.25 || factor >= 4) {
@@ -284,7 +288,7 @@ export function parseLocalPrompt(prompt: string, duration: number): LocalPlan {
   }
 
   // --- speed --------------------------------------------------------------
-  if (/\bspeed\b|\btempo\b|\bfaster\b|\bslower\b|\bslow\s*down\b|\bsped\s*up\b/.test(lower)) {
+  if (/\bspeed\b|\btempo\b|\bfaster\b|\bslower\b|\bslow\b|\bsped\s*up\b/.test(lower)) {
     return speedPlan(lower);
   }
 
