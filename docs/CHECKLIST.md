@@ -215,6 +215,11 @@ for **3.04 s** when run in-process and for at most **65 ms** in the worker
 renders as a labelled bar ("Denoising 42%"); a second click during a job is
 ignored by a ref guard as well as the disabled button.
 
+Verified on the deployed site (`https://audelle.vercel.app/prompt`, no backend
+env): a 40 s WAV denoise took **6.9 s**, reported Starting 0% → Denoising 20/40/98%
+→ Encoding WAV 100%, worst main-thread stall **64 ms**, and the downloaded file
+was 44.1 kHz mono 16-bit PCM at exactly 40.000 s.
+
 Known limit, same as the server: the denoiser assumes the noise floor is visible
 in gaps. A continuous tone has no gaps, so its own magnitude becomes the 12th
 percentile and the filter attenuates the tone.

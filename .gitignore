@@ -33,3 +33,5 @@ Thumbs.db
 # without a training run. Rebuild them with:
 #   python -m scripts.train_timbre_model --epochs 80
 #   python -m scripts.build_drum_bank --per-label 120
+.vercel
+.env*
