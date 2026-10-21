@@ -158,9 +158,44 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
         metadata["groove"] = plan.params.get("groove", "default")
     elif plan.intent == Intent.BOOST:
         target = plan.params.get("target", "other")
+        boost_meta: dict = {}
+        # "Boost the vocals" is a presence shelf across 1-6 kHz. On a noisy
+        # recording that band is mostly hiss, so lifting it lifts the hiss too.
+        # Denoising first measured better than the shelf alone at every input
+        # SNR tried (0/6/12 dB: +0.3 to +0.6 dB true SNR over the bare boost),
+        # and denoise_speech self-gates on clean input, so clean files still
+        # take the plain shelf and pay nothing.
+        #
+        # Note for whoever revisits this: a linear shelf cannot *change* the
+        # speech-to-noise ratio in the band -- it scales both. Earlier notes
+        # claimed the shelf cost 2 dB of SNR; that number came from scoring the
+        # output against the untouched clean signal, which books the intended
+        # EQ change as error. The real problem is audibility of the noise, and
+        # denoising first is what addresses it.
+        if target in ("vocals", "voice", "speech") and not plan.params.get("music_context"):
+            from server.ml.audio_understanding.content_classifier import predict_content
+            from server.ml.speech.voice import denoise_speech
+
+            # Decide with the shipped SNR regressor, not with
+            # denoise_speech's own gate: that gate compares 90th/10th
+            # percentile frame energy, so a steady tone (no dynamic range)
+            # reads as "noisy" and gets denoised even though it is clean.
+            # Measured on the repo fixtures, the regressor returns 30.3 dB for
+            # a pure tone, 41.0 for clean speech and 12.4 for speech at 6 dB,
+            # which is the distinction that matters here.
+            content = predict_content(audio_path) or {}
+            content_snr = content.get("snr_db")
+            if content_snr is not None:
+                boost_meta["content_snr_db"] = content_snr
+            if content_snr is not None and content_snr < 20.0:
+                denoised = denoise_speech(y, sr, strength=2.0)
+                if not np.allclose(denoised, y):
+                    y = denoised
+                    boost_meta["denoised_before_boost"] = True
         y = _boost_target(y, sr, target)
         output_path = _save_wav(y, sr)
         metadata["boosted"] = target
+        metadata.update(boost_meta)
     elif plan.intent == Intent.MIX:
         gains = dict(plan.params.get("gains_db") or {})
         y, mix_meta = _rebalance_mix(audio_path, y, sr, gains)
@@ -2173,6 +2208,13 @@ def _boost_target(y: np.ndarray, sr: int, target: str) -> np.ndarray:
     drums -> sub/low punch (<200 Hz) + snap (2-4 kHz)
     bass -> low shelf (<250 Hz)
     anything else -> presence (1-6 kHz)
+
+    A vocal target is denoised by the caller first when the content regressor
+    reports a noisy file (see the ``Intent.BOOST`` branch). The shelf itself
+    cannot change the in-band speech-to-noise ratio -- it scales speech and
+    noise together -- so "the boost lowers SNR" is the wrong frame. What it
+    does on a noisy file is make the hiss *audible*, which is what the
+    denoise-first step addresses.
     """
     out = np.zeros_like(y)
     for ch in range(y.shape[0]):

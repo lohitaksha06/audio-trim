@@ -46,13 +46,15 @@ export default function Home() {
             >
               Open Lab
             </Link>
-            <button className="inline-flex items-center gap-2.5 rounded-xl border border-white/20 px-8 sm:px-10 py-4 sm:py-5 text-base sm:text-lg font-medium text-white/80 transition-all duration-300 hover:border-white/40 hover:text-white">
+            <a
+              href="#how-it-works"
+              className="inline-flex items-center gap-2.5 rounded-xl border border-white/20 px-8 sm:px-10 py-4 sm:py-5 text-base sm:text-lg font-medium text-white/80 transition-all duration-300 hover:border-white/40 hover:text-white"
+            >
               <svg className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
               </svg>
-              Watch Demo
-            </button>
+              How it works
+            </a>
           </div>
         </div>
 
@@ -74,7 +76,7 @@ export default function Home() {
       </section>
 
       {/* How It Works */}
-      <section className="relative border-t border-white/5 px-4 sm:px-8 py-20 sm:py-28">
+      <section id="how-it-works" className="relative scroll-mt-[var(--nav-h)] border-t border-white/5 px-4 sm:px-8 py-20 sm:py-28">
         <div className="mx-auto max-w-6xl">
           <h2 className="mb-4 text-center text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
             How it works
