@@ -174,3 +174,29 @@ Their outputs — `server/ml/models/timbre_model.pt` and
 Backend must be started with `--reload` during development — a plain
 `uvicorn server.main:app` silently serves stale code and makes fixes look like
 they did not work.
+
+## Browser-only mode (no backend)
+
+`website/` can deploy without the FastAPI server. When `NEXT_PUBLIC_API_URL` is
+unset, the prompt page decodes the upload in an `OfflineAudioContext` and runs
+`website/src/lib/audio/*` on the main thread. Nothing is uploaded.
+
+| Operation | Method | Measured |
+|---|---|---|
+| trim, fade, gain, normalise, reverse | time domain | sample-exact length; peak hits −1 dBFS |
+| speed | phase vocoder, pitch preserved | 20 s → **16.0 s** at 1.25x; dominant tone stayed **180.0 Hz** |
+| denoise | Wiener, 12th-percentile noise profile, temporal gain smoothing | **+0.67 / +1.20 / +1.66 dB** true SNR at strength 1 / 2 / 3 on a gated 440 Hz fixture at 4 dB input |
+| boost vocals / drums / bass | 1–6 kHz / <200 Hz + 2–4 kHz / <250 Hz shelves | **+4.6 / +5.6 + 3.5 / +5.1 dB** relative to the rest of the mix |
+
+Unsupported prompts (stem separation, generated instruments, two-stem balance,
+non-WAV export) return an explicit "that one needs the server" message; they do
+not silently no-op.
+
+Cost on mono 44.1 kHz (Bun/JSC; V8 is comparable): denoise **1.6 s per 60 s**
+and 7.7 s per 180 s; phase-vocoder stretch **2.3 s per 60 s** and 7.9 s per
+180 s. The DSP is synchronous, so a long file freezes the tab for roughly that
+long. A Web Worker is the next step, not a claim.
+
+Known limit, same as the server: the denoiser assumes the noise floor is visible
+in gaps. A continuous tone has no gaps, so its own magnitude becomes the 12th
+percentile and the filter attenuates the tone.

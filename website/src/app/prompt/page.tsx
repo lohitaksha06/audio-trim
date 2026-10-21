@@ -13,22 +13,41 @@ import {
   understandAudio,
   exportZip,
   downloadUrl,
+  isBackendConfigured,
   type UploadResponse,
   type ProcessResponse,
   type UnderstandResponse,
 } from "@/services/api";
+import {
+  analyze as analyzeLocal,
+  decodeFile,
+  durationOf,
+  LOCAL_PROMPTS,
+  parseLocalPrompt,
+  runLocalPlan,
+  type LocalAudio,
+} from "@/lib/audio";
 import { describeResult, isOutputFollowUp, type ResultMeta } from "@/utils/followUp";
 import { getSettings } from "@/utils/settings";
 
 type PageState = "idle" | "uploading" | "analyzed" | "processing" | "completed" | "error";
 
+/** Backend result, plus the object URL a browser-only edit produces. */
+type ChatResult = ProcessResponse & { local_url?: string | null };
+
 export default function PromptPage() {
+  // No NEXT_PUBLIC_API_URL means this build has no backend. Everything the
+  // browser can do runs locally instead of failing with a network error.
+  const localMode = !isBackendConfigured;
   const [state, setState] = useState<PageState>("idle");
   const [file, setFile] = useState<File | null>(null);
   const [prompt, setPrompt] = useState("");
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
   const [understand, setUnderstand] = useState<UnderstandResponse | null>(null);
-  const [lastResult, setLastResult] = useState<ProcessResponse | null>(null);
+  const [lastResult, setLastResult] = useState<ChatResult | null>(null);
+  const [localAudio, setLocalAudio] = useState<LocalAudio | null>(null);
+  const [localOriginal, setLocalOriginal] = useState<LocalAudio | null>(null);
+  const [localUrl, setLocalUrl] = useState<string | null>(null);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [urlInput, setUrlInput] = useState("");
   const [urlLoading, setUrlLoading] = useState(false);
@@ -56,11 +75,16 @@ export default function PromptPage() {
   }, []);
 
   useEffect(() => () => { if (objectUrl) URL.revokeObjectURL(objectUrl); }, [objectUrl]);
+  useEffect(() => () => { if (localUrl) URL.revokeObjectURL(localUrl); }, [localUrl]);
   useEffect(() => {
     try { localStorage.setItem("audelle:promptHistory", JSON.stringify(promptHistory.slice(-30))); } catch {}
   }, [promptHistory]);
 
   const handleAnalyze = useCallback(async (audioPath?: string) => {
+    if (!isBackendConfigured) {
+      setNotice("Track analysis (instruments, genre, structure) needs the server. Every edit below still runs in your browser.");
+      return;
+    }
     const target = audioPath ?? uploadResult?.audio_path;
     if (!target) return;
     setAnalyzing(true);
@@ -85,6 +109,40 @@ export default function PromptPage() {
     setObjectUrl(URL.createObjectURL(f));
     setUnderstand(null);
     setLastResult(null);
+    setLocalUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+
+    if (!isBackendConfigured) {
+      // Browser mode: decode locally and never touch the network.
+      try {
+        const decoded = await decodeFile(f);
+        const info = analyzeLocal(decoded);
+        setLocalAudio(decoded);
+        setLocalOriginal(decoded);
+        setUploadResult({
+          filename: f.name,
+          size_bytes: f.size,
+          is_video: false,
+          audio_path: `local:${f.name}`,
+          analysis: {
+            duration_seconds: info.durationSeconds,
+            bpm: 0,
+            key: "—",
+            energy: info.rms,
+            sample_rate: info.sampleRate,
+            channels: info.channels,
+          },
+        });
+        setState("analyzed");
+      } catch {
+        setErrorMsg("This browser could not decode that file. WAV, MP3, M4A, OGG and FLAC all work in Chrome, Edge and Safari.");
+        setState("error");
+      }
+      return;
+    }
+
     try {
       const result = await uploadFile(f);
       setUploadResult(result);
@@ -133,14 +191,65 @@ export default function PromptPage() {
       const currentPrompt = prompt;
       setHistory((prev) => [...prev, { role: "user", text: currentPrompt }]);
       setPrompt("");
-      if (lastResult?.download_key) {
+      if (lastResult?.download_key || lastResult?.local_url) {
         setHistory((prev) => [...prev, { role: "ai", text: "Here's your latest output — opening the download now. The player and Download buttons are in the Output panel too." }]);
         void handleDownload(lastResult.download_key);
       } else {
-        setHistory((prev) => [...prev, { role: "ai", text: "No output yet — describe an edit first, e.g. \"Add drums\"." }]);
+        setHistory((prev) => [...prev, { role: "ai", text: localMode ? "No output yet — describe an edit first, e.g. \"Trim from 0:30 to 1:00\"." : "No output yet — describe an edit first, e.g. \"Add drums\"." }]);
       }
       return;
     }
+
+    if (!isBackendConfigured) {
+      // Browser-only edit. Nothing leaves the machine.
+      const base = (!fromOriginal && localAudio) || localOriginal;
+      setNotice("");
+      setHistory((prev) => [...prev, { role: "user", text: prompt }]);
+      setPromptHistory((prev) => [prompt, ...prev.filter((p) => p !== prompt)].slice(0, 30));
+      const currentPrompt = prompt;
+      setPrompt("");
+      if (!base) {
+        setNotice("Decode the file again, then send your prompt.");
+        return;
+      }
+      const plan = parseLocalPrompt(currentPrompt, durationOf(base));
+      if (plan.unsupported || plan.intent === "unknown") {
+        setHistory((prev) => [
+          ...prev,
+          { role: "ai", text: plan.unsupported ?? "I couldn't map that to a local edit." },
+        ]);
+        setState(lastResult ? "completed" : "analyzed");
+        return;
+      }
+      setState("processing");
+      try {
+        const result = await runLocalPlan(base, plan);
+        const url = URL.createObjectURL(result.blob);
+        setLocalUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return url;
+        });
+        setLocalAudio(result.audio);
+        setLastResult({
+          intent: plan.intent,
+          params: plan.params,
+          raw_prompt: currentPrompt,
+          metadata: result.metadata,
+          download_key: null,
+          local_url: url,
+        });
+        setEdits((n) => n + 1);
+        setFromOriginal(false);
+        setHistory((prev) => [...prev, { role: "ai", text: `Done — ${result.plan.summary}. Preview it in the Output panel.` }]);
+        setState("completed");
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Processing failed";
+        setHistory((prev) => [...prev, { role: "ai", text: `Error: ${msg}` }]);
+        setState("analyzed");
+      }
+      return;
+    }
+
     const srcPath = activeAudioPath;
     if (!srcPath) {
       setNotice("I can't reach that audio. Upload it again, then send your prompt.");
@@ -184,6 +293,10 @@ export default function PromptPage() {
   const handlePromptSelect = (p: string) => setPrompt(p);
 
   const handleStemSelected = async (f: File) => {
+    if (!isBackendConfigured) {
+      setHistory((prev) => [...prev, { role: "ai", text: "Mixing an imported stem needs the server — that panel is hidden in browser mode." }]);
+      return;
+    }
     setStemFile(f);
     setStemBusy(true);
     setErrorMsg("");
@@ -277,6 +390,18 @@ export default function PromptPage() {
   };
 
   const handleDownload = async (key?: string | null) => {
+    if (!isBackendConfigured) {
+      if (!localUrl) return;
+      const original = uploadResult?.filename ?? "audelle";
+      const base = original.replace(/\.[^.]+$/, "");
+      const anchor = document.createElement("a");
+      anchor.href = localUrl;
+      anchor.download = `${base}-edited.wav`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      return;
+    }
     if (!key) return;
     const { highQuality, outputFormat } = getSettings();
     if (highQuality || outputFormat === "wav") {
@@ -322,6 +447,8 @@ export default function PromptPage() {
     setUploadResult(null);
     setUnderstand(null);
     setLastResult(null);
+    setLocalAudio(null);
+    setLocalOriginal(null);
     setErrorMsg("");
     setNotice("");
     setHistory([]);
@@ -331,12 +458,21 @@ export default function PromptPage() {
     setStemUpload(null);
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     setObjectUrl(null);
+    setLocalUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
   };
 
   const newChat = () => {
     // fresh session on the same file: clear conversation + outputs, keep upload
     setHistory([]);
     setLastResult(null);
+    setLocalAudio(isBackendConfigured ? null : localOriginal);
+    setLocalUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
     setPrompt("");
     setErrorMsg("");
     setNotice("");
@@ -365,8 +501,14 @@ export default function PromptPage() {
   const details = analysis
     ? [
         { label: "Duration", value: formatDuration(analysis.duration_seconds) },
-        { label: "BPM", value: analysis.bpm?.toFixed(1) ?? "—" },
-        { label: "Key", value: analysis.key ?? "—" },
+        // BPM/key come from the server's analysis; browser mode has no tempo
+        // estimator, so it shows what it actually knows instead of 0.0 BPM.
+        ...(localMode
+          ? []
+          : [
+              { label: "BPM", value: analysis.bpm?.toFixed(1) ?? "—" },
+              { label: "Key", value: analysis.key ?? "—" },
+            ]),
         { label: "Sample Rate", value: `${analysis.sample_rate / 1000} kHz` },
         { label: "Channels", value: analysis.channels === 1 ? "Mono" : "Stereo" },
       ]
@@ -418,7 +560,10 @@ export default function PromptPage() {
                   <div className="mt-8 text-center">
                     <p className="mb-3 text-sm text-white/58">Try saying:</p>
                     <div className="flex flex-wrap justify-center gap-2">
-                      {["Remove the vocals", "Trim from 1:00 to 2:30", "Add funky drums following the groove", "Add plucky bass guitar", "Add tropical synth", "Add techno drums", "Add an 808 bass", "Add a supersaw lead", "Add edm drums and synth", "Convert to synthwave style", "Make the drums louder and the vocals quieter", "Make voices clearer", "Convert to house style"].map((s) => (
+                      {(localMode
+                        ? LOCAL_PROMPTS
+                        : ["Remove the vocals", "Trim from 1:00 to 2:30", "Add funky drums following the groove", "Add plucky bass guitar", "Add tropical synth", "Add techno drums", "Add an 808 bass", "Add a supersaw lead", "Add edm drums and synth", "Convert to synthwave style", "Make the drums louder and the vocals quieter", "Make voices clearer", "Convert to house style"]
+                      ).map((s) => (
                         <button
                           key={s}
                           onClick={() => handlePromptSelect(s)}
@@ -450,12 +595,14 @@ export default function PromptPage() {
                   {state === "completed" && (
                     <span className="rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-medium text-green-400">Done</span>
                   )}
-                  <Link
-                    href="/features/manual"
-                    className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/68 hover:border-white/20 hover:text-white/90 transition-colors"
-                  >
-                    Manual Mode
-                  </Link>
+                  {!localMode && (
+                    <Link
+                      href="/features/manual"
+                      className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/68 hover:border-white/20 hover:text-white/90 transition-colors"
+                    >
+                      Manual Mode
+                    </Link>
+                  )}
                   <button onClick={newChat} title="Clear conversation, keep this file" className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/68 hover:border-white/20 hover:text-white/90 transition-colors">
                     New chat
                   </button>
@@ -463,7 +610,17 @@ export default function PromptPage() {
                     New file
                   </button>
                 </div>
-                {edits > 0 && lastResult?.download_key && (
+
+                {localMode && (
+                  <div className="shrink-0 border-b border-emerald-400/15 bg-emerald-400/[0.05] px-4 sm:px-6 py-2 text-xs text-emerald-200/80">
+                    <span className="font-medium text-emerald-300">Browser mode.</span>{" "}
+                    Edits run on your device — the audio never leaves it. Trim, fades, gain, normalise,
+                    reverse, speed, denoise and band boosts work here; stem separation, generated
+                    instruments and track analysis need the server.
+                  </div>
+                )}
+
+                {edits > 0 && (lastResult?.download_key || lastResult?.local_url) && (
                   <div className="shrink-0 flex items-center gap-2 border-b border-neon-blue/10 bg-neon-blue/[0.04] px-4 sm:px-6 py-1.5 text-xs text-neon-blue/80">
                     <span>Layering on output {edits} — each edit builds on the last.</span>
                     {!fromOriginal ? (
@@ -475,20 +632,24 @@ export default function PromptPage() {
                   </div>
                 )}
 
-                <Link
-                  href="/features/manual"
-                  className="shrink-0 flex items-center gap-2 border-b border-neon-purple/10 bg-neon-purple/[0.04] px-4 sm:px-6 py-1.5 text-xs text-neon-purple/80 hover:bg-neon-purple/[0.08] transition-colors"
-                >
-                  <span>Want hands-on control? The Manual Editor has waveform select, trims, fades, gain & speed — it picks up your upload automatically.</span>
-                  <span className="underline shrink-0">Open Manual Editor →</span>
-                </Link>
-                <Link
-                  href="/features/mix"
-                  className="shrink-0 flex items-center gap-2 border-b border-neon-blue/10 bg-neon-blue/[0.04] px-4 sm:px-6 py-1.5 text-xs text-neon-blue/80 hover:bg-neon-blue/[0.08] transition-colors"
-                >
-                  <span>Drums louder, vocals lower? Mix Lab has stem faders, wave editing and one-click mix fixes.</span>
-                  <span className="underline shrink-0">Open Mix Lab →</span>
-                </Link>
+                {!localMode && (
+                  <>
+                    <Link
+                      href="/features/manual"
+                      className="shrink-0 flex items-center gap-2 border-b border-neon-purple/10 bg-neon-purple/[0.04] px-4 sm:px-6 py-1.5 text-xs text-neon-purple/80 hover:bg-neon-purple/[0.08] transition-colors"
+                    >
+                      <span>Want hands-on control? The Manual Editor has waveform select, trims, fades, gain & speed — it picks up your upload automatically.</span>
+                      <span className="underline shrink-0">Open Manual Editor →</span>
+                    </Link>
+                    <Link
+                      href="/features/mix"
+                      className="shrink-0 flex items-center gap-2 border-b border-neon-blue/10 bg-neon-blue/[0.04] px-4 sm:px-6 py-1.5 text-xs text-neon-blue/80 hover:bg-neon-blue/[0.08] transition-colors"
+                    >
+                      <span>Drums louder, vocals lower? Mix Lab has stem faders, wave editing and one-click mix fixes.</span>
+                      <span className="underline shrink-0">Open Mix Lab →</span>
+                    </Link>
+                  </>
+                )}
 
                 <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
                   <div className="lg:w-80 shrink-0 border-r border-white/5 overflow-y-auto p-4 space-y-4">
@@ -514,6 +675,8 @@ export default function PromptPage() {
                       ))}
                     </div>
 
+                    {!localMode && (
+                      <>
                     <div className="rounded-xl border border-neon-purple/20 bg-neon-purple/[0.04] p-3">
                       <h4 className="mb-1 text-xs font-semibold text-neon-purple/80 uppercase tracking-wider">Import your own stem</h4>
                       <p className="mb-2 text-xs text-white/68">AI detects both BPMs, tempo-matches + beat-aligns, then mixes.</p>
@@ -553,8 +716,10 @@ export default function PromptPage() {
                       </div>
                       <Link href="/features/mix" className="mt-2 block text-center text-xs text-neon-purple/80 underline hover:text-neon-purple">Open Mix Lab →</Link>
                     </div>
+                      </>
+                    )}
 
-                    {!understand ? (
+                    {!localMode && !understand ? (
                       <button
                         onClick={() => handleAnalyze()}
                         disabled={analyzing}
@@ -627,14 +792,14 @@ export default function PromptPage() {
                     {hasResult && (
                       <div className="space-y-2">
                         <h4 className="text-xs font-semibold text-white/78 uppercase tracking-wider">Output</h4>
-                        {lastResult?.download_key && (
+                        {(lastResult?.download_key || lastResult?.local_url) && (
                           <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                            <AudioPreview src={downloadUrl(lastResult.download_key)} height={48} />
+                            <AudioPreview src={lastResult.local_url ?? downloadUrl(lastResult.download_key!)} height={48} />
                             <button
                               onClick={() => handleDownload(lastResult.download_key)}
                               className="mt-2 w-full rounded-lg bg-neon-blue/15 px-3 py-2 text-xs font-medium text-neon-blue hover:bg-neon-blue/25 transition-colors"
                             >
-                              Download result
+                              Download result{localMode ? " (WAV)" : ""}
                             </button>
                           </div>
                         )}
@@ -687,7 +852,7 @@ export default function PromptPage() {
                       {history.length === 0 && (
                         <div className="flex flex-col items-center justify-center h-full text-center">
                           <p className="text-base text-white/68 mb-2">What do you want to do?</p>
-                          <p className="text-xs text-white/58">Type a prompt below, <Link href="/guide" className="underline hover:text-white/78">browse all features & prompts</Link>, or <Link href="/features/manual" className="underline hover:text-white/78">open the Manual Editor</Link>.</p>
+                          <p className="text-xs text-white/58">Type a prompt below, <Link href="/guide" className="underline hover:text-white/78">browse all features & prompts</Link>{!localMode && <> or <Link href="/features/manual" className="underline hover:text-white/78">open the Manual Editor</Link></>}.</p>
                         </div>
                       )}
                       {history.map((h, i) => (
