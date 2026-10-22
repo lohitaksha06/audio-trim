@@ -1,0 +1,28 @@
+{
+  "clips": 24,
+  "genres": [
+    "disco",
+    "hiphop",
+    "metal",
+    "classical"
+  ],
+  "entropy": 2.0,
+  "gini": 0.75,
+  "root_feature": "centroid_mean",
+  "gains": {
+    "centroid_mean": 0.9396,
+    "zcr_mean": 0.7728,
+    "rms_mean": 0.7859,
+    "flatness_mean": 0.6609,
+    "tempo": 0.2387
+  },
+  "own_tree_test_accuracy": 0.5,
+  "best_params": {
+    "criterion": "gini",
+    "max_depth": 3,
+    "min_samples_split": 2
+  },
+  "best_cv_score": 0.75,
+  "tree_fig": "lab07_fig_tree.png",
+  "boundary_fig": "lab07_fig_boundary.png"
+}
