@@ -6,7 +6,9 @@ import Sidebar from "@/components/Sidebar";
 import FileUpload from "@/components/FileUpload";
 import AudioPreview from "@/components/AudioPreview";
 import ManualEditor from "@/components/ManualEditor";
-import { uploadFile, downloadUrl, type UploadResponse, type ProcessResponse } from "@/services/api";
+import { uploadFile, downloadUrl, isBackendConfigured, type UploadResponse, type ProcessResponse } from "@/services/api";
+import FeatureLayout from "../FeatureLayout";
+import { ActionButton, Panel } from "../FeaturePanels";
 
 interface LastAudio {
   audio_path: string;
@@ -101,6 +103,7 @@ export default function ManualPage() {
   const ready = !!activePath && !!playSrc;
 
   return (
+    isBackendConfigured ? (
     <div className="flex h-screen flex-col bg-black">
       <Nav />
       <div className="flex flex-1 mt-[var(--nav-h)] overflow-hidden">
@@ -185,5 +188,34 @@ export default function ManualPage() {
         </main>
       </div>
     </div>
+    ) : (
+      <FeatureLayout
+        title="Manual Editor"
+        subtitle="Trim, fade and process the wave. Browser mode: everything runs on this device."
+      >
+        <div className="space-y-6">
+          <Panel title="Trim">
+            <ActionButton label="First 30 seconds" prompt="Trim from 0:00 to 0:30" />
+            <ActionButton label="Last 30 seconds" prompt="Cut the last 30 seconds" />
+          </Panel>
+          <Panel title="Shape">
+            <ActionButton label="Fade in" prompt="Fade in over 2 seconds" />
+            <ActionButton label="Fade out" prompt="Fade out over 3 seconds" />
+            <ActionButton label="Reverse" prompt="Reverse it" />
+            <ActionButton label="Normalize" prompt="Normalize the volume" />
+          </Panel>
+          <Panel title="Mood">
+            <ActionButton label="Darker" prompt="Make it darker" />
+            <ActionButton label="Brighter" prompt="Make it brighter" />
+            <ActionButton label="Calmer" prompt="Calm it down" />
+            <ActionButton label="More energetic" prompt="Make this more energetic" />
+          </Panel>
+          <p className="text-sm leading-relaxed text-white/58">
+            The zoomable waveform editor and click-and-drag selection need the server. With no
+            backend configured, this page uses the browser DSP and the prompt box instead.
+          </p>
+        </div>
+      </FeatureLayout>
+    )
   );
 }

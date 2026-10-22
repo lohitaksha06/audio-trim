@@ -257,6 +257,139 @@ export function boostTarget(
   return boosted;
 }
 
+export type ToneKind = "darker" | "brighter" | "calm" | "energetic" | "lofi";
+
+/** Fraction of the way from `corner` up to `corner + width` (0 below the corner). */
+function highShelf(freq: number, corner: number, width: number): number {
+  if (freq <= corner) return 0;
+  return Math.min(1, (freq - corner) / width);
+}
+
+/** Fraction of the way down from `corner` (0 above the corner). */
+function lowShelf(freq: number, corner: number, width: number): number {
+  if (freq >= corner) return 0;
+  return Math.min(1, (corner - freq) / width);
+}
+
+/**
+ * Mood shaping: a static spectral tilt plus a level change.
+ *
+ * These are the browser-only stand-ins for the server's mood renderer. They do
+ * not invent instruments: "darker" rolls the highs off, "brighter" lifts them,
+ * "energetic" adds level and presence, "calm" softens both. The result is
+ * peak-limited so a lift cannot clip.
+ */
+export function shapeTone(
+  audio: LocalAudio,
+  kind: ToneKind,
+  onProgress?: (fraction: number) => void,
+): LocalAudio {
+  const sr = audio.sampleRate;
+  const count = audio.channels.length;
+
+  const gainFor = (freq: number): number => {
+    switch (kind) {
+      case "darker":
+        return (1 - 0.75 * highShelf(freq, 2000, 1500)) * (1 + 0.08 * lowShelf(freq, 250, 200));
+      case "brighter":
+        return (1 + 0.95 * highShelf(freq, 2500, 1500)) * (1 - 0.08 * lowShelf(freq, 120, 80));
+      case "calm":
+        return (1 - 0.5 * highShelf(freq, 2200, 1400)) * 0.78;
+      case "energetic":
+        return (1 + 0.5 * highShelf(freq, 2500, 1500)) * 1.3;
+      case "lofi":
+        return (1 - 0.85 * highShelf(freq, 3000, 1200)) * (1 + 0.12 * lowShelf(freq, 250, 150));
+    }
+  };
+
+  const channels = audio.channels.map((channel, index) =>
+    applySpectralGain(channel, DEFAULT_N_FFT, DEFAULT_HOP, (_mag, bins, frames) => {
+      const gain = new Float32Array(bins * frames);
+      for (let b = 0; b < bins; b++) {
+        const g = gainFor((b * sr) / DEFAULT_N_FFT);
+        const base = b * frames;
+        for (let f = 0; f < frames; f++) gain[base + f] = g;
+      }
+      return gain;
+    }, onProgress ? (fraction) => onProgress((index + fraction) / count) : undefined),
+  );
+
+  const out: LocalAudio = { sampleRate: sr, channels };
+  const peak = peakOf(out);
+  if (peak > 0.98) {
+    const k = 0.98 / peak;
+    for (const channel of out.channels) {
+      for (let i = 0; i < channel.length; i++) channel[i] *= k;
+    }
+  }
+  return out;
+}
+
+/** One-pole low-pass used to damp the reverb tail (darkens with each pass). */
+function damped(value: number, state: number, damping: number): number {
+  return value * (1 - damping) + state * damping;
+}
+
+/**
+ * Small Schroeder reverb: four parallel feedback combs into two allpasses.
+ *
+ * The tail decays to −60 dB after `seconds`, and is mixed back under the dry
+ * signal. It is deliberately modest: this is room/space, not a plate preset.
+ */
+export function reverbAudio(audio: LocalAudio, seconds = 2.2, mix = 0.25): LocalAudio {
+  const sr = audio.sampleRate;
+  const combDelays = [0.0297, 0.0371, 0.0411, 0.0437];
+  const allpassDelays = [0.005, 0.0017];
+  const wet = Math.max(0, Math.min(1, mix));
+  const decay = Math.max(0.2, Math.min(8, seconds));
+
+  return {
+    sampleRate: sr,
+    channels: audio.channels.map((channel, ch) => {
+      const n = channel.length;
+      const wetSignal = new Float32Array(n);
+      // Slight delay offset per channel gives the tail a stereo width.
+      const spread = ch === 0 ? 1 : 0.93;
+
+      for (const secondsDelay of combDelays) {
+        const delay = Math.max(1, Math.round(secondsDelay * spread * sr));
+        const buffer = new Float32Array(delay);
+        // gain per pass so the tail falls 60 dB in `decay` seconds
+        const feedback = Math.pow(0.001, delay / (decay * sr));
+        let index = 0;
+        let state = 0;
+        for (let i = 0; i < n; i++) {
+          const delayed = buffer[index];
+          state = damped(delayed, state, 0.55);
+          buffer[index] = channel[i] + state * feedback;
+          wetSignal[i] += delayed * 0.25;
+          index = (index + 1) % delay;
+        }
+      }
+
+      for (const allpassDelay of allpassDelays) {
+        const delay = Math.max(1, Math.round(allpassDelay * sr));
+        const buffer = new Float32Array(delay);
+        const g = 0.5;
+        let index = 0;
+        for (let i = 0; i < n; i++) {
+          const delayed = buffer[index];
+          const out = -g * wetSignal[i] + delayed;
+          buffer[index] = wetSignal[i] + g * out;
+          wetSignal[i] = out;
+          index = (index + 1) % delay;
+        }
+      }
+
+      const out = new Float32Array(n);
+      for (let i = 0; i < n; i++) {
+        out[i] = channel[i] * (1 - wet) + wetSignal[i] * wet;
+      }
+      return out;
+    }),
+  };
+}
+
 export function denoiseAudio(
   audio: LocalAudio,
   strength = 2,

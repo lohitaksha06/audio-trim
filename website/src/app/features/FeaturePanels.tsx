@@ -21,11 +21,9 @@ export function Panel({ title, children }: { title: string; children: ReactNode 
 export function NeedsData({
   title,
   body,
-  actionLabel,
 }: {
   title: string;
   body: string;
-  actionLabel?: string;
 }) {
   const ctx = useFeaturePrompt();
   if (!ctx?.hasFile) {
@@ -40,15 +38,6 @@ export function NeedsData({
     <div className="rounded-xl border border-white/12 bg-white/[0.02] p-4">
       <p className="text-[0.9375rem] text-white/84">{title}</p>
       <p className="mt-1 text-[0.9375rem] leading-relaxed text-white/58">{body}</p>
-      {actionLabel && (
-        <button
-          onClick={ctx.runAnalyze}
-          disabled={ctx.analyzing}
-          className="mt-3 rounded-lg bg-neon-blue/15 px-4 py-2 text-sm font-medium text-neon-blue transition-colors hover:bg-neon-blue/25 disabled:opacity-50"
-        >
-          {ctx.analyzing ? "Analysing…" : actionLabel}
-        </button>
-      )}
     </div>
   );
 }

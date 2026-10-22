@@ -55,7 +55,6 @@ export default function PromptPage() {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [urlInput, setUrlInput] = useState("");
   const [urlLoading, setUrlLoading] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [notice, setNotice] = useState("");
@@ -91,15 +90,12 @@ export default function PromptPage() {
     }
     const target = audioPath ?? uploadResult?.audio_path;
     if (!target) return;
-    setAnalyzing(true);
     setErrorMsg("");
     try {
       const res = await understandAudio(target);
       setUnderstand(res);
     } catch (e: unknown) {
       setErrorMsg(e instanceof Error ? e.message : "Analysis failed");
-    } finally {
-      setAnalyzing(false);
     }
   }, [uploadResult?.audio_path]);
 
@@ -733,15 +729,7 @@ export default function PromptPage() {
                       </>
                     )}
 
-                    {!localMode && !understand ? (
-                      <button
-                        onClick={() => handleAnalyze()}
-                        disabled={analyzing}
-                        className="w-full rounded-xl bg-neon-blue/15 px-4 py-2.5 text-sm font-medium text-neon-blue hover:bg-neon-blue/25 transition-colors disabled:opacity-50"
-                      >
-                        {analyzing ? "Analyzing..." : "Run AI Analysis"}
-                      </button>
-                    ) : (
+                    {understand && (
                       <>
                         {inst && (
                           <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">

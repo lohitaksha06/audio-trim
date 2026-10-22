@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSettings } from "@/utils/settings";
+import { isBackendConfigured } from "@/services/api";
 import { FEATURE_LINKS } from "./featureNav";
 
 interface SidebarProps {
@@ -193,16 +194,18 @@ export default function Sidebar({}: SidebarProps) {
         <div className="px-3">
           <div className="eyebrow pb-3">Settings</div>
           <div className="space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <label
-                htmlFor="set-auto-analyze"
-                className="text-sm leading-snug text-white/78"
-                title="Run AI analysis (instruments, structure, mood, genre) right after upload"
-              >
-                Auto-analyze
-              </label>
-              <Toggle checked={settings.autoAnalyze} onChange={(v) => updateSettings({ autoAnalyze: v })} label="Auto-analyze uploads" />
-            </div>
+            {isBackendConfigured && (
+              <div className="flex items-center justify-between gap-3">
+                <label
+                  htmlFor="set-auto-analyze"
+                  className="text-sm leading-snug text-white/78"
+                  title="Run AI analysis (instruments, structure, mood, genre) right after upload"
+                >
+                  Auto-analyze
+                </label>
+                <Toggle checked={settings.autoAnalyze} onChange={(v) => updateSettings({ autoAnalyze: v })} label="Auto-analyze uploads" />
+              </div>
+            )}
             <div className="flex items-center justify-between gap-3">
               <label
                 htmlFor="set-high-quality"

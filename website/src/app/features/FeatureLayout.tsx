@@ -1,12 +1,21 @@
 "use client";
 
-import { useState, ReactNode } from "react";
+import { useState, useEffect, useRef, ReactNode } from "react";
 import Nav from "@/components/Nav";
 import Sidebar from "@/components/Sidebar";
 import FileUpload from "@/components/FileUpload";
 import AudioPreview from "@/components/AudioPreview";
-import { uploadFile, processAudio, fetchSuggestions, understandAudio, exportZip, downloadUrl, type UploadResponse, type UnderstandResponse, type ProcessResponse } from "@/services/api";
+import { uploadFile, processAudio, fetchSuggestions, understandAudio, exportZip, downloadUrl, isBackendConfigured, type UploadResponse, type UnderstandResponse, type ProcessResponse } from "@/services/api";
+import {
+  analyze as analyzeLocal,
+  decodeFile,
+  durationOf,
+  parseLocalPrompt,
+  runLocalPlanAsync,
+  type LocalAudio,
+} from "@/lib/audio";
 import { describeResult, isOutputFollowUp, type ResultMeta } from "@/utils/followUp";
+import { getSettings } from "@/utils/settings";
 import { FeaturePromptContext } from "./FeaturePromptContext";
 import { Conversation } from "./FeaturePanels";
 
@@ -16,15 +25,25 @@ interface FeatureLayoutProps {
   subtitle: string;
 }
 
+/** Backend result, plus the object URL a browser-only edit produces. */
+type ChatResult = ProcessResponse & { local_url?: string | null };
+
 export default function FeatureLayout({ children, title, subtitle }: FeatureLayoutProps) {
+  // No NEXT_PUBLIC_API_URL means this build has no backend. Decode and run the
+  // DSP in the browser instead of failing with "Failed to fetch".
+  const localMode = !isBackendConfigured;
   const [file, setFile] = useState<File | null>(null);
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
   const [prompt, setPrompt] = useState("");
   const [state, setState] = useState<"idle" | "uploading" | "analyzed" | "processing" | "completed">("idle");
   const [history, setHistory] = useState<{ role: string; text: string }[]>([]);
   const [understand, setUnderstand] = useState<UnderstandResponse | null>(null);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [lastResult, setLastResult] = useState<ProcessResponse | null>(null);
+  const [lastResult, setLastResult] = useState<ChatResult | null>(null);
+  const [localAudio, setLocalAudio] = useState<LocalAudio | null>(null);
+  const [localOriginal, setLocalOriginal] = useState<LocalAudio | null>(null);
+  const [localUrl, setLocalUrl] = useState<string | null>(null);
+  const [localProgress, setLocalProgress] = useState<{ fraction: number; label: string } | null>(null);
+  const processingRef = useRef(false);
   const [exporting, setExporting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [notice, setNotice] = useState("");
@@ -34,6 +53,9 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
     ? lastResult.download_key
     : uploadResult?.audio_path;
 
+  // Revoke the previous object URL when it is replaced or the page unmounts.
+  useEffect(() => () => { if (localUrl) URL.revokeObjectURL(localUrl); }, [localUrl]);
+
   const handleFileSelected = async (f: File) => {
     setFile(f);
     setState("uploading");
@@ -41,31 +63,81 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
     setNotice("");
     setUnderstand(null);
     setLastResult(null);
+    setLocalUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setLocalAudio(null);
+    setLocalOriginal(null);
+
+    if (localMode) {
+      try {
+        const decoded = await decodeFile(f);
+        const info = analyzeLocal(decoded);
+        setLocalAudio(decoded);
+        setLocalOriginal(decoded);
+        setUploadResult({
+          filename: f.name,
+          size_bytes: f.size,
+          is_video: false,
+          audio_path: `local:${f.name}`,
+          analysis: {
+            duration_seconds: info.durationSeconds,
+            bpm: 0,
+            key: "—",
+            energy: info.rms,
+            sample_rate: info.sampleRate,
+            channels: info.channels,
+          },
+        });
+        setState("analyzed");
+      } catch {
+        setFile(null);
+        setErrorMsg(
+          "This browser could not decode that file. WAV, MP3, M4A, OGG and FLAC all work in Chrome, Edge and Safari.",
+        );
+        setState("idle");
+      }
+      return;
+    }
+
     try {
       const result = await uploadFile(f);
       setUploadResult(result);
       setState("analyzed");
+      if (getSettings().autoAnalyze) void handleAnalyze(result.audio_path);
     } catch (e: unknown) {
       setErrorMsg(e instanceof Error ? e.message : "Upload failed");
       setState("idle");
     }
   };
 
-  const handleAnalyze = async () => {
-    if (!uploadResult) return;
-    setAnalyzing(true);
+  const handleAnalyze = async (audioPath?: string) => {
+    if (!isBackendConfigured) return;
+    const target = audioPath ?? uploadResult?.audio_path;
+    if (!target) return;
     setErrorMsg("");
     try {
-      const res = await understandAudio(uploadResult.audio_path);
+      const res = await understandAudio(target);
       setUnderstand(res);
     } catch (e: unknown) {
       setErrorMsg(e instanceof Error ? e.message : "Analysis failed");
-    } finally {
-      setAnalyzing(false);
     }
   };
 
+  const downloadLocal = () => {
+    if (!lastResult?.local_url) return;
+    const a = document.createElement("a");
+    a.href = lastResult.local_url;
+    a.download = `audelle-${lastResult.intent}.wav`;
+    a.click();
+  };
+
   const handleDownload = (key?: string | null) => {
+    if (lastResult?.local_url) {
+      downloadLocal();
+      return;
+    }
     if (!key) return;
     window.open(downloadUrl(key), "_blank", "noopener");
   };
@@ -83,7 +155,7 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
     if (isOutputFollowUp(raw)) {
       setHistory((prev) => [...prev, { role: "user", text: raw }]);
       setPrompt("");
-      if (lastResult?.download_key) {
+      if (lastResult?.download_key || lastResult?.local_url) {
         setHistory((prev) => [...prev, { role: "ai", text: "Here's your latest output — opening the download now." }]);
         handleDownload(lastResult.download_key);
       } else {
@@ -91,6 +163,63 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
       }
       return;
     }
+
+    if (localMode) {
+      // Browser-only edit. Nothing leaves the machine.
+      if (processingRef.current) return;
+      const base = (!fromOriginal && localAudio) || localOriginal;
+      setHistory((prev) => [...prev, { role: "user", text: raw }]);
+      const currentPrompt = raw;
+      setPrompt("");
+      if (!base) {
+        setNotice("Decode the file again, then send your prompt.");
+        return;
+      }
+      const plan = parseLocalPrompt(currentPrompt, durationOf(base));
+      if (plan.unsupported || plan.intent === "unknown") {
+        setHistory((prev) => [
+          ...prev,
+          { role: "ai", text: plan.unsupported ?? "I couldn't map that to a local edit." },
+        ]);
+        return;
+      }
+      setState("processing");
+      setErrorMsg("");
+      processingRef.current = true;
+      setLocalProgress({ fraction: 0, label: "Starting" });
+      try {
+        const result = await runLocalPlanAsync(base, plan, (fraction, label) => {
+          setLocalProgress({ fraction, label });
+        });
+        const url = URL.createObjectURL(result.blob);
+        setLocalUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return url;
+        });
+        setLocalAudio(result.audio);
+        setLastResult({
+          intent: plan.intent,
+          params: plan.params,
+          raw_prompt: currentPrompt,
+          metadata: result.metadata,
+          download_key: null,
+          local_url: url,
+        });
+        setEdits((n) => n + 1);
+        setFromOriginal(false);
+        setHistory((prev) => [...prev, { role: "ai", text: `Done — ${result.plan.summary}.` }]);
+        setState("completed");
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Processing failed";
+        setHistory((prev) => [...prev, { role: "ai", text: `Error: ${msg}` }]);
+        setState("analyzed");
+      } finally {
+        processingRef.current = false;
+        setLocalProgress(null);
+      }
+      return;
+    }
+
     const srcPath = activeAudioPath;
     if (!srcPath) {
       setHistory((prev) => [...prev, { role: "ai", text: "Please upload a file first before processing." }]);
@@ -151,6 +280,13 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
     setUploadResult(null);
     setUnderstand(null);
     setLastResult(null);
+    setLocalAudio(null);
+    setLocalOriginal(null);
+    setLocalUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setLocalProgress(null);
     setHistory([]);
     setErrorMsg("");
     setNotice("");
@@ -161,6 +297,11 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
   const newChat = () => {
     setHistory([]);
     setLastResult(null);
+    setLocalAudio(localOriginal);
+    setLocalUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
     setPrompt("");
     setErrorMsg("");
     setNotice("");
@@ -191,8 +332,6 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
     hasFile: !!file,
     analysis,
     understand,
-    analyzing,
-    runAnalyze: () => void handleAnalyze(),
     busy: state === "processing" || state === "uploading" || exporting,
     hasResult,
     fileName: file?.name ?? null,
@@ -225,7 +364,7 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
                 </button>
               </div>
             )}
-            {edits > 0 && lastResult?.download_key && (
+            {edits > 0 && (lastResult?.download_key || lastResult?.local_url) && (
               <div className="shrink-0 text-xs text-neon-blue/70 px-1">
                 Layering on output {edits}
                 {!fromOriginal ? (
@@ -239,6 +378,11 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
 
           {/* Content area */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            {localMode && (
+              <p className="mb-3 rounded-lg border border-neon-blue/20 bg-neon-blue/[0.05] px-3 py-2 text-xs text-neon-blue/90">
+                Browser mode: the file is decoded on this device and every edit runs here. Nothing is uploaded.
+              </p>
+            )}
             {/* File info bar when file loaded */}
             {file && (
               <div className="flex items-center gap-3 mb-4 pb-4 border-b border-white/5">
@@ -251,7 +395,7 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
                   <p className="truncate text-sm font-medium text-white">{file.name}</p>
                   <p className="text-xs text-white/68">
                     {uploadResult?.is_video ? "Video" : "Audio"} · {formatSize(file.size)}
-                    {analysis && <> · {formatDuration(analysis.duration_seconds)} · {analysis.bpm?.toFixed(0)} BPM</>}
+                    {analysis && <> · {formatDuration(analysis.duration_seconds)} · {analysis.bpm ? `${analysis.bpm.toFixed(0)} BPM` : "— BPM"}</>}
                   </p>
                 </div>
                 {state === "completed" && (
@@ -274,23 +418,30 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
                 <div className="mb-4 grid gap-3">
                   <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 grid grid-cols-3 gap-2">
                     <div className="rounded-lg border border-white/5 bg-black/40 p-2.5 text-center"><div className="text-[0.8125rem] text-white/58">Duration</div><div className="mt-0.5 text-[0.9375rem] text-white">{analysis ? formatDuration(analysis.duration_seconds) : "—"}</div></div>
-                    <div className="rounded-lg border border-white/5 bg-black/40 p-2.5 text-center"><div className="text-[0.8125rem] text-white/58">BPM</div><div className="mt-0.5 text-[0.9375rem] text-white">{analysis?.bpm?.toFixed(0) ?? "—"}</div></div>
+                    <div className="rounded-lg border border-white/5 bg-black/40 p-2.5 text-center"><div className="text-[0.8125rem] text-white/58">BPM</div><div className="mt-0.5 text-[0.9375rem] text-white">{analysis?.bpm ? analysis.bpm.toFixed(0) : "—"}</div></div>
                     <div className="rounded-lg border border-white/5 bg-black/40 p-2.5 text-center"><div className="text-[0.8125rem] text-white/58">Key</div><div className="mt-0.5 text-[0.9375rem] text-white">{analysis?.key ?? "—"}</div></div>
                   </div>
-                  {!understand ? (
-                    <button onClick={handleAnalyze} disabled={analyzing} className="w-full rounded-xl bg-neon-blue/15 px-4 py-2.5 text-sm font-medium text-neon-blue hover:bg-neon-blue/25 transition-colors disabled:opacity-50">
-                      {analyzing ? "Analyzing..." : "Run AI Analysis"}
-                    </button>
-                  ) : (
+                  {localProgress && (
+                    <div className="rounded-xl border border-neon-blue/20 bg-neon-blue/[0.04] p-3">
+                      <div className="flex justify-between text-xs text-neon-blue/90">
+                        <span>{localProgress.label}</span>
+                        <span>{Math.round(localProgress.fraction * 100)}%</span>
+                      </div>
+                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
+                        <div className="h-full rounded-full bg-neon-blue transition-[width]" style={{ width: `${Math.round(localProgress.fraction * 100)}%` }} />
+                      </div>
+                    </div>
+                  )}
+                  {understand && (
                     <div className="grid gap-2">
                       {inst && <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3"><div className="text-xs text-white/68 uppercase tracking-wider mb-1">Instruments</div><div className="flex flex-wrap gap-1.5">{inst.instruments.map((el) => <span key={el.instrument} className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-white/78">{el.instrument} · {(el.confidence*100).toFixed(0)}%</span>)}</div></div>}
                       {understand?.genre && <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3"><div className="text-xs text-white/68 uppercase tracking-wider mb-1">Genre / Style</div><div className="text-[0.875rem] text-white/84">{understand.genre.genre} · {(understand.genre.confidence*100).toFixed(0)}%{understand?.rhythm ? ` · ${understand.rhythm.auto_groove.replace(/_/g, " ")} · ${Math.round(understand.rhythm.tempo_bpm)} BPM` : ""}</div></div>}
                       {sections.length>0 && <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3"><div className="eyebrow mb-1.5">Structure</div>{sections.map((s,i)=><div key={i} className="flex justify-between text-[0.875rem]"><span className="text-white/84 capitalize">{s.label}</span><span className="text-white/58">{formatDuration(s.start)}–{formatDuration(s.end)}</span></div>)}</div>}
                     </div>
                   )}
-                  {hasResult && lastResult?.download_key && (
+                  {hasResult && (lastResult?.download_key || lastResult?.local_url) && (
                     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                      <AudioPreview src={downloadUrl(lastResult.download_key)} height={48} />
+                      <AudioPreview src={lastResult.local_url ?? downloadUrl(lastResult.download_key!)} height={48} />
                       {lastResult.layer_download_key && (
                         <button onClick={()=>handleDownload(lastResult.layer_download_key)} className="mt-2 w-full rounded-lg bg-neon-blue/10 px-3 py-2.5 text-[0.875rem] font-medium text-neon-blue hover:bg-neon-blue/20 transition-colors">Download {lastResult.layer_label ?? "added layer"} only</button>
                       )}

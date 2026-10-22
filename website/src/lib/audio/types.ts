@@ -15,6 +15,8 @@ export type LocalIntent =
   | "speed"
   | "denoise"
   | "boost"
+  | "tone"
+  | "reverb"
   | "convert"
   | "unknown";
 

@@ -13,8 +13,11 @@ import {
   fade,
   normalize,
   reverse,
+  reverbAudio,
+  shapeTone,
   stretchAudio,
   trim,
+  type ToneKind,
 } from "./ops";
 import { durationOf, encodeWav, peakOf } from "./wav";
 import type { LocalAudio, LocalPlan, LocalResult } from "./types";
@@ -143,6 +146,20 @@ export function applyPlan(source: LocalAudio, plan: LocalPlan, onProgress?: Loca
       audio = boostTarget(source, target, direction, spectral(`${direction === "up" ? "Boosting" : "Cutting"} ${target}`));
       metadata.boosted = target;
       metadata.direction = direction;
+      break;
+    }
+    case "tone": {
+      const kind = String(plan.params.kind ?? "darker") as ToneKind;
+      audio = shapeTone(source, kind, spectral("Shaping tone"));
+      metadata.tone = kind;
+      break;
+    }
+    case "reverb": {
+      const seconds = Number(plan.params.seconds ?? 2.2);
+      const mix = Number(plan.params.mix ?? 0.25);
+      audio = reverbAudio(source, seconds, mix);
+      metadata.reverb_seconds = seconds;
+      metadata.reverb_mix = mix;
       break;
     }
     case "convert": {

@@ -17,6 +17,8 @@ import {
   fade,
   normalize,
   reverse,
+  reverbAudio,
+  shapeTone,
   stretchAudio,
   timeStretch,
   trim,
@@ -220,6 +222,59 @@ describe("boost", () => {
   });
 });
 
+describe("mood", () => {
+  // 200 Hz "body" + 8 kHz "air", so a tilt changes the ratio, not just level.
+  function mixed(): LocalAudio {
+    const low = sine(200, 1, 0.3);
+    const high = sine(8000, 1, 0.3);
+    const sum = new Float32Array(low.length);
+    for (let i = 0; i < sum.length; i++) sum[i] = low[i] + high[i];
+    return { channels: [sum], sampleRate: SR };
+  }
+
+  test("darker rolls the highs off", () => {
+    const source = mixed();
+    const out = shapeTone(source, "darker");
+    const before = bandEnergy(source.channels[0], 6000, 10000) / bandEnergy(source.channels[0], 150, 300);
+    const after = bandEnergy(out.channels[0], 6000, 10000) / bandEnergy(out.channels[0], 150, 300);
+    expect(after).toBeLessThan(before * 0.5);
+  });
+
+  test("brighter lifts the highs", () => {
+    const source = mixed();
+    const out = shapeTone(source, "brighter");
+    const before = bandEnergy(source.channels[0], 6000, 10000) / bandEnergy(source.channels[0], 150, 300);
+    const after = bandEnergy(out.channels[0], 6000, 10000) / bandEnergy(out.channels[0], 150, 300);
+    expect(after).toBeGreaterThan(before * 1.5);
+  });
+
+  test("calm is quieter and energetic is louder", () => {
+    const source = mixed();
+    const calm = shapeTone(source, "calm");
+    const energetic = shapeTone(source, "energetic");
+    expect(bandEnergy(calm.channels[0], 20, 10000)).toBeLessThan(bandEnergy(source.channels[0], 20, 10000) * 0.8);
+    expect(bandEnergy(energetic.channels[0], 20, 10000)).toBeGreaterThan(bandEnergy(source.channels[0], 20, 10000) * 1.2);
+  });
+
+  test("reverb leaves a decaying tail and stays bounded", () => {
+    const impulse = new Float32Array(SR);
+    impulse[0] = 1;
+    const out = reverbAudio({ channels: [impulse], sampleRate: SR }, 1.5, 0.5);
+    const tail = (lo: number, hi: number) => {
+      let sum = 0;
+      for (let i = Math.round(lo * SR); i < Math.round(hi * SR); i++) sum += out.channels[0][i] ** 2;
+      return sum;
+    };
+    expect(tail(0.02, 0.2)).toBeGreaterThan(1e-6);
+    // The dry impulse is silent after sample 0, so any later energy is the tail,
+    // and it must fall rather than grow.
+    expect(tail(0.2, 0.5)).toBeGreaterThan(tail(0.5, 0.9));
+    let peak = 0;
+    for (const v of out.channels[0]) peak = Math.max(peak, Math.abs(v));
+    expect(peak).toBeLessThan(1.5);
+  });
+});
+
 describe("wav", () => {
   test("writes a readable 16-bit header", async () => {
     const audio: LocalAudio = { channels: [sine(220, 0.5, 0.5), sine(330, 0.5, 0.5)], sampleRate: SR };
@@ -262,6 +317,14 @@ describe("prompt parsing", () => {
       ["Boost the vocals", "boost"],
       ["Make the drums louder", "boost"],
       ["Boost the bass", "boost"],
+      ["Make it darker", "tone"],
+      ["Make this sound darker", "tone"],
+      ["Make it brighter", "tone"],
+      ["Make this more energetic", "tone"],
+      ["Calm it down", "tone"],
+      ["Make it lofi", "tone"],
+      ["Add reverb", "reverb"],
+      ["Add reverb to make it sound like a cathedral", "reverb"],
     ];
     for (const [prompt, intent] of cases) {
       expect(parseLocalPrompt(prompt, 180).intent).toBe(intent);
@@ -292,6 +355,16 @@ describe("prompt parsing", () => {
   test("boost keeps its direction", () => {
     expect(parseLocalPrompt("Boost the vocals", 60).params.direction).toBe("up");
     expect(parseLocalPrompt("Lower the bass", 60).params.direction).toBe("down");
+  });
+
+  test("style conversion is refused instead of silently exported as WAV", () => {
+    const plan = parseLocalPrompt("Convert this song into a house music style", 180);
+    expect(plan.intent).toBe("unknown");
+    expect(plan.unsupported).toMatch(/needs the server/i);
+
+    // A real format request still routes to convert.
+    expect(parseLocalPrompt("Convert to mp3", 60).intent).toBe("convert");
+    expect(parseLocalPrompt("Export as WAV", 60).intent).toBe("convert");
   });
 
   test("refuses what the browser cannot do", () => {

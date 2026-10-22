@@ -277,11 +277,21 @@ drums'' feature sounded synthetic.
 
 The distinction matters for what may be claimed. The \emph{samples} are real
 recordings; the \emph{arrangement} --- which hits land on which sixteenth-note
-step --- is a hand-written pattern library of fourteen styles, tempo-synced to
-the measured beat grid. No trained drum model exists or is claimed. A test
+step --- is a hand-written pattern library of named styles, tempo-synced to
+the measured beat grid. No trained drum model exists or is claimed: nothing in
+the system generates or renders a drum hit with a neural network. A test
 verifies that the instrument catalogue advertised by the user interface matches
 the instruments the backend can render, in both directions, so a style cannot be
 promised and then found missing.
+
+A separate random forest may \emph{select} one of those hand-written patterns.
+It sees eight rhythm features --- tempo, four-on-the-floor ratio, half-time
+ratio, swing, hat density, sub-bass ratio, kick rate and snare rate --- and
+predicts one of fifteen feels. The prediction is used only when its confidence
+exceeds 0.45, and a style named explicitly in the prompt always overrides it.
+The classifier therefore chooses among existing arrangements; it never
+synthesises audio, and its accuracy is not evidence that the arrangement itself
+is learned.
 
 \subsection{Repetition-based inpainting}
 
@@ -560,9 +570,15 @@ reported rather than silently shipped.
 
 The phrase model is trained on 13 tracks, which is thin; the cache mechanism
 avoids re-running separation, so scaling the corpus is inexpensive. The groove
-classifier is currently trained on synthetic loops rather than real recordings,
-which degrades the ``drums that match your song'' feature; retraining on real
-audio is the next priority. Inpainting is verified for duration preservation and
+classifier reports 87.8\,\% accuracy, but that figure is measured on held-out
+synthetic loops drawn from the same generator as its training set: it is an
+in-distribution result, not a real-music result, and no accuracy on real
+recordings is claimed. The shipped model is applied only as a
+confidence-gated (0.45) selector among hand-written patterns, so a wrong
+prediction changes which pattern plays rather than producing a wrong sound from
+scratch. Retraining on a labelled corpus of real songs
+(\texttt{-{}-songs-dir}) is the next priority, and that corpus is not in the
+repository. Inpainting is verified for duration preservation and
 for the absence of silence, but its perceptual quality is not established,
 because ground-truth multitracks would be required. Inpainting cannot invent
 music that was never played, and a learned generative model --- spectrogram

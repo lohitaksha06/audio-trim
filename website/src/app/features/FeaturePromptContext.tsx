@@ -15,8 +15,6 @@ export const FeaturePromptContext = createContext<{
   hasFile: boolean;
   analysis?: UploadResponse["analysis"];
   understand: UnderstandResponse | null;
-  analyzing: boolean;
-  runAnalyze: () => void;
   busy: boolean;
   hasResult: boolean;
   fileName: string | null;

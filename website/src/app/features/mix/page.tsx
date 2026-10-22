@@ -9,7 +9,9 @@ import ManualEditor from "@/components/ManualEditor";
 import StemMixer from "@/components/StemMixer";
 import JamMixer from "@/components/JamMixer";
 import OptimizePanel from "@/components/OptimizePanel";
-import { uploadFile, processAudio, downloadUrl, type UploadResponse, type ProcessResponse } from "@/services/api";
+import { uploadFile, processAudio, downloadUrl, isBackendConfigured, type UploadResponse, type ProcessResponse } from "@/services/api";
+import FeatureLayout from "../FeatureLayout";
+import { ActionButton, Panel } from "../FeaturePanels";
 
 interface LastAudio {
   audio_path: string;
@@ -119,7 +121,8 @@ export default function MixPage() {
   const ready = !!activePath && !!playSrc;
 
   return (
-    <div className="flex h-screen flex-col bg-black">
+    isBackendConfigured ? (
+      <div className="flex h-screen flex-col bg-black">
       <Nav />
       <div className="flex flex-1 mt-[var(--nav-h)] overflow-hidden">
         <Sidebar onPromptSelect={() => {}} />
@@ -221,5 +224,34 @@ export default function MixPage() {
         </main>
       </div>
     </div>
+    ) : (
+      <FeatureLayout
+        title="Mix Lab"
+        subtitle="Fix the mix. Browser mode: every edit runs on this device."
+      >
+        <div className="space-y-6">
+          <Panel title="Prioritize a sound">
+            <ActionButton label="Make the drums louder" prompt="Make the drums louder" />
+            <ActionButton label="Boost the vocals" prompt="Boost the vocals" />
+            <ActionButton label="Boost the bass" prompt="Boost the bass" />
+          </Panel>
+          <Panel title="Mood">
+            <ActionButton label="Make it darker" prompt="Make it darker" />
+            <ActionButton label="Make it brighter" prompt="Make it brighter" />
+            <ActionButton label="Calm it down" prompt="Calm it down" />
+            <ActionButton label="More energetic" prompt="Make this more energetic" />
+          </Panel>
+          <Panel title="Clean up">
+            <ActionButton label="Remove background noise" prompt="Remove the background noise" />
+            <ActionButton label="Normalize loudness" prompt="Normalize the volume" />
+            <ActionButton label="Add reverb" prompt="Add reverb" />
+          </Panel>
+          <p className="text-sm leading-relaxed text-white/58">
+            Stem faders, wave editing and tempo-matched stem mixing need the server. With no backend
+            configured, Mix Lab runs the browser DSP above instead of failing to fetch audio.
+          </p>
+        </div>
+      </FeatureLayout>
+    )
   );
 }

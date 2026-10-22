@@ -236,8 +236,25 @@ function speedPlan(lower: string): LocalPlan {
 export function parseLocalPrompt(prompt: string, duration: number): LocalPlan {
   const lower = normalizePrompt(prompt);
 
+  // --- style conversion ---------------------------------------------------
+  // "Convert to house style" is not a file-format request. The browser can
+  // reshape tone, but re-rendering a genre needs the server's generator.
+  if (
+    /\b(house|techno|synthwave|edm|hip[- ]?hop|jazz|rock|classical|country|reggae|metal)\b/.test(lower) &&
+    /\b(style|genre|convert|make it|turn it)\b/.test(lower) &&
+    !/\b(format|file|mp3|wav|flac|aac|ogg|m4a)\b/.test(lower)
+  ) {
+    return {
+      intent: "unknown",
+      params: {},
+      summary: "",
+      unsupported:
+        "Style conversion needs the server: it re-renders the audio with a drum and instrument generator. In the browser I can shape the tone (darker, brighter, calmer, more energetic), add reverb, and change level, speed, fades and noise.",
+    };
+  }
+
   // --- format -------------------------------------------------------------
-  if (/\bconvert\b|\bexport\b|\bchange format\b|\bto\s+(mp3|flac|aac|ogg|m4a|wav)\b/.test(lower)) {
+  if (/\b(convert|export|change format)\b/.test(lower) || /\bto\s+(mp3|flac|aac|ogg|m4a|wav)\b/.test(lower)) {
     const target = /\b(mp3|flac|aac|ogg|m4a|wav)\b/.exec(lower)?.[1] ?? "wav";
     if (target !== "wav") {
       return {
@@ -276,6 +293,50 @@ export function parseLocalPrompt(prompt: string, duration: number): LocalPlan {
 
   // --- fade ---------------------------------------------------------------
   if (/\bfade\b/.test(lower)) return fadePlan(lower, duration);
+
+  // --- mood / tone --------------------------------------------------------
+  if (/\breverb\b|\bcathedral\b|\broom\s+sound\b|\bhall\b/.test(lower)) {
+    return {
+      intent: "reverb",
+      params: { seconds: 2.2, mix: 0.25 },
+      summary: "Reverb added (2.2 s tail, 25% wet)",
+    };
+  }
+  if (/\blo-?fi\b|\blow[- ]fidelity\b/.test(lower)) {
+    return {
+      intent: "tone",
+      params: { kind: "lofi" },
+      summary: "Lo-fi tone: highs rolled off above ~3 kHz, low end warmed",
+    };
+  }
+  if (/\b(darker|darken)\b/.test(lower) || /\bdark\s+(sound|mood|tone|mix|version)\b/.test(lower)) {
+    return {
+      intent: "tone",
+      params: { kind: "darker" },
+      summary: "Tone tilted darker: highs above ~2 kHz rolled off",
+    };
+  }
+  if (/\b(brighter|brighten)\b/.test(lower) || /\bbright\s+(sound|mood|tone|mix|version)\b/.test(lower)) {
+    return {
+      intent: "tone",
+      params: { kind: "brighter" },
+      summary: "Tone tilted brighter: presence above ~2.5 kHz lifted",
+    };
+  }
+  if (/\b(more\s+energetic|energetic|punchier|punchy|more\s+energy)\b/.test(lower)) {
+    return {
+      intent: "tone",
+      params: { kind: "energetic" },
+      summary: "Level +2.3 dB with a presence lift above ~2.5 kHz",
+    };
+  }
+  if (/\b(calm|calmer|soothing|soothe)\b/.test(lower)) {
+    return {
+      intent: "tone",
+      params: { kind: "calm" },
+      summary: "Softened: highs eased, level −2.2 dB",
+    };
+  }
 
   // --- normalize ----------------------------------------------------------
   if (/\bnormaliz|\bnormalis|\bloudness\b/.test(lower)) {
@@ -359,12 +420,17 @@ export function parseLocalPrompt(prompt: string, duration: number): LocalPlan {
     params: {},
     summary: "",
     unsupported:
-      "That one needs the server. In the browser I can trim, fade, change gain, normalise, reverse, change speed, denoise, and boost vocals/drums/bass.",
+      "That one needs the server. In the browser I can trim, fade, shape the mood (darker, brighter, calmer, more energetic), add reverb, change gain, normalise, reverse, change speed, denoise, and boost vocals/drums/bass.",
   };
 }
 
 /** Prompt chips shown when no backend is configured. */
 export const LOCAL_PROMPTS = [
+  "Make it darker",
+  "Make it brighter",
+  "More energetic",
+  "Calm it down",
+  "Add reverb",
   "Trim from 0:30 to 1:15",
   "Cut the first 5 seconds",
   "Fade in over 2 seconds",

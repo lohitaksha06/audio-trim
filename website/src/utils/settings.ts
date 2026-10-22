@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 export interface AudelleSettings {
-  /** Run AI analysis automatically right after upload (else the user presses "Run AI Analysis"). */
+  /** Run server-side track analysis automatically after upload (server mode only). */
   autoAnalyze: boolean;
   /** Download results lossless (WAV). Off = convert to the chosen output format first. */
   highQuality: boolean;
