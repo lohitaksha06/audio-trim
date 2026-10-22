@@ -5,9 +5,20 @@ references.
 
 ## Building
 
-There is **no LaTeX toolchain on this machine** (`pdflatex`, `xelatex` and
-`tectonic` are all absent), so the PDF has not been produced here. On a machine
-with TeX Live:
+The PDF in this directory was built with
+[Tectonic](https://tectonic-typesetting.github.io/) 0.17.0, which fetches the
+TeX packages it needs on first run:
+
+```powershell
+tectonic audelle_ieee.tex
+```
+
+Tectonic reruns TeX and `xdvipdfmx` itself, so one command is enough. The
+result is 7 pages: six pages of content plus the final references. There are
+two cosmetic `Underfull \hbox` warnings (the abstract and one limitations
+paragraph), and no errors.
+
+With TeX Live instead:
 
 ```powershell
 # IEEEtran ships with most TeX Live installs
@@ -17,7 +28,8 @@ pdflatex -interaction=nonstopmode audelle_ieee.tex
 pdflatex -interaction=nonstopmode audelle_ieee.tex
 ```
 
-Two passes minimum, three recommended, so that `\ref` resolves.
+Two passes minimum, three recommended, so that `\ref` resolves. Rebuild
+`audelle_ieee.pdf` after any edit to the `.tex` file; do not edit the PDF.
 
 ## Checking it without LaTeX
 
@@ -43,6 +55,7 @@ It currently reports `structure OK`.
 | File | Purpose |
 |---|---|
 | `audelle_ieee.tex` | The paper |
+| `audelle_ieee.pdf` | Built PDF (Tectonic 0.17.0), 7 pages |
 | `REFERENCES.md` | Every reference, what verified it, and what was rejected |
 | `check_paper.py` | Structural validation, run in CI-style |
 | `fix_citations.py` | One-shot conversion of hand-typed `[n]` markers to `\cite{}` |
