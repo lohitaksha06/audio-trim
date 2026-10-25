@@ -14,9 +14,9 @@ tectonic audelle_ieee.tex
 ```
 
 Tectonic reruns TeX and `xdvipdfmx` itself, so one command is enough. The
-result is 7 pages: six pages of content plus the final references. There are
-two cosmetic `Underfull \hbox` warnings (the abstract and one limitations
-paragraph), and no errors.
+result is 6 pages, with the references sharing the final page. There are two
+cosmetic `Underfull \hbox` warnings (the abstract and the failure-modes intro),
+and no errors.
 
 With TeX Live instead:
 
@@ -55,7 +55,7 @@ It currently reports `structure OK`.
 | File | Purpose |
 |---|---|
 | `audelle_ieee.tex` | The paper |
-| `audelle_ieee.pdf` | Built PDF (Tectonic 0.17.0), 7 pages |
+| `audelle_ieee.pdf` | Built PDF (Tectonic 0.17.0), 6 pages |
 | `REFERENCES.md` | Every reference, what verified it, and what was rejected |
 | `check_paper.py` | Structural validation, run in CI-style |
 | `fix_citations.py` | One-shot conversion of hand-typed `[n]` markers to `\cite{}` |

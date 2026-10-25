@@ -36,10 +36,10 @@ inpainting, and per-clip accuracy for genre classification. Evaluation exposed
 defects that code review had not, including a source separator that made speech
 \emph{worse}, a voice activity detector that returned zero segments on
 contiguous speech, and a melodic model whose regression head collapsed all
-intervals to a single near-zero value. Three evaluation metrics were themselves
+intervals to a single near-zero value. Two evaluation metrics were themselves
 found to be invalid and were discarded or renamed rather than reported; one
 speech-enhancement figure was revised downward by a factor of two once its
-metric was replaced. A 99-case prompt benchmark and 328 automated tests guard
+metric was replaced. A 99-case prompt benchmark and 331 automated tests guard
 the resulting behaviour. We argue that
 publishing negative results and invalidating one's own metrics is a necessary
 part of deploying learned audio components in interactive tools.
@@ -62,11 +62,10 @@ pitch-swept sine labelled as a drum, a randomly populated bar chart labelled
 as a stem analyser. Such interfaces are worse than no feature at all, because
 they transfer the verification burden to the user.
 
-Audelle is an audio editor whose design constraint is that no user-visible
-behaviour may be shipped without a measurement behind it. Where a component
-cannot be validated, it is relabelled or removed. This paper describes the
-resulting system and, equally importantly, the evaluation methodology that made
-it trustworthy, together with the defects that methodology uncovered.
+Audelle ships no user-visible behaviour without a measurement behind it; where
+a component cannot be validated, it is relabelled or removed. This paper
+describes the system, the evaluation methodology that made it trustworthy, and
+the defects that methodology uncovered.
 
 \subsection{Contributions}
 
@@ -76,7 +75,7 @@ it trustworthy, together with the defects that methodology uncovered.
       music-trained model must not process speech (Section~III-B).
 \item A timbre network trained from scratch on 3\,856 real notes, paired with a
       deterministic additive renderer, following the hybrid
-      differentiablesignal-processing design (Section~III-E).
+      differentiable signal-processing design (Section~III-E).
 \item A phrase model that predicts \emph{where} rests fall, with the
       \emph{number} of rests supplied by a tempo-and-energy-aware arrangement
       model (Section~III-F).
@@ -90,9 +89,9 @@ it trustworthy, together with the defects that methodology uncovered.
 \subsection{Scope}
 
 Audelle is an \emph{editing} tool, not a music generator. Large text-to-audio
-generation was considered and rejected: it is the least differentiated component
-against dedicated commercial products, the most expensive to run on the target
-hardware, and orthogonal to Audelle's purpose. Where the system adds musical
+generation was rejected: it is undifferentiated against commercial products,
+expensive on the target hardware, and orthogonal to Audelle's purpose. Where
+the system adds musical
 material, that material is rendered by Audelle's own trained timbre model and
 its own recorded drum bank.
 
@@ -134,7 +133,6 @@ target hardware has no accelerator and the pipeline must start in under a minute
 
 Differentiable digital signal processing established that a synthesizer's
 control parameters can be learned while its rendering stage remains hand-written
-\cite{hayes2024ddsp}, and the design has since been reviewed and extended across music and speech
 \cite{hayes2024ddsp}. Bazin et~al.\ cast note generation as spectrogram inpainting, using a
 vector-quantised spectrogram autoencoder with a masked transformer decoder \cite{bazin2020spectrogram}.
 Audelle adopts the hybrid philosophy of the former but not the generative model
@@ -229,15 +227,13 @@ noise layer and the predicted parameters drive an ADSR envelope. Trained on
 validation loss falling from 0.946 to 0.685, this is deliberately a hybrid: the
 \emph{timbre is learned}, the renderer is ordinary additive synthesis, so a
 wrong prediction produces a poor note rather than garbage. Instruments outside
-the trained set return no prediction and fall back to a labelled DSP synth; no
-fuzzy nearest-family match is attempted, for the same reason instrument
-resolution is not.
+the trained set fall back to a labelled DSP synth; no fuzzy nearest-family match
+is attempted.
 
 \subsection{Phrase-level melodic model}
 
 The phrase model learns the distribution of melodic intervals and durations
-\emph{by classification into bins}, not by regression. Both the head
-formulation and the arrangement stage are described below.
+\emph{by classification into bins}, not by regression.
 
 \paragraph{Classification, not regression.} An earlier head regressed the
 interval and duration directly. A regressor trained under a conditional mean
@@ -272,8 +268,7 @@ onset-envelope cross-correlation; and levels are matched by RMS.
 Every drum hit Audelle plays is a recorded sample: 1\,200 one-shots across ten
 percussion types, extracted and de-clicked at build time and stored as FLAC,
 34.7\,MB in total. The previous implementation synthesised kicks from a
-pitch-swept sine and snares from band-passed noise, which is why the ``add
-drums'' feature sounded synthetic.
+pitch-swept sine and snares from band-passed noise.
 
 The distinction matters for what may be claimed. The \emph{samples} are real
 recordings; the \emph{arrangement} --- which hits land on which sixteenth-note
@@ -346,7 +341,7 @@ must not be parsed as a duration from the wrong clause. All 99 cases pass.
 
 \subsection{Automated regression suite}
 
-293 automated tests execute. Beyond ordinary unit tests, the suite contains
+331 automated tests execute. Beyond ordinary unit tests, the suite contains
 ground-truth regression tests whose assertions are statements about measured
 physics: that phrase statistics fall within measured bounds, that jam alignment
 median error is below a threshold, that the filled region of an inpainted file
@@ -375,9 +370,9 @@ reports the noise-floor drop and voice-level lift that are directly measurable
 at inference. Section~VII records this as the second invalidated metric.
 
 The honest conclusion is that this filter is a gentle cleanup, not a
-denoiser: it reliably makes speech more audible against a steady noise floor
-and cannot make worse speech worse, but half a decibel is a small effect and no
-listening test was conducted. This result reversed the system's routing design.
+denoiser: it makes speech more audible against steady noise and cannot make
+speech worse, but half a decibel is a small effect and no listening test was
+conducted. This result reversed the system's routing design.
 It is also the reason synthesised speech was rejected as a test input:
 synthesised voices fall outside the separator's training domain and yield
 near-silent stems, which would have produced a spuriously excellent score.
@@ -485,21 +480,17 @@ Chance               & $10.0\,\%$          & --- \\
 \end{tabular}
 \end{table}
 
-Both protocols agree at roughly 7.5 times chance, which is consistent with the
-literature on spectral and timbral genre cues and with the dataset size. The
-per-fold spread of $60$--$85\,\%$ is wide relative to the mean, which is the
-expected behaviour at this sample size and the reason the standard deviation is
-reported rather than suppressed. Per-class holdout accuracy is in
+Both protocols agree at roughly 7.5 times chance. The $60$--$85\,\%$ per-fold
+spread is wide, as expected at this sample size, which is why the standard
+deviation is reported rather than suppressed. Per-class holdout accuracy is in
 \texttt{server/ml/models/genre\_eval.json}; it ranges from 100\,\% for
-country, disco, metal and reggae to 33\,\% for pop, which is the class the
-feature set distinguishes least. With 100 clips, no comparison against published
-genre-classification results is meaningful, and none is made: the purpose of this
-evaluation is to establish that the shipped artefact is better than chance and
-to make that number reproducible, not to enter a benchmark.
+country, disco, metal and reggae to 33\,\% for pop. With 100 clips, no
+comparison with published results is meaningful: the purpose is to show that
+the shipped artefact beats chance reproducibly, not to enter a benchmark.
 
 \subsection{Prompt routing and regression}
 
-All 99 benchmark cases pass and all 293 tests pass. The benchmark is the more
+All 99 benchmark cases pass and all 331 tests pass. The benchmark is the more
 informative artefact: it encodes routing failures that unit tests would not
 catch, including two cases where a shorter rule shadowed the correct one.
 
@@ -514,19 +505,17 @@ the dominant cost of any request that invokes it.
 The system was developed and evaluated on a single class of machine: a mobile
 8-core CPU with 15.3\,GB of RAM and no GPU. All reported accuracies, energies
 and alignments are therefore wall-clock-bound and are not claims about
-throughput on accelerator hardware. Small-sample evaluation is a genuine
-limitation: the genre classifier is trained on 100 clips, which is two orders of
-magnitude smaller than a competitive benchmark, and the reported figures should
-be read as a floor rather than an estimate of attainable accuracy. Ground-truth
-fixtures are synthesised and therefore stylistically narrow; they are strong for
-verifying numerical claims and weak for verifying perceptual ones. Finally, no
-human listening test was conducted. Subjective quality claims are deliberately
-absent from this paper.
+throughput on accelerator hardware. The genre classifier is trained on only 100
+clips, two orders of magnitude below a competitive benchmark, so its figures are
+a floor rather than an estimate of attainable accuracy. Ground-truth fixtures
+are synthesised and therefore stylistically narrow: strong for numerical claims,
+weak for perceptual ones. No human listening test was conducted, so subjective
+quality claims are deliberately absent.
 
 \section{Failure Modes and Invalid Metrics}
 
-We report two occasions on which our own evaluation was unsound, because both
-would have produced favourable published numbers.
+We report five failures from our own evaluation and implementation, each of
+which would have produced favourable published numbers.
 
 \paragraph{Synthetic speech against a music-trained separator.}
 Evaluating separation on synthesised speech produced near-silent stems and an
@@ -585,9 +574,9 @@ music that was never played, and a learned generative model --- spectrogram
 inpainting as in~\cite{bazin2020spectrogram}, or an audio language model --- would be required for that.
 Audio-to-video round-tripping is implemented: a video upload retains its
 original, and any edit producing audio is muxed back with the video stream
-copied rather than re-encoded. It was verified by demuxing the result and
-confirming the edited audio replaced the source. Precision sample-accurate
-waveform editing remains a gap relative to workstation-class editors.
+copied rather than re-encoded; demuxing the result confirmed that the edited
+audio replaced the source. Precision sample-accurate waveform editing remains a
+gap relative to workstation-class editors.
 
 \section{Conclusion}
 
