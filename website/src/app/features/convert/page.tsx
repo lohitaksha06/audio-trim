@@ -40,8 +40,9 @@ export default function ConvertPage() {
         <Panel title="Quality">
           <p className="rounded-xl border border-white/12 bg-white/[0.02] p-4 text-sm text-white/58">
             The converter uses each codec&apos;s default settings — there is no bitrate or
-            sample-rate control in the backend yet. Use the High quality setting in the sidebar to
-            keep downloads lossless.
+            sample-rate control yet. Browser mode can only encode WAV; the compressed formats are
+            marked <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-1.5 py-0.5 text-amber-200">Server</span> and
+            need the backend.
           </p>
         </Panel>
       </div>

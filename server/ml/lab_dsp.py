@@ -133,10 +133,10 @@ def apply_lab_tweaks(
 
 
 def suggest_lab_preset(understand: dict) -> dict:
-    """Return AI-suggested knob positions from existing understand result.
+    """Return a deterministic preset from an existing understand result.
 
-    No extra inference — just rules on mood/instruments/genre.
-    This is what the Lab animates as 'AI is tweaking...' for the audience.
+    No extra inference: these are fixed rules over measured mood and genre.
+    The UI calls this an "auto preset", not AI, and shows the reason.
     """
     mood = (understand.get("mood") or {}).get("mood", "neutral") if isinstance(understand, dict) else "neutral"
     # genre may be nested

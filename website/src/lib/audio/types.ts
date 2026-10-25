@@ -12,12 +12,18 @@ export type LocalIntent =
   | "gain"
   | "normalize"
   | "reverse"
+  | "remove"
+  | "pitch"
+  | "loop"
   | "speed"
   | "denoise"
   | "boost"
   | "tone"
   | "reverb"
+  | "silence"
   | "convert"
+  | "lab"
+  | "info"
   | "unknown";
 
 export interface LocalPlan {

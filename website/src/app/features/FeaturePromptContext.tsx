@@ -3,7 +3,7 @@ import { createContext, useContext } from "react";
 import type { UploadResponse, UnderstandResponse } from "@/services/api";
 
 /**
- * Shared state for the feature pages: the real uploaded file, its real AI
+ * Shared state for the feature pages: the real uploaded file, its measured
  * analysis, and the prompt composer. Feature pages render from this instead of
  * hardcoded placeholder data.
  */

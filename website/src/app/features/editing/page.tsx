@@ -37,8 +37,8 @@ export default function EditingPage() {
 
         <Panel title="Tempo / BPM">
           <p className="rounded-xl border border-white/12 bg-white/[0.02] p-4 text-sm text-white/58">
-            Ask for an exact tempo and the engine time-stretches to it. Leave the BPM out and the
-            AI asks you which one you want.
+            Ask for an exact tempo and the engine time-stretches to it. Without a BPM number, a
+            vague “faster” or “slower” applies a default speed change.
           </p>
           <ActionButton
             label="Set tempo to 128 BPM"

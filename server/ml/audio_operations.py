@@ -67,8 +67,11 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
         output_path = _save_wav(y, sr)
         metadata["gain_db"] = round(db, 1)
     elif plan.intent == Intent.REMOVE_SILENCE:
-        y = _remove_silence(y, sr)
+        before_samples = y.shape[1]
+        y = _remove_silence(y, sr, plan.params)
         output_path = _save_wav(y, sr)
+        metadata["removed_seconds"] = round((before_samples - y.shape[1]) / sr, 2)
+        metadata["min_pause_seconds"] = float(plan.params.get("max_pause", 0.0) or 0.0)
     elif plan.intent == Intent.SPEED:
         y, speed_meta = _speed_change(y, sr, plan.params)
         output_path = _save_wav(y, sr)
@@ -423,12 +426,75 @@ def _apply_gain(y: np.ndarray, db: float) -> np.ndarray:
     return np.clip(y, -1, 1).astype(np.float32)
 
 
-def _remove_silence(y: np.ndarray, sr: int, threshold_db: float = 20) -> np.ndarray:
+def _remove_silence(
+    y: np.ndarray,
+    sr: int,
+    params: dict | None = None,
+    threshold_db: float = 20,
+) -> np.ndarray:
+    """Cut pauses, honouring the prompt's minimum length.
+
+    `librosa.effects.split` only tells us where the non-silent islands are. The
+    old implementation concatenated those islands, which removed *every* gap,
+    even a 100 ms breath. The prompt "cut pauses over 0.5s" therefore did
+    something different from what it said. Here a gap is only removed when it
+    is at least `max_pause` seconds long; shorter gaps stay in place.
+
+    An 80 ms margin is kept on each side of a removed gap so the cut lands in
+    silence rather than on a consonant.
+    """
+    params = params or {}
+    try:
+        min_gap = max(0.0, float(params.get("max_pause", 0.0) or 0.0))
+    except (TypeError, ValueError):
+        min_gap = 0.0
+    margin = int(0.08 * sr)
+
     intervals = librosa.effects.split(y[0], top_db=threshold_db)
     if len(intervals) == 0:
         return y
-    result = np.concatenate([y[:, s:e] for s, e in intervals], axis=1)
-    return result
+
+    length = y.shape[1]
+    removals: list[tuple[int, int]] = []
+
+    # Leading silence.
+    first_start = int(intervals[0][0])
+    if first_start / sr >= min_gap and first_start - margin > 0:
+        removals.append((0, first_start - margin))
+
+    # Internal gaps.
+    for (_, prev_end), (next_start, _) in zip(intervals, intervals[1:]):
+        gap_start = int(prev_end)
+        gap_end = int(next_start)
+        if (gap_end - gap_start) / sr >= min_gap:
+            cut_start = gap_start + margin
+            cut_end = gap_end - margin
+            if cut_end > cut_start:
+                removals.append((cut_start, cut_end))
+
+    # Trailing silence.
+    last_end = int(intervals[-1][1])
+    if (length - last_end) / sr >= min_gap and length - (last_end + margin) > 0:
+        removals.append((last_end + margin, length))
+
+    if not removals:
+        return y
+
+    kept: list[tuple[int, int]] = []
+    cursor = 0
+    for start, end in sorted(removals):
+        start = max(0, min(length, start))
+        end = max(0, min(length, end))
+        if start > cursor:
+            kept.append((cursor, start))
+        cursor = max(cursor, end)
+    if cursor < length:
+        kept.append((cursor, length))
+    if not kept:
+        return y
+
+    result = np.concatenate([y[:, start:end] for start, end in kept], axis=1)
+    return result.astype(np.float32, copy=False)
 
 
 def _resolve_speaker(transcript: dict, params: dict) -> str | None:

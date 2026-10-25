@@ -1075,17 +1075,21 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
         elif vague_factor != 1.0:
             params["speed_factor"] = vague_factor
 
-    if intent == Intent.REMOVE_FILLERS:
+    if intent in (Intent.REMOVE_FILLERS, Intent.REMOVE_SILENCE):
         # Acoustic pause bounds: "cut pauses over 0.5s" / "maximum pause 1.5s".
+        # `REMOVE_SILENCE` was missing this branch, so the threshold never
+        # reached `_remove_silence` and every gap was cut.
         lower = normalize_prompt(prompt)
         m = re.search(r"(?:maximum|max|up to)\s*(?:a\s*)?(?:pause|gap)?\s*(?:of\s*)?(\d+(?:\.\d+)?)\s*(?:s|sec|second)", lower)
         if m:
             params["max_pause"] = float(m.group(1))
         else:
-            m2 = re.search(r"(?:pause|gap)s?\s*(?:longer than|over|above)\s*(\d+(?:\.\d+)?)\s*(?:s|sec|second)", lower)
+            # Search for the bound itself, not "<noun> over": prompts list the
+            # nouns first ("pauses and silences longer than 0.5 seconds").
+            m2 = re.search(r"(?:longer than|over|above|more than)\s*(\d+(?:\.\d+)?)\s*(?:s|sec|second)", lower)
             if m2:
                 params["max_pause"] = float(m2.group(1))
-        m3 = re.search(r"(?:pause|gap)s?\s*(?:shorter than|under|below)\s*(\d+(?:\.\d+)?)\s*(?:s|sec|second)", lower)
+        m3 = re.search(r"(?:shorter than|under|below|less than)\s*(\d+(?:\.\d+)?)\s*(?:s|sec|second)", lower)
         if m3:
             params["min_pause"] = float(m3.group(1))
 

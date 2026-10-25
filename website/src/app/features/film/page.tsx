@@ -10,7 +10,7 @@ export default function FilmPage() {
         <Panel title="Dialogue">
           <ActionButton
             label="Clean dialogue"
-            hint="Isolates speech, cuts hiss and rumble, lifts it over the scene"
+            hint="Denoise and lift dialogue presence; stem isolation needs the server"
             prompt="Clean up the dialogue and remove background noise"
             tone="accent"
           />

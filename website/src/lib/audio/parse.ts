@@ -193,6 +193,29 @@ function fadePlan(lower: string, duration: number): LocalPlan {
 }
 
 function speedPlan(lower: string): LocalPlan {
+  // An exact BPM target beats every vague direction word. Without this branch,
+  // "Set tempo to 128 BPM" fell through to the default 1.25x and silently
+  // stretched the file to the wrong tempo.
+  const bpmMatch =
+    /(\d{2,3}(?:\.\d+)?)\s*bpm\b/.exec(lower) ??
+    /\b(?:tempo|bpm)\s*(?:to|at|of|:|=)?\s*(\d{2,3}(?:\.\d+)?)\b/.exec(lower);
+  if (bpmMatch) {
+    const targetBpm = Number(bpmMatch[1]);
+    if (Number.isFinite(targetBpm) && targetBpm >= 40 && targetBpm <= 220) {
+      return {
+        intent: "speed",
+        params: { targetBpm },
+        summary: "",
+      };
+    }
+    return {
+      intent: "speed",
+      params: {},
+      summary: "",
+      unsupported: "Exact tempo targets must be between 40 and 220 BPM.",
+    };
+  }
+
   let factor: number | null = null;
   const slower = /\bslow(?:er|\s*down)?\b|\bdown\b/.test(lower);
 
@@ -236,6 +259,16 @@ function speedPlan(lower: string): LocalPlan {
 export function parseLocalPrompt(prompt: string, duration: number): LocalPlan {
   const lower = normalizePrompt(prompt);
 
+  // --- tempo question -----------------------------------------------------
+  // "What BPM is this?" changes nothing, so it must not fall into the speed
+  // branch. The engine measures the file and returns the number.
+  if (
+    (/\b(what|which|detect|tell\s+me|how\s+many)\b/.test(lower) && /\b(bpm|tempo)\b/.test(lower)) ||
+    /\bhow\s+fast\s+is\b/.test(lower)
+  ) {
+    return { intent: "info", params: { kind: "tempo" }, summary: "" };
+  }
+
   // --- style conversion ---------------------------------------------------
   // "Convert to house style" is not a file-format request. The browser can
   // reshape tone, but re-rendering a genre needs the server's generator.
@@ -249,7 +282,7 @@ export function parseLocalPrompt(prompt: string, duration: number): LocalPlan {
       params: {},
       summary: "",
       unsupported:
-        "Style conversion needs the server: it re-renders the audio with a drum and instrument generator. In the browser I can shape the tone (darker, brighter, calmer, more energetic), add reverb, and change level, speed, fades and noise.",
+        "Style conversion needs the server: it re-renders the audio with a drum and instrument generator. In the browser I can trim, remove a section, loop, change pitch or speed, shape tone/EQ, add reverb, remove pauses, and change level or noise.",
     };
   }
 
@@ -268,6 +301,54 @@ export function parseLocalPrompt(prompt: string, duration: number): LocalPlan {
       intent: "convert",
       params: { format: "wav" },
       summary: "Exported as WAV (already the browser format)",
+    };
+  }
+
+  // --- pauses / silence ----------------------------------------------------
+  // This has to run before `trim`: "cut pauses over 0.5s" used to fall into
+  // trimPlan and return "tell me the range", which was the wrong answer.
+  const pauseWord = /\b(pause|pauses|silence|silences|silent|gap|gaps|quiet\s+parts?)\b/.test(lower);
+  const fillerWord = /\b(filler|fillers|um|ums|ah|ahs|uh|uhs|hesitation|stutter)\b/.test(lower);
+  const removeWord = /\b(remove|cut|delete|trim|strip|shorten|get\s+rid\s+of)\b/.test(lower);
+  if (pauseWord && !fillerWord && removeWord) {
+    const bound =
+      /(?:longer\s+than|over|above|more\s+than)\s*(\d+(?:\.\d+)?)\s*(?:s|sec|secs|second|seconds)\b/.exec(lower) ??
+      /(?:max(?:imum)?|up\s+to)\s*(?:a\s*)?(?:pause|gap)?\s*(?:of\s+)?(\d+(?:\.\d+)?)\s*(?:s|sec|secs|second|seconds)\b/.exec(lower);
+    const minSeconds = bound ? Number(bound[1]) : 0.5;
+    if (!Number.isFinite(minSeconds) || minSeconds < 0.05 || minSeconds > 20) {
+      return {
+        intent: "silence",
+        params: {},
+        summary: "",
+        unsupported: "Pause removal works on pauses between 0.05 and 20 seconds.",
+      };
+    }
+    return {
+      intent: "silence",
+      params: { minSeconds },
+      summary: "",
+    };
+  }
+
+  // --- remove a time range ------------------------------------------------
+  const removeRange = new RegExp(
+    String.raw`\b(?:remove|delete|cut\s+out)\b[^.]*?\b(?:from|between)\s+(${T})\s*(?:to|and|until|through|-)\s*(${T})`,
+  ).exec(lower);
+  if (removeRange) {
+    const start = matchTime(removeRange[1]);
+    const end = matchTime(removeRange[2]);
+    if (start !== null && end !== null && end > start) {
+      return {
+        intent: "remove",
+        params: { start, end: Math.min(end, duration) },
+        summary: "",
+      };
+    }
+    return {
+      intent: "remove",
+      params: {},
+      summary: "",
+      unsupported: 'Tell me the range: "Remove the section from 0:02 to 0:04".',
     };
   }
 
@@ -348,6 +429,49 @@ export function parseLocalPrompt(prompt: string, duration: number): LocalPlan {
     return { intent: "reverse", params: {}, summary: "Reversed" };
   }
 
+  // --- pitch / transpose --------------------------------------------------
+  const pitchMatch = /\b(?:pitch|transpose)\b[^.]*?\b(up|down)\s*(\d+(?:\.\d+)?)\s*semitones?\b/.exec(lower);
+  if (pitchMatch) {
+    const semitones = (pitchMatch[1] === "down" ? -1 : 1) * Number(pitchMatch[2]);
+    if (Number.isFinite(semitones) && Math.abs(semitones) <= 12) {
+      return { intent: "pitch", params: { semitones }, summary: "" };
+    }
+    return {
+      intent: "pitch",
+      params: {},
+      summary: "",
+      unsupported: "Pitch shifts are limited to ±12 semitones.",
+    };
+  }
+
+  // --- loop / repeat ------------------------------------------------------
+  if (/\b(loop|repeat)\b/.test(lower)) {
+    const range = new RegExp(
+      String.raw`\b(?:from|between)\s+(${T})\s*(?:to|and|until|through|-)\s*(${T})`,
+    ).exec(lower);
+    const start = range ? matchTime(range[1]) : 0;
+    const end = range ? matchTime(range[2]) : duration;
+    const timesMatch = /\b(\d+)\s*(?:x|times)\b/.exec(lower);
+    const times = Math.max(2, Math.min(8, timesMatch ? Number(timesMatch[1]) : 2));
+    if (start !== null && end !== null && end > start) {
+      return {
+        intent: "loop",
+        params: {
+          start: Math.min(start, duration),
+          end: Math.min(end, duration),
+          times,
+        },
+        summary: "",
+      };
+    }
+    return {
+      intent: "loop",
+      params: {},
+      summary: "",
+      unsupported: 'Tell me the loop range: "Loop from 0:15 to 0:30 3 times".',
+    };
+  }
+
   // --- speed --------------------------------------------------------------
   if (/\bspeed\b|\btempo\b|\bfaster\b|\bslower\b|\bslow\b|\bsped\s*up\b/.test(lower)) {
     return speedPlan(lower);
@@ -420,7 +544,7 @@ export function parseLocalPrompt(prompt: string, duration: number): LocalPlan {
     params: {},
     summary: "",
     unsupported:
-      "That one needs the server. In the browser I can trim, fade, shape the mood (darker, brighter, calmer, more energetic), add reverb, change gain, normalise, reverse, change speed, denoise, and boost vocals/drums/bass.",
+      "That one needs the server. In the browser I can trim, remove a section, loop, fade, change pitch or speed, normalise, reverse, denoise, shape tone/EQ, remove pauses, and boost vocals/drums/bass.",
   };
 }
 
@@ -438,9 +562,27 @@ export const LOCAL_PROMPTS = [
   "Make it 3 dB louder",
   "Normalize the audio",
   "Reverse it",
+  "Pitch up 2 semitones",
+  "Loop from 0:15 to 0:30 3 times",
   "Speed up 1.25x",
+  "What BPM is this?",
+  "Remove long pauses",
   "Remove the background noise",
   "Boost the vocals",
   "Make the drums louder",
   "Boost the bass",
 ];
+
+/**
+ * Whether a feature-page button can run in browser-only mode.
+ *
+ * The duration is a placeholder: support depends on the intent, not on the
+ * file length (trim clamps to the real duration when it runs).
+ */
+export function localSupport(prompt: string): { supported: boolean; reason?: string } {
+  const plan = parseLocalPrompt(prompt, 120);
+  return {
+    supported: plan.intent !== "unknown" && !plan.unsupported,
+    reason: plan.unsupported,
+  };
+}

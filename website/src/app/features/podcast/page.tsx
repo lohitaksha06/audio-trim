@@ -115,7 +115,7 @@ export default function PodcastPage() {
           />
           <ActionButton
             label="Make voices clear and audible"
-            hint="Isolates the vocal stem, polishes it, lifts it over the music"
+            hint="Denoise and lift presence; stem isolation needs the server"
             prompt="Make voices clearer and remove background noise"
             tone="accent"
           />
@@ -123,8 +123,9 @@ export default function PodcastPage() {
 
         <Panel title="Levels">
           <ActionButton
-            label="Normalize speaker volume"
-            prompt="Normalize all speakers to the same volume level"
+            label="Normalize overall level"
+            hint="Peak-normalize the whole file. Per-speaker gain needs diarization."
+            prompt="Normalize the audio to a consistent level"
           />
           <ActionButton label="Soften room tone" prompt="Remove background noise" />
         </Panel>
@@ -136,7 +137,7 @@ export default function PodcastPage() {
           />
           <ActionButton
             label="Cut pauses over 1s"
-            prompt="Remove fillers with maximum pause of 1.5 seconds"
+            prompt="Remove pauses longer than 1 second"
           />
         </Panel>
 

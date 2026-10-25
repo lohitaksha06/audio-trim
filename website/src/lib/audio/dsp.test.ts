@@ -12,10 +12,13 @@ import { fft, ifft } from "./fft";
 import { applySpectralGain } from "./stft";
 import { denoiseChannel } from "./denoise";
 import {
+  applyEq,
   applyGain,
   boostTarget,
   fade,
   normalize,
+  pitchShiftAudio,
+  removeSilenceAudio,
   reverse,
   reverbAudio,
   shapeTone,
@@ -23,7 +26,8 @@ import {
   timeStretch,
   trim,
 } from "./ops";
-import { LOCAL_PROMPTS, parseLocalPrompt, parseTime } from "./parse";
+import { estimateTempo } from "./tempo";
+import { LOCAL_PROMPTS, localSupport, parseLocalPrompt, parseTime } from "./parse";
 import { durationOf, encodeWav, encodeWavBuffer } from "./wav";
 import { applyPlan, runLocalPlan } from "./engine";
 import { runLocalPlanAsync } from "./client";
@@ -90,6 +94,21 @@ function dominantFreq(x: Float32Array): number {
     }
   }
   return (bestBin * SR) / n;
+}
+
+/** Short decaying 1 kHz bursts on a steady beat. */
+function clickTrack(bpm: number, seconds: number, amp = 0.8): Float32Array {
+  const out = new Float32Array(Math.round(SR * seconds));
+  const period = 60 / bpm;
+  const burst = Math.round(0.03 * SR);
+  for (let t = 0; t < seconds; t += period) {
+    const start = Math.round(t * SR);
+    for (let i = 0; i < burst && start + i < out.length; i++) {
+      const envelope = Math.exp(-i / (0.004 * SR));
+      out[start + i] += amp * envelope * Math.sin((2 * Math.PI * 1000 * i) / SR);
+    }
+  }
+  return out;
 }
 
 describe("fft", () => {
@@ -203,6 +222,195 @@ describe("time ops", () => {
     const source: LocalAudio = { channels: [sine(440, 2, 0.5)], sampleRate: SR };
     const result = await runLocalPlan(source, parseLocalPrompt("Speed up 1.25x", 2));
     expect(durationOf(result.audio)).toBeCloseTo(1.6, 1);
+  });
+});
+
+describe("tempo", () => {
+  test("detects a steady click track", () => {
+    for (const bpm of [90, 120, 140]) {
+      const source: LocalAudio = { channels: [clickTrack(bpm, 8)], sampleRate: SR };
+      const estimate = estimateTempo(source);
+      expect(estimate).not.toBeNull();
+      expect(Math.abs((estimate as { bpm: number }).bpm - bpm)).toBeLessThan(2.5);
+      expect((estimate as { confidence: number }).confidence).toBeGreaterThan(0.3);
+    }
+  });
+
+  test("returns null for silence and for a steady tone", () => {
+    const silence: LocalAudio = { channels: [new Float32Array(SR * 2)], sampleRate: SR };
+    expect(estimateTempo(silence)).toBeNull();
+    // A continuous sine has no onsets. It must not be assigned an invented BPM.
+    const tone: LocalAudio = { channels: [sine(440, 3, 0.5)], sampleRate: SR };
+    expect(estimateTempo(tone)).toBeNull();
+  });
+
+  test("target BPM shortens a 120 BPM file to 140 BPM", () => {
+    const source: LocalAudio = { channels: [clickTrack(120, 8)], sampleRate: SR };
+    const measured = estimateTempo(source);
+    expect(measured).not.toBeNull();
+    const plan = parseLocalPrompt("Set tempo to 140 BPM", 8);
+    expect(plan.intent).toBe("speed");
+    expect(plan.params.targetBpm).toBe(140);
+    const result = applyPlan(source, plan);
+    const expected = 8 * (measured as { bpm: number }).bpm / 140;
+    expect(Math.abs(durationOf(result.audio) - expected)).toBeLessThan(0.1);
+    expect(result.metadata.target_bpm).toBe(140);
+  });
+
+  test("a BPM question returns info and no new audio", () => {
+    const source: LocalAudio = { channels: [clickTrack(120, 8)], sampleRate: SR };
+    const plan = parseLocalPrompt("What BPM is this?", 8);
+    expect(plan.intent).toBe("info");
+    const result = applyPlan(source, plan);
+    expect(result.metadata.info_only).toBe(true);
+    expect(Math.abs(Number(result.metadata.bpm) - 120)).toBeLessThan(2.5);
+    expect(result.audio.channels[0].length).toBe(source.channels[0].length);
+  });
+});
+
+describe("EQ and pitch", () => {
+  test("a low-band boost lifts 60 Hz relative to 4 kHz", () => {
+    const low = sine(60, 1, 0.2);
+    const high = sine(4000, 1, 0.2);
+    const mixed = new Float32Array(low.length);
+    for (let i = 0; i < mixed.length; i++) mixed[i] = low[i] + high[i];
+    const source: LocalAudio = { channels: [mixed], sampleRate: SR };
+    const out = applyEq(source, { "60": 6 });
+    const before = bandEnergy(source.channels[0], 50, 70) / bandEnergy(source.channels[0], 3500, 4500);
+    const after = bandEnergy(out.channels[0], 50, 70) / bandEnergy(out.channels[0], 3500, 4500);
+    expect(after).toBeGreaterThan(before * 1.5);
+  });
+
+  test("high-pass and low-pass remove their stop bands", () => {
+    const low = sine(60, 1, 0.2);
+    const high = sine(4000, 1, 0.2);
+    const mixed = new Float32Array(low.length);
+    for (let i = 0; i < mixed.length; i++) mixed[i] = low[i] + high[i];
+    const source: LocalAudio = { channels: [mixed], sampleRate: SR };
+
+    const highpassed = applyEq(source, {}, 200, null);
+    const hpBefore = bandEnergy(source.channels[0], 50, 70) / bandEnergy(source.channels[0], 3500, 4500);
+    const hpAfter = bandEnergy(highpassed.channels[0], 50, 70) / bandEnergy(highpassed.channels[0], 3500, 4500);
+    expect(hpAfter).toBeLessThan(hpBefore * 0.2);
+
+    const lowpassed = applyEq(source, {}, null, 1000);
+    const lpBefore = bandEnergy(source.channels[0], 3500, 4500) / bandEnergy(source.channels[0], 50, 70);
+    const lpAfter = bandEnergy(lowpassed.channels[0], 3500, 4500) / bandEnergy(lowpassed.channels[0], 50, 70);
+    expect(lpAfter).toBeLessThan(lpBefore * 0.2);
+  });
+
+  test("pitch shift raises the note and keeps the duration", () => {
+    const source: LocalAudio = { channels: [sine(440, 1, 0.5)], sampleRate: SR };
+    const up = pitchShiftAudio(source, 12);
+    expect(durationOf(up)).toBeCloseTo(1, 1);
+    expect(Math.abs(dominantFreq(up.channels[0]) - 880)).toBeLessThan(20);
+
+    const down = pitchShiftAudio(source, -12);
+    expect(durationOf(down)).toBeCloseTo(1, 1);
+    expect(Math.abs(dominantFreq(down.channels[0]) - 220)).toBeLessThan(15);
+  });
+
+  test("removing a section shortens the file with a crossfade", () => {
+    const source: LocalAudio = { channels: [sine(440, 10, 0.4)], sampleRate: SR };
+    const plan = parseLocalPrompt("Remove the section from 0:02 to 0:04", 10);
+    expect(plan.intent).toBe("remove");
+    const result = applyPlan(source, plan);
+    expect(durationOf(result.audio)).toBeCloseTo(8, 1);
+    expect(result.metadata.removed_seconds).toBe(2);
+
+    const whole = parseLocalPrompt("Remove the section from 0:00 to 0:10", 10);
+    expect(() => applyPlan(source, whole)).toThrow(/whole file/);
+  });
+
+  test("pitch and transpose preserve duration", () => {
+    const source: LocalAudio = { channels: [sine(440, 1, 0.5)], sampleRate: SR };
+    const plan = parseLocalPrompt("Pitch it up 2 semitones", 1);
+    expect(plan.intent).toBe("pitch");
+    expect(plan.params.semitones).toBe(2);
+    const result = applyPlan(source, plan);
+    expect(durationOf(result.audio)).toBeCloseTo(1, 1);
+    expect(Math.abs(dominantFreq(result.audio.channels[0]) - 493.88)).toBeLessThan(10);
+  });
+
+  test("loop repeats the range the requested number of times", () => {
+    const source: LocalAudio = { channels: [sine(440, 4, 0.4)], sampleRate: SR };
+    const plan = parseLocalPrompt("Loop from 0:01 to 0:02 3 times", 4);
+    expect(plan.intent).toBe("loop");
+    expect(plan.params.times).toBe(3);
+    const result = applyPlan(source, plan);
+    // 4 s original + two extra 1 s repeats, minus two 10 ms crossfades.
+    expect(durationOf(result.audio)).toBeCloseTo(6, 1);
+    expect(result.metadata.loop_times).toBe(3);
+  });
+
+  test("the Lab plan renders without changing duration", () => {
+    const source: LocalAudio = { channels: [sine(220, 1, 0.4)], sampleRate: SR };
+    const plan: LocalPlan = {
+      intent: "lab",
+      params: {
+        gains: { "60": 3, "4000": -1 },
+        highpass: 60,
+        lowpass: 12000,
+        pitch: 2,
+        speed: 1.1,
+        gainDb: -1,
+        reverb: 0.1,
+      },
+      summary: "",
+    };
+    const result = applyPlan(source, plan);
+    expect(durationOf(result.audio)).toBeCloseTo(1 / 1.1, 1);
+    expect(result.metadata.lab_params).toBeTruthy();
+    for (const value of result.audio.channels[0]) expect(Number.isFinite(value)).toBe(true);
+  });
+});
+
+describe("pause removal", () => {
+  function withPause(seconds = 2): LocalAudio {
+    const first = sine(440, 1, 0.4);
+    const gap = new Float32Array(Math.round(SR * seconds));
+    const second = sine(660, 1, 0.4);
+    const channel = new Float32Array(first.length + gap.length + second.length);
+    channel.set(first);
+    channel.set(gap, first.length);
+    channel.set(second, first.length + gap.length);
+    return { channels: [channel], sampleRate: SR };
+  }
+
+  test("removes a pause longer than the threshold and keeps the speech", () => {
+    const source = withPause(2);
+    const result = removeSilenceAudio(source, 0.5);
+    expect(result.pauses).toBe(1);
+    expect(result.removedSeconds).toBeGreaterThan(1.6);
+    expect(durationOf(result.audio)).toBeGreaterThan(1.9);
+    expect(durationOf(result.audio)).toBeLessThan(2.4);
+    expect(bandEnergy(result.audio.channels[0], 400, 480)).toBeGreaterThan(0.01);
+  });
+
+  test("keeps a pause shorter than the threshold", () => {
+    const source = withPause(0.25);
+    const result = removeSilenceAudio(source, 0.5);
+    expect(result.pauses).toBe(0);
+    expect(durationOf(result.audio)).toBeCloseTo(2.25, 2);
+  });
+
+  test("does not delete a continuous tone", () => {
+    const source: LocalAudio = { channels: [sine(440, 2, 0.4)], sampleRate: SR };
+    const result = removeSilenceAudio(source, 0.5);
+    expect(result.pauses).toBe(0);
+    expect(durationOf(result.audio)).toBeCloseTo(2, 2);
+  });
+
+  test("parses the threshold and applies it", () => {
+    const plan = parseLocalPrompt("Remove all long pauses and silences longer than 0.5 seconds", 10);
+    expect(plan.intent).toBe("silence");
+    expect(plan.params.minSeconds).toBe(0.5);
+    expect(parseLocalPrompt("Cut pauses over 1s", 10).params.minSeconds).toBe(1);
+    expect(parseLocalPrompt("Remove filler words", 10).intent).toBe("unknown");
+
+    const result = applyPlan(withPause(2), plan);
+    expect(result.metadata.pauses_removed).toBe(1);
+    expect(result.metadata.duration_seconds as number).toBeLessThan(2.5);
   });
 });
 
@@ -350,6 +558,32 @@ describe("prompt parsing", () => {
     expect(parseLocalPrompt("Speed up by 20%", 60).params.factor).toBeCloseTo(1.2, 5);
     expect(parseLocalPrompt("Slow it down by 25%", 60).params.factor).toBeCloseTo(0.75, 5);
     expect(parseLocalPrompt("Set speed to 150%", 60).params.factor).toBeCloseTo(1.5, 5);
+  });
+
+  test("exact BPM targets are not treated as a default 1.25x speed", () => {
+    const target = parseLocalPrompt("Set tempo to 128 BPM", 60);
+    expect(target.intent).toBe("speed");
+    expect(target.params.targetBpm).toBe(128);
+    expect(target.params.factor).toBeUndefined();
+
+    expect(parseLocalPrompt("Speed up to 140 BPM", 60).params.targetBpm).toBe(140);
+    expect(parseLocalPrompt("Slow down to 90 BPM", 60).params.targetBpm).toBe(90);
+    expect(parseLocalPrompt("What BPM is this?", 60).intent).toBe("info");
+    expect(parseLocalPrompt("Detect the tempo without changing anything", 60).intent).toBe("info");
+  });
+
+  test("localSupport marks server-only actions", () => {
+    expect(localSupport("Separate into stems").supported).toBe(false);
+    expect(localSupport("Split this interview by speaker").supported).toBe(false);
+    expect(localSupport("Trim from 0:01 to 0:02").supported).toBe(true);
+    expect(localSupport("Set tempo to 128 BPM").supported).toBe(true);
+    expect(localSupport("What BPM is this?").supported).toBe(true);
+    expect(localSupport("Remove all long pauses and silences longer than 0.5 seconds").supported).toBe(true);
+    expect(localSupport("Cut pauses over 1s").supported).toBe(true);
+    expect(localSupport("Remove filler words").supported).toBe(false);
+    expect(localSupport("Remove the section from 0:02 to 0:04").supported).toBe(true);
+    expect(localSupport("Pitch up 2 semitones").supported).toBe(true);
+    expect(localSupport("Loop from 0:15 to 0:30 3 times").supported).toBe(true);
   });
 
   test("boost keeps its direction", () => {

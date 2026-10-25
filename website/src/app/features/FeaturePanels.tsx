@@ -1,6 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { isBackendConfigured } from "@/services/api";
+import { localSupport } from "@/lib/audio";
 import { useFeaturePrompt } from "./FeaturePromptContext";
 
 /** Section wrapper: one eyebrow label + consistent rhythm. */
@@ -58,19 +60,42 @@ export function ActionButton({
 }) {
   const ctx = useFeaturePrompt();
   const blocked = disabled || ctx?.busy || !ctx?.hasFile;
+  // In browser-only builds, mark the buttons that cannot run here. They stay
+  // clickable so the chat can explain the local alternative instead of a dead
+  // control with no feedback.
+  const support = !isBackendConfigured ? localSupport(prompt) : null;
+  const serverOnly = support !== null && !support.supported;
   return (
     <button
       onClick={() => ctx?.triggerPrompt?.(prompt)}
       disabled={blocked}
-      title={!ctx?.hasFile ? "Upload a file first" : hint}
+      title={
+        !ctx?.hasFile
+          ? "Upload a file first"
+          : serverOnly
+            ? support?.reason ?? "This one needs the backend"
+            : hint
+      }
       className={`w-full rounded-xl border p-3.5 text-left text-[0.9375rem] transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
         tone === "accent"
           ? "border-neon-purple/25 bg-neon-purple/[0.06] text-white/90 hover:border-neon-purple/45 hover:bg-neon-purple/10"
           : "border-white/10 bg-white/[0.02] text-white/84 hover:border-neon-blue/35 hover:bg-neon-blue/5 hover:text-neon-blue"
       }`}
     >
-      {label}
+      <span className="flex items-center justify-between gap-2">
+        <span>{label}</span>
+        {serverOnly && (
+          <span className="shrink-0 rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 text-[0.6875rem] font-medium uppercase tracking-wide text-amber-200">
+            Server
+          </span>
+        )}
+      </span>
       {hint && <span className="mt-1 block text-[0.8125rem] leading-snug text-white/58">{hint}</span>}
+      {serverOnly && (
+        <span className="mt-1 block text-[0.75rem] leading-snug text-amber-200/70">
+          Needs the backend — click to see the local alternative.
+        </span>
+      )}
     </button>
   );
 }

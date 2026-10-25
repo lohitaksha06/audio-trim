@@ -32,8 +32,19 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done and measured · `[-
 - [x] **Prompt routing bugs**
       `phonk`→"honk" hijack, `duration` parsed out of "0.5 seconds",
       "cut pauses"→TRIM. Bench now 73/73, full suite green.
+- [x] **Pause threshold was ignored** — `REMOVE_SILENCE` never received
+      `max_pause`, and `_remove_silence` concatenated every non-silent island.
+      "Cut pauses over 0.5s" therefore removed all gaps. The prompt binding now
+      covers `REMOVE_SILENCE`; the operation keeps gaps shorter than the
+      threshold and an 80 ms margin at each cut. Regression test: a 2.0 s pause
+      is removed at a 0.5 s threshold (**1.84 s cut**) and kept at 3 s.
 - [x] **Feature pages** — removed invented data (random stem bars, fake
       speakers, dead bitrate sliders). Now render real analysis.
+      Also removed the convert page's reference to a non-existent "High
+      quality" sidebar control, corrected the film dialogue hint (it denoises,
+      it does not isolate speech), and stated the real tempo behaviour. The Lab
+      now releases its WebAudio graph when the file changes, so the knobs keep
+      controlling the audio after a second upload.
 
 ## Queue
 
@@ -191,12 +202,28 @@ the main thread, which still produces the right file.
 |---|---|---|
 | trim, fade, gain, normalise, reverse | time domain | sample-exact length; peak hits −1 dBFS |
 | speed | phase vocoder, pitch preserved | 20 s → **16.0 s** at 1.25x; dominant tone stayed **180.0 Hz** |
+| exact BPM target | onset flux + autocorrelation, target ratio | 8.0 s at 120 BPM → **7.5009 s** at 128 BPM (expected 7.5) |
+| tempo question | same estimator, no audio change | 8 s 120 BPM click track → **120 BPM**, no download button |
 | denoise | Wiener, 12th-percentile noise profile, temporal gain smoothing | **+0.67 / +1.20 / +1.66 dB** true SNR at strength 1 / 2 / 3 on a gated 440 Hz fixture at 4 dB input |
 | boost vocals / drums / bass | 1–6 kHz / <200 Hz + 2–4 kHz / <250 Hz shelves | **+4.6 / +5.6 + 3.5 / +5.1 dB** relative to the rest of the mix |
+| 5-band EQ, high/low-pass | RBJ biquads, same frequencies as the preview | +6 dB at 60 Hz raises the 60 Hz / 4 kHz energy ratio by **>1.5×** |
+| pitch shift | resample + phase vocoder, duration preserved | +12 st moves a 440 Hz tone to **880 Hz ±20 Hz**, length **1.00 s** |
+| pause removal | 20 ms RMS, 10 ms hop, 80 ms cut margin | 2.0 s pause at a 0.5 s threshold removes **1.84 s**; a 0.25 s gap is kept |
+| remove section, loop | concatenation with 10 ms crossfades | 10 s minus 2 s → **7.99 s**; a 1 s loop ×3 on a 4 s file → **5.98 s** |
+| pitch / transpose | same resample + phase-vocoder path, then peak-normalise | +2 st moves 440 Hz to **493.9 Hz ±10 Hz**, duration **1.00 s** |
+| Lab render | EQ → pitch → speed → gain → reverb, in a worker | preset export of an 8 s file: **8.0 s** WAV, content changed (SHA-256 differs) |
 
-Unsupported prompts (stem separation, generated instruments, two-stem balance,
-non-WAV export) return an explicit "that one needs the server" message; they do
-not silently no-op.
+Unsupported prompts (stem separation, generated instruments, transcription,
+diarization, two-stem balance, non-WAV export) are marked **Server** on the
+feature pages in browser builds. Clicking one still returns an explicit "that
+one needs the server" message with the local alternative; they do not silently
+no-op.
+
+The Lab page is fully local in browser builds: it decodes the upload, measures
+tempo and brightness, applies a deterministic preset, previews EQ/filters/gain/
+speed with WebAudio, and renders the export in the worker. The server path is
+unchanged when `NEXT_PUBLIC_API_URL` is set. The "AI" label was removed because
+the preset is a rule set over measured features, not a model.
 
 Cost on mono 44.1 kHz, measured on this machine:
 

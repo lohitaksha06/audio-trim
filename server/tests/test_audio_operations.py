@@ -1,5 +1,6 @@
 """Unit tests for audio operations (Version A)."""
 
+import numpy as np
 import soundfile as sf
 
 from server.ml.audio_operations import execute_plan
@@ -22,6 +23,37 @@ def test_trim_duration(tone_path):
 def test_remove_duration(tone_path):
     result = _run(tone_path, "remove the section from 0:02 to 0:04", Intent.REMOVE)
     assert round(sf.info(result["output_path"]).duration, 1) == 8.0
+
+
+def test_remove_silence_honours_pause_threshold(tmp_path):
+    """A 2 s pause is removed at 0.5 s, but kept at 3 s.
+
+    The old `_remove_silence` concatenated every non-silent island, so the
+    threshold in "cut pauses over X" was ignored. This is the regression test
+    for that: same audio, two thresholds, two different durations.
+    """
+    sr = 22050
+
+    def tone(freq, dur, amp=0.5):
+        t = np.linspace(0, dur, int(sr * dur), endpoint=False)
+        return amp * np.sin(2 * np.pi * freq * t)
+
+    signal = np.concatenate([tone(440, 1.0), np.zeros(sr * 2), tone(660, 1.0)])
+    path = tmp_path / "pauses.wav"
+    sf.write(str(path), signal, sr)
+
+    plan = regex_plan_from_prompt("remove pauses longer than 0.5 seconds")
+    assert plan.intent == Intent.REMOVE_SILENCE
+    assert plan.params.get("max_pause") == 0.5
+    result = execute_plan(str(path), plan)
+    duration = sf.info(result["output_path"]).duration
+    assert 1.9 < duration < 2.4, duration
+    assert result["metadata"]["min_pause_seconds"] == 0.5
+    assert result["metadata"]["removed_seconds"] > 1.5
+
+    plan = regex_plan_from_prompt("remove pauses longer than 3 seconds")
+    result = execute_plan(str(path), plan)
+    assert round(sf.info(result["output_path"]).duration, 1) == 4.0
 
 
 def test_mood_operation(tone_path):

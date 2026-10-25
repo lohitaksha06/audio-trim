@@ -83,7 +83,7 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
           audio_path: `local:${f.name}`,
           analysis: {
             duration_seconds: info.durationSeconds,
-            bpm: 0,
+            bpm: info.bpm ?? 0,
             key: "—",
             energy: info.rms,
             sample_rate: info.sampleRate,
@@ -191,6 +191,13 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
         const result = await runLocalPlanAsync(base, plan, (fraction, label) => {
           setLocalProgress({ fraction, label });
         });
+        if (result.metadata.info_only) {
+          // Measurement only: no new audio, so no download button and no
+          // "edit" counter. The answer is the chat message.
+          setHistory((prev) => [...prev, { role: "ai", text: result.plan.summary }]);
+          setState("analyzed");
+          return;
+        }
         const url = URL.createObjectURL(result.blob);
         setLocalUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev);
@@ -381,6 +388,8 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
             {localMode && (
               <p className="mb-3 rounded-lg border border-neon-blue/20 bg-neon-blue/[0.05] px-3 py-2 text-xs text-neon-blue/90">
                 Browser mode: the file is decoded on this device and every edit runs here. Nothing is uploaded.
+                Buttons marked <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-1.5 py-0.5 text-amber-200">Server</span> need
+                the backend and will explain what runs locally instead.
               </p>
             )}
             {/* File info bar when file loaded */}
@@ -396,6 +405,9 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
                   <p className="text-xs text-white/68">
                     {uploadResult?.is_video ? "Video" : "Audio"} · {formatSize(file.size)}
                     {analysis && <> · {formatDuration(analysis.duration_seconds)} · {analysis.bpm ? `${analysis.bpm.toFixed(0)} BPM` : "— BPM"}</>}
+                    {state === "uploading" && (
+                      <span className="ml-2 text-neon-blue/80 animate-pulse">decoding and measuring on this device…</span>
+                    )}
                   </p>
                 </div>
                 {state === "completed" && (
