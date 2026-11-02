@@ -89,6 +89,10 @@ export function estimateTempo(audio: LocalAudio, maxSeconds = 60): TempoEstimate
   for (let i = 0; i < frames; i++) mean += flux[i];
   mean /= frames;
   for (let i = 0; i < frames; i++) flux[i] = Math.max(0, flux[i] - mean);
+  let meanFlux = 0;
+  for (let i = 0; i < frames; i++) meanFlux += flux[i];
+  meanFlux /= frames;
+  if (meanFlux <= 1e-9) return null;
 
   const minBpm = 50;
   const maxBpm = 200;
@@ -113,28 +117,60 @@ export function estimateTempo(audio: LocalAudio, maxSeconds = 60): TempoEstimate
     ac[lag] = denominator > 1e-12 ? numerator / denominator : 0;
   }
 
+  /**
+   * Comb-filter score: average onset strength on a grid of `lag` frames,
+   * maximised over phase. Autocorrelation alone prefers the half-time pulse on
+   * real recordings (120 BPM read as 60, 90 as 60); the comb grid measures how
+   * well a candidate *beat* explains the onsets and breaks those ties.
+   */
+  const combAt = (lag: number): number => {
+    let best = 0;
+    for (let phase = 0; phase < lag; phase += 0.25) {
+      let sum = 0;
+      let count = 0;
+      for (let position = phase; position < frames; position += lag) {
+        const index = Math.round(position);
+        if (index >= 0 && index < frames) {
+          sum += flux[index];
+          count++;
+        }
+      }
+      if (count >= 4) {
+        const value = sum / count;
+        if (value > best) best = value;
+      }
+    }
+    return best;
+  };
+
   let bestLag = 0;
   let bestScore = -Infinity;
+  const scores = new Float32Array(maxLag + 2);
   for (let lag = minLag; lag <= maxLag; lag++) {
-    // Reward the two-beat lag as well. A sub-beat bonus was tried and removed:
-    // it made the double lag score higher than the true beat on a plain click
-    // track, so 120 BPM read as 60 BPM. The octave term alone still favours a
-    // real beat over a strong eighth-note pattern without that bias.
-    const score = ac[lag] + 0.5 * (lag * 2 <= acLimit ? ac[lag * 2] : 0);
+    const bpmAtLag = (60 * sr) / (lag * hop);
+    // Broad prior around a typical pop/dance tempo. It resolves the 60/120
+    // octave ambiguity without forcing every track into a narrow range.
+    const prior = Math.exp(-0.5 * Math.pow(Math.log2(bpmAtLag / 110) / 0.75, 2));
+    const score = (combAt(lag) / meanFlux + 3.5 * ac[lag]) * prior;
+    scores[lag] = score;
     if (score > bestScore) {
       bestScore = score;
       bestLag = lag;
     }
   }
-  if (bestLag === 0 || bestScore < 0.12) return null;
+  // A speech file can produce a weak rhythmic autocorrelation peak. Requiring
+  // a real periodic correlation (not just a comb that fits by chance) keeps
+  // "what BPM is this?" from inventing a tempo for narration.
+  if (bestLag === 0 || ac[bestLag] < 0.2) return null;
 
-  // Parabolic interpolation around the integer lag. Without this, 120 BPM at
-  // 22.05 kHz can read as 120.2 or 118.8 depending on which frame it lands on.
+  // Refine on the same score that picked the lag. Refining on raw
+  // autocorrelation moved 120.2 BPM to 121 BPM because the neighbouring
+  // autocorrelation bins do not follow the comb score.
   let refinedLag = bestLag;
-  if (bestLag > 1 && bestLag < acLimit) {
-    const left = ac[bestLag - 1];
-    const centre = ac[bestLag];
-    const right = ac[bestLag + 1];
+  if (bestLag > minLag && bestLag < maxLag) {
+    const left = scores[bestLag - 1];
+    const centre = scores[bestLag];
+    const right = scores[bestLag + 1];
     const denominator = left - 2 * centre + right;
     if (Math.abs(denominator) > 1e-9) {
       const delta = (0.5 * (left - right)) / denominator;
@@ -147,7 +183,7 @@ export function estimateTempo(audio: LocalAudio, maxSeconds = 60): TempoEstimate
 
   return {
     bpm,
-    confidence: Math.max(0, Math.min(1, bestScore)),
+    confidence: Math.max(0, Math.min(1, ac[bestLag])),
   };
 }
 

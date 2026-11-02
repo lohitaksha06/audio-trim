@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Audelle — AI-Powered Audio Editor",
+  title: "Audelle — Audio Editor",
   description:
-    "Upload audio, describe what you want, and let AI handle the rest. Source separation, trimming, stem export, and more — all through natural language.",
+    "Upload audio and describe the edit. Browser mode runs trim, tone, EQ, pitch, speed, pause removal and WAV export on your device; server-only tools are labelled.",
 };
 
 export default function RootLayout({

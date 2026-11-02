@@ -206,34 +206,42 @@ export default function Sidebar({}: SidebarProps) {
                 <Toggle checked={settings.autoAnalyze} onChange={(v) => updateSettings({ autoAnalyze: v })} label="Auto-analyze uploads" />
               </div>
             )}
-            <div className="flex items-center justify-between gap-3">
-              <label
-                htmlFor="set-high-quality"
-                className="text-sm leading-snug text-white/78"
-                title="On: downloads stay lossless WAV. Off: downloads convert to the format below first."
-              >
-                High quality
-              </label>
-              <Toggle checked={settings.highQuality} onChange={(v) => updateSettings({ highQuality: v })} label="High quality downloads" />
-            </div>
-            <div>
-              <label htmlFor="set-output-format" className="mb-1.5 block text-sm text-white/78">
-                Output format
-                {!settings.highQuality && <span className="ml-1 text-xs text-white/58">used on download</span>}
-              </label>
-              <select
-                id="set-output-format"
-                value={settings.outputFormat}
-                onChange={(e) => updateSettings({ outputFormat: e.target.value })}
-                className="w-full rounded-xl border border-white/15 bg-white/[0.06] px-3 py-2.5 text-sm text-white outline-none transition-colors hover:border-white/25 focus:border-neon-blue/60"
-              >
-                <option value="wav">WAV (Lossless)</option>
-                <option value="flac">FLAC (Compressed)</option>
-                <option value="mp3">MP3 (Smaller)</option>
-                <option value="aac">AAC</option>
-                <option value="ogg">OGG</option>
-              </select>
-            </div>
+            {isBackendConfigured ? (
+              <>
+                <div className="flex items-center justify-between gap-3">
+                  <label
+                    htmlFor="set-high-quality"
+                    className="text-sm leading-snug text-white/78"
+                    title="On: downloads stay lossless WAV. Off: downloads convert to the format below first."
+                  >
+                    High quality
+                  </label>
+                  <Toggle checked={settings.highQuality} onChange={(v) => updateSettings({ highQuality: v })} label="High quality downloads" />
+                </div>
+                <div>
+                  <label htmlFor="set-output-format" className="mb-1.5 block text-sm text-white/78">
+                    Output format
+                    {!settings.highQuality && <span className="ml-1 text-xs text-white/58">used on download</span>}
+                  </label>
+                  <select
+                    id="set-output-format"
+                    value={settings.outputFormat}
+                    onChange={(e) => updateSettings({ outputFormat: e.target.value })}
+                    className="w-full rounded-xl border border-white/15 bg-white/[0.06] px-3 py-2.5 text-sm text-white outline-none transition-colors hover:border-white/25 focus:border-neon-blue/60"
+                  >
+                    <option value="wav">WAV (Lossless)</option>
+                    <option value="flac">FLAC (Compressed)</option>
+                    <option value="mp3">MP3 (Smaller)</option>
+                    <option value="aac">AAC</option>
+                    <option value="ogg">OGG</option>
+                  </select>
+                </div>
+              </>
+            ) : (
+              <p className="text-xs leading-relaxed text-white/58">
+                Browser mode exports WAV only. FLAC, MP3, AAC and OGG need the server.
+              </p>
+            )}
           </div>
         </div>
       </div>

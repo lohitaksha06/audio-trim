@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { isBackendConfigured } from "@/services/api";
 
 interface FileUploadProps {
   onFileSelected: (file: File) => void;
@@ -8,6 +9,7 @@ interface FileUploadProps {
 }
 
 export default function FileUpload({ onFileSelected, onInvalid }: FileUploadProps) {
+  const localMode = !isBackendConfigured;
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -21,15 +23,25 @@ export default function FileUpload({ onFileSelected, onInvalid }: FileUploadProp
         "video/mp4", "video/quicktime", "video/x-msvideo", "video/x-matroska",
       ];
       const ext = file.name.split(".").pop()?.toLowerCase();
-      const validExt = ["mp3", "wav", "flac", "aac", "m4a", "ogg", "mp4", "mov", "avi", "mkv"];
+      const audioExt = ["mp3", "wav", "flac", "aac", "m4a", "ogg"];
+      const videoExt = ["mp4", "mov", "avi", "mkv"];
+      const validExt = localMode ? audioExt : [...audioExt, ...videoExt];
 
+      if (localMode && (validVideo.includes(file.type) || videoExt.includes(ext || ""))) {
+        onInvalid?.("Video import needs the server. In browser mode, upload MP3, WAV, FLAC, M4A, AAC or OGG.");
+        return;
+      }
       if (!validAudio.includes(file.type) && !validVideo.includes(file.type) && !validExt.includes(ext || "")) {
-        onInvalid?.(`Unsupported file type: ${file.name}. Use MP3, WAV, FLAC, M4A, MP4, MOV, AVI or MKV.`);
+        onInvalid?.(
+          localMode
+            ? `Unsupported file type: ${file.name}. Use MP3, WAV, FLAC, M4A, AAC or OGG in browser mode.`
+            : `Unsupported file type: ${file.name}. Use MP3, WAV, FLAC, M4A, MP4, MOV, AVI or MKV.`,
+        );
         return;
       }
       onFileSelected(file);
     },
-    [onFileSelected],
+    [localMode, onFileSelected, onInvalid],
   );
 
   const handleDrop = useCallback(
@@ -51,7 +63,7 @@ export default function FileUpload({ onFileSelected, onInvalid }: FileUploadProp
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); inputRef.current?.click(); } }}
       role="button"
       tabIndex={0}
-      aria-label="Upload audio or video file"
+      aria-label={localMode ? "Upload audio file" : "Upload audio or video file"}
       className={`group relative cursor-pointer rounded-2xl border-2 border-dashed p-10 sm:p-14 lg:p-16 transition-all duration-300 ${
         dragging
           ? "border-neon-blue bg-neon-blue/5 shadow-[0_0_40px_rgba(0,212,255,0.15)]"
@@ -75,13 +87,13 @@ export default function FileUpload({ onFileSelected, onInvalid }: FileUploadProp
           </svg>
         </div>
         <p className="mb-1.5 text-lg sm:text-xl font-medium text-white/90">
-          Drop your audio or video file here
+          {localMode ? "Drop your audio file here" : "Drop your audio or video file here"}
         </p>
         <p className="mb-5 text-sm sm:text-base text-white/58">
           or click to browse
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 text-xs sm:text-sm text-white/48">
-          {["MP3", "WAV", "FLAC", "M4A", "MP4", "MOV", "AVI", "MKV"].map((fmt) => (
+          {(localMode ? ["MP3", "WAV", "FLAC", "M4A", "AAC", "OGG"] : ["MP3", "WAV", "FLAC", "M4A", "MP4", "MOV", "AVI", "MKV"]).map((fmt) => (
             <span key={fmt} className="rounded-md border border-white/10 px-2.5 py-1">
               {fmt}
             </span>
@@ -91,7 +103,7 @@ export default function FileUpload({ onFileSelected, onInvalid }: FileUploadProp
       <input
         ref={inputRef}
         type="file"
-        accept=".mp3,.wav,.flac,.aac,.m4a,.ogg,.mp4,.mov,.avi,.mkv,audio/*,video/*"
+        accept={localMode ? ".mp3,.wav,.flac,.aac,.m4a,.ogg,audio/*" : ".mp3,.wav,.flac,.aac,.m4a,.ogg,.mp4,.mov,.avi,.mkv,audio/*,video/*"}
         aria-hidden={false}
         tabIndex={-1}
         className="absolute inset-0 h-full w-full cursor-pointer opacity-0"

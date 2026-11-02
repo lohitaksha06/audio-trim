@@ -115,7 +115,7 @@ export default function PodcastPage() {
           />
           <ActionButton
             label="Make voices clear and audible"
-            hint="Denoise and lift presence; stem isolation needs the server"
+            hint="Wiener denoise for steady noise; stem isolation needs the server"
             prompt="Make voices clearer and remove background noise"
             tone="accent"
           />

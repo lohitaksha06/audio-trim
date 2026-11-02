@@ -109,6 +109,27 @@ function trimPlan(lower: string, duration: number): LocalPlan | null {
     }
   }
 
+  // "Keep the last 30 seconds" is the inverse of "cut the last 30 seconds".
+  // Without this branch, the latter matched first and a keep-last request
+  // silently removed the tail instead of the head.
+  const keepLast = new RegExp(
+    String.raw`\b(?:keep(?:\s+only)?|trim\s+to|cut\s+to)\s+(?:the\s+)?last\s+(${T})\s*$`,
+  ).exec(lower);
+  if (keepLast) {
+    const length = matchTime(keepLast[1]);
+    if (length !== null && length > 0) {
+      const start = Math.max(0, duration - length);
+      return {
+        intent: "trim",
+        params: { start, end: duration },
+        summary:
+          start > 0
+            ? `Kept the last ${shortDuration(length)}`
+            : `File is shorter than ${shortDuration(length)}; kept the whole file`,
+      };
+    }
+  }
+
   const last = new RegExp(String.raw`\blast\s+(${T})`).exec(lower);
   if (last) {
     const cut = matchTime(last[1]);
@@ -367,7 +388,9 @@ export function parseLocalPrompt(prompt: string, duration: number): LocalPlan {
   }
 
   // --- trim ---------------------------------------------------------------
-  if (/\b(trim|cut|crop|shorten)\b/.test(lower)) {
+  // "Keep the last N" is a trim too, but "keep only the vocals" must stay
+  // server-only rather than falling into trimPlan's "tell me the range" reply.
+  if (/\b(trim|cut|crop|shorten)\b|\bkeep\s+(?:only\s+)?(?:the\s+)?last\b/.test(lower)) {
     const plan = trimPlan(lower, duration);
     if (plan) return plan;
   }

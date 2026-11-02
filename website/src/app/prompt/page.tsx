@@ -128,7 +128,7 @@ export default function PromptPage() {
           audio_path: `local:${f.name}`,
           analysis: {
             duration_seconds: info.durationSeconds,
-            bpm: 0,
+            bpm: info.bpm ?? 0,
             key: "—",
             energy: info.rms,
             sample_rate: info.sampleRate,
@@ -137,7 +137,7 @@ export default function PromptPage() {
         });
         setState("analyzed");
       } catch {
-        setErrorMsg("This browser could not decode that file. WAV, MP3, M4A, OGG and FLAC all work in Chrome, Edge and Safari.");
+        setErrorMsg("This browser could not decode that file. WAV, MP3, M4A, OGG and FLAC all work in Chrome, Edge and Safari. Video import needs the server.");
         setState("error");
       }
       return;
@@ -231,6 +231,13 @@ export default function PromptPage() {
         const result = await runLocalPlanAsync(base, plan, (fraction, label) => {
           setLocalProgress({ fraction, label });
         });
+        if (result.metadata.info_only) {
+          // A measurement answers a question; it is not an edit and must not
+          // offer an unchanged audio file as a download.
+          setHistory((prev) => [...prev, { role: "ai", text: result.plan.summary }]);
+          setState(lastResult ? "completed" : "analyzed");
+          return;
+        }
         const url = URL.createObjectURL(result.blob);
         setLocalUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev);
@@ -541,8 +548,12 @@ export default function PromptPage() {
                 <div className="flex min-h-full flex-col items-center justify-center px-4 py-10 sm:px-8">
                   <div className="w-full max-w-2xl">
                   <div className="mb-8 text-center">
-                    <h1 className="mb-3 text-3xl sm:text-4xl lg:text-5xl font-bold text-white">Edit with AI</h1>
-                    <p className="text-base sm:text-lg text-white/68">Upload audio or video and describe what you want to do.</p>
+                    <h1 className="mb-3 text-3xl sm:text-4xl lg:text-5xl font-bold text-white">Edit with words</h1>
+                    <p className="text-base sm:text-lg text-white/68">
+          {localMode
+            ? "Upload audio and describe what you want to do. Video import and export need the server."
+            : "Upload audio or video and describe what you want to do."}
+        </p>
                   </div>
                   <FileUpload onFileSelected={handleFileSelected} onInvalid={(m) => { setErrorMsg(m); }} />
 

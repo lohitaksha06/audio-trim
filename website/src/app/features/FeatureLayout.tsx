@@ -94,7 +94,7 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
       } catch {
         setFile(null);
         setErrorMsg(
-          "This browser could not decode that file. WAV, MP3, M4A, OGG and FLAC all work in Chrome, Edge and Safari.",
+          "This browser could not decode that file. WAV, MP3, M4A, OGG and FLAC all work in Chrome, Edge and Safari. Video import needs the server.",
         );
         setState("idle");
       }
@@ -388,7 +388,8 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
             {localMode && (
               <p className="mb-3 rounded-lg border border-neon-blue/20 bg-neon-blue/[0.05] px-3 py-2 text-xs text-neon-blue/90">
                 Browser mode: the file is decoded on this device and every edit runs here. Nothing is uploaded.
-                Buttons marked <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-1.5 py-0.5 text-amber-200">Server</span> need
+                Audio only — video import and export need the server. Buttons marked{" "}
+                <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-1.5 py-0.5 text-amber-200">Server</span> need
                 the backend and will explain what runs locally instead.
               </p>
             )}

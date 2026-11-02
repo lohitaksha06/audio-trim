@@ -31,7 +31,7 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done and measured · `[-
       **stationary** noise (hiss, hum, fan). It is not a noise remover.
 - [x] **Prompt routing bugs**
       `phonk`→"honk" hijack, `duration` parsed out of "0.5 seconds",
-      "cut pauses"→TRIM. Bench now 73/73, full suite green.
+      "cut pauses"→TRIM. Bench now 99/99 with 57/57 parameter checks; full suite green.
 - [x] **Pause threshold was ignored** — `REMOVE_SILENCE` never received
       `max_pause`, and `_remove_silence` concatenated every non-silent island.
       "Cut pauses over 0.5s" therefore removed all gaps. The prompt binding now
@@ -45,6 +45,26 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done and measured · `[-
       it does not isolate speech), and stated the real tempo behaviour. The Lab
       now releases its WebAudio graph when the file changes, so the knobs keep
       controlling the audio after a second upload.
+- [x] **Tempo read real music an octave low** — autocorrelation alone reported
+      **60 BPM** for both a 90 BPM and a 120 BPM Audionautix track. Added a
+      comb-grid score and a broad tempo prior; measured **90.0 BPM** and
+      **120.1 BPM**, and speech now returns no tempo instead of inventing one.
+- [x] **Prompt-page info answers offered a download** — "What BPM is this?"
+      rendered the unchanged audio as an edit. It now answers in the chat with
+      no download and no edit counter, matching the feature pages.
+- [x] **"Give me just the drums" was caught as an output follow-up** — the
+      bare "give" in the follow-up matcher swallowed the separation request, so
+      a Server button replied "No output yet" instead of explaining the backend.
+      "give me just/only …" is now treated as an edit.
+- [x] **Keep-last and empty edits** — "Keep the last 30 seconds" now trims the
+      head rather than the tail; a file shorter than the window is kept whole;
+      any edit that would remove every sample is rejected instead of writing a
+      zero-length WAV.
+- [x] **Browser-only honesty at the edges** — video files are rejected at the
+      picker with a Server explanation, the unused output-format settings are
+      hidden, and the home/guide/prompt copy states which operations run
+      locally. A real Chromium pass clicked **88 buttons** across nine feature
+      pages: 88 OK, zero console errors.
 
 ## Queue
 
@@ -202,8 +222,8 @@ the main thread, which still produces the right file.
 |---|---|---|
 | trim, fade, gain, normalise, reverse | time domain | sample-exact length; peak hits −1 dBFS |
 | speed | phase vocoder, pitch preserved | 20 s → **16.0 s** at 1.25x; dominant tone stayed **180.0 Hz** |
-| exact BPM target | onset flux + autocorrelation, target ratio | 8.0 s at 120 BPM → **7.5009 s** at 128 BPM (expected 7.5) |
-| tempo question | same estimator, no audio change | 8 s 120 BPM click track → **120 BPM**, no download button |
+| exact BPM target | onset flux + comb grid + autocorrelation, target ratio | 8.0 s at 120 BPM → **7.5009 s** at 128 BPM (expected 7.5); real 90 BPM track → **25.129 s** at 128 BPM (expected 25.13) |
+| tempo question | same estimator, no audio change | 8 s 120 BPM click → **120 BPM**; real 90/120 BPM tracks → **90.0 / 120.1 BPM**; real speech → **no tempo**, no download button |
 | denoise | Wiener, 12th-percentile noise profile, temporal gain smoothing | **+0.67 / +1.20 / +1.66 dB** true SNR at strength 1 / 2 / 3 on a gated 440 Hz fixture at 4 dB input |
 | boost vocals / drums / bass | 1–6 kHz / <200 Hz + 2–4 kHz / <250 Hz shelves | **+4.6 / +5.6 + 3.5 / +5.1 dB** relative to the rest of the mix |
 | 5-band EQ, high/low-pass | RBJ biquads, same frequencies as the preview | +6 dB at 60 Hz raises the 60 Hz / 4 kHz energy ratio by **>1.5×** |
@@ -211,7 +231,9 @@ the main thread, which still produces the right file.
 | pause removal | 20 ms RMS, 10 ms hop, 80 ms cut margin | 2.0 s pause at a 0.5 s threshold removes **1.84 s**; a 0.25 s gap is kept |
 | remove section, loop | concatenation with 10 ms crossfades | 10 s minus 2 s → **7.99 s**; a 1 s loop ×3 on a 4 s file → **5.98 s** |
 | pitch / transpose | same resample + phase-vocoder path, then peak-normalise | +2 st moves 440 Hz to **493.9 Hz ±10 Hz**, duration **1.00 s** |
-| Lab render | EQ → pitch → speed → gain → reverb, in a worker | preset export of an 8 s file: **8.0 s** WAV, content changed (SHA-256 differs) |
+| keep-last trim | keep the tail, reject an empty result | 40 s → last 30 s = **30.0 s**; a 20 s file is kept whole; cutting the whole file throws an error |
+| Lab render | EQ → pitch → speed → gain → reverb, in a worker | preset export of 34 s: **33.933 s**, SHA-256 differs; +2 st + 1.25x + reverb → **27.146 s** (expected 27.146) |
+| real pause removal | 20 ms RMS, 10 ms hop, 80 ms cut margin | LibriVox 36.467 s → **25.917 s**; 14 pauses ≥0.5 s, 10.6 s total |
 
 Unsupported prompts (stem separation, generated instruments, transcription,
 diarization, two-stem balance, non-WAV export) are marked **Server** on the

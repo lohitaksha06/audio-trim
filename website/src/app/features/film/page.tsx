@@ -10,7 +10,7 @@ export default function FilmPage() {
         <Panel title="Dialogue">
           <ActionButton
             label="Clean dialogue"
-            hint="Denoise and lift dialogue presence; stem isolation needs the server"
+            hint="Wiener denoise for steady noise; stem isolation needs the server"
             prompt="Clean up the dialogue and remove background noise"
             tone="accent"
           />

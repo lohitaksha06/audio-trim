@@ -2,8 +2,10 @@ import Link from "next/link";
 import Nav from "@/components/Nav";
 import AudioWave from "@/components/AudioWave";
 import FeatureCard from "@/components/FeatureCard";
+import { isBackendConfigured } from "@/services/api";
 
 export default function Home() {
+  const localMode = !isBackendConfigured;
   return (
     <>
       <Nav />
@@ -15,12 +17,22 @@ export default function Home() {
           <h1 className="animate-fade-in-up animate-delay-1 mb-6 sm:mb-8 text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tight text-white leading-tight">
             Describe what you want.
             <br />
-            <span className="text-neon-blue">Let AI handle the rest.</span>
+            <span className="text-neon-blue">Let Audelle handle the rest.</span>
           </h1>
 
           <p className="animate-fade-in-up animate-delay-2 mb-10 sm:mb-12 max-w-3xl text-lg sm:text-xl lg:text-2xl leading-relaxed text-white/84">
-            Upload audio or video. The AI analyzes every element — instruments,
-            vocals, beats, structure. Then just type what you want:
+            {localMode ? (
+              <>
+                Upload audio. Every edit runs on this device — no account, no upload. Measure
+                tempo, shape tone, clean steady noise, cut pauses and export a WAV. Then just
+                type what you want:
+              </>
+            ) : (
+              <>
+                Upload audio or video. The analysis measures instruments, vocals, beats and
+                structure. Then just type what you want:
+              </>
+            )}
             <span className="block mt-3 italic text-white/68 text-base sm:text-lg">
               &ldquo;Remove the kick drum from 2:30 to 3:45&rdquo;
               &nbsp;&bull;&nbsp;
@@ -90,7 +102,9 @@ export default function Home() {
               {
                 step: "01",
                 title: "Upload",
-                desc: "Drop any audio or video file. The AI analyzes everything — instruments, structure, speakers, mood — in seconds.",
+                desc: localMode
+                  ? "Drop an audio file. It is decoded and measured on this device, not uploaded."
+                  : "Drop any audio or video file. The analysis measures instruments, structure, speakers and mood in seconds.",
               },
               {
                 step: "02",
@@ -100,7 +114,9 @@ export default function Home() {
               {
                 step: "03",
                 title: "Export",
-                desc: "Download your edit as MP3, WAV, FLAC, or stems. Or export XML for Premiere / DaVinci / Final Cut.",
+                desc: localMode
+                  ? "Download your edit as WAV. Stems, compressed formats and XML export need the server."
+                  : "Download your edit as MP3, WAV, FLAC, or stems. Or export XML for Premiere / DaVinci / Final Cut.",
               },
             ].map((item) => (
               <div key={item.step} className="group relative rounded-2xl border border-white/5 bg-white/[0.02] p-6 sm:p-8 transition-all duration-300 hover:border-neon-purple/20 hover:bg-white/[0.05]">
@@ -121,9 +137,16 @@ export default function Home() {
           <h2 className="mb-4 text-center text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
             What you can do
           </h2>
-          <p className="mb-12 sm:mb-16 text-center text-base sm:text-lg text-white/68">
+          <p className="mb-6 text-center text-base sm:text-lg text-white/68">
             Everything is possible through natural language.
           </p>
+          {localMode && (
+            <p className="mx-auto mb-10 max-w-3xl rounded-xl border border-amber-300/20 bg-amber-300/[0.06] px-4 py-3 text-center text-sm leading-relaxed text-amber-100/80 sm:mb-14">
+              Browser edition: trim, tone, EQ, pitch, speed, pause removal and WAV export run on
+              this device. Source separation, video, transcription, stems and compressed formats
+              need the server.
+            </p>
+          )}
 
           <div className="grid gap-5 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <FeatureCard

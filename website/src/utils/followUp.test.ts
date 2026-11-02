@@ -25,6 +25,8 @@ describe("isOutputFollowUp", () => {
     "trim from 0:05 to 0:10",
     "make voices clearer",
     "convert to house style",
+    "give me just the drums as a stem",
+    "give me only the vocals",
     "hello world",
   ];
   for (const p of newEdits) {

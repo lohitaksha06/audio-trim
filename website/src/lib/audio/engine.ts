@@ -331,9 +331,17 @@ export function applyPlan(source: LocalAudio, plan: LocalPlan, onProgress?: Loca
     }
   }
 
+  // Never hand back an empty file. Fixed-range prompts ("cut the last
+  // 30 seconds" on a 20 s clip) otherwise produce a zero-length WAV that looks
+  // like a successful edit.
+  const outputDuration = durationOf(audio);
+  if (outputDuration <= 1e-6) {
+    throw new Error("That edit would remove all the audio. Choose a shorter range or a longer file.");
+  }
+
   // Keep the summary honest about the result, not just the request.
   if (plan.intent === "trim") {
-    summary = `${summary} · ${durationOf(audio).toFixed(1)} s left`;
+    summary = `${summary} · ${outputDuration.toFixed(1)} s left`;
   }
 
   onProgress?.(1, "Done");

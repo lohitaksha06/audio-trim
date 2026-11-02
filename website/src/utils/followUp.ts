@@ -15,6 +15,11 @@ const OUTPUT_NOUN =
 export function isOutputFollowUp(prompt: string): boolean {
   const core = prompt.toLowerCase().trim().replace(LEAD, "");
   if (EDIT_START.test(core)) return false;
+  // "Give me just the drums as a stem" is a separation request, not a request
+  // for the previous download. The bare "give" in SHOW_START used to swallow
+  // it, so the Server button replied "No output yet" instead of explaining the
+  // backend requirement.
+  if (/^give\s+me\s+(?:just|only)\b/.test(core)) return false;
   return SHOW_START.test(core) && OUTPUT_NOUN.test(core);
 }
 

@@ -43,12 +43,13 @@ function errorMessage(error: unknown): string {
   return typeof error === "string" ? error : "Something went wrong.";
 }
 
-function LabKnob({ label, value, min, max, step, onChange, unit = "dB" }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; unit?: string }) {
+function LabKnob({ label, value, min, max, step, onChange, unit = "dB", precision = 1 }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; unit?: string; precision?: number }) {
+  const shown = value > 0 ? `+${value.toFixed(precision)}` : value.toFixed(precision);
   return (
     <div className="flex flex-col items-center gap-1.5">
       <div className="text-xs tracking-widest text-white/58 uppercase">{label}</div>
       <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(parseFloat(e.target.value))} className="h-1.5 w-20 accent-neon-blue bg-white/10 rounded-full appearance-none cursor-pointer" />
-      <div className="text-xs font-mono text-white/90">{value > 0 ? `+${value.toFixed(1)}` : value.toFixed(1)} {unit}</div>
+      <div className="text-xs font-mono text-white/90">{shown} {unit}</div>
     </div>
   );
 }
@@ -503,7 +504,7 @@ export default function LabPage() {
               <FileUpload onFileSelected={handleFileSelected} onInvalid={setErrorMsg} />
               <p className="mt-3 text-center text-xs text-white/48">
                 {localMode
-                  ? "Upload audio or video. Decoding, analysis and export all run in your browser."
+                  ? "Upload audio. Decoding, analysis and export all run in your browser; video import needs the server."
                   : "Upload any audio/video. Lab preview is local; export is rendered by the backend."}
               </p>
               {uploading && <p className="mt-2 text-center text-xs text-neon-blue animate-pulse">Reading the file…</p>}
@@ -568,8 +569,8 @@ export default function LabPage() {
 
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5 grid grid-cols-2 sm:grid-cols-4 gap-6">
                   <LabKnob label="Gain" value={gainDb} min={-12} max={12} step={0.5} onChange={setGainDb} />
-                  <LabKnob label="Pitch" value={pitch} min={-12} max={12} step={1} onChange={setPitch} unit="st" />
-                  <LabKnob label="Speed" value={speed} min={0.5} max={2} step={0.05} onChange={setSpeed} unit="x" />
+                  <LabKnob label="Pitch" value={pitch} min={-12} max={12} step={1} onChange={setPitch} unit="st" precision={0} />
+                  <LabKnob label="Speed" value={speed} min={0.5} max={2} step={0.05} onChange={setSpeed} unit="x" precision={2} />
                   <LabKnob label="Reverb" value={reverb} min={0} max={1} step={0.05} onChange={setReverb} unit="" />
                 </div>
 

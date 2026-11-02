@@ -9,7 +9,7 @@ import ManualEditor from "@/components/ManualEditor";
 import StemMixer from "@/components/StemMixer";
 import JamMixer from "@/components/JamMixer";
 import OptimizePanel from "@/components/OptimizePanel";
-import { uploadFile, processAudio, downloadUrl, isBackendConfigured, type UploadResponse, type ProcessResponse } from "@/services/api";
+import { uploadFile, processAudio, downloadUrl, isBackendConfigured, type ProcessResponse } from "@/services/api";
 import FeatureLayout from "../FeatureLayout";
 import { ActionButton, Panel } from "../FeaturePanels";
 
@@ -20,7 +20,6 @@ interface LastAudio {
 
 export default function MixPage() {
   const [file, setFile] = useState<File | null>(null);
-  const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<ProcessResponse | null>(null);
@@ -34,6 +33,7 @@ export default function MixPage() {
   useEffect(() => {
     try {
       const v = localStorage.getItem("audelle:lastAudio");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (v) setResumable(JSON.parse(v));
     } catch { /* ignore */ }
     return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
@@ -57,7 +57,6 @@ export default function MixPage() {
     setUploading(true);
     try {
       const result = await uploadFile(f);
-      setUploadResult(result);
       setActivePath(result.audio_path);
       remember(result.audio_path, f.name);
     } catch (e: unknown) {
@@ -70,7 +69,6 @@ export default function MixPage() {
   const handleResume = () => {
     if (!resumable) return;
     setFile(null);
-    setUploadResult(null);
     setLastResult(null);
     setHistory([]);
     setEdits(0);
@@ -103,7 +101,6 @@ export default function MixPage() {
 
   const reset = () => {
     setFile(null);
-    setUploadResult(null);
     setLastResult(null);
     setHistory([]);
     setEdits(0);
@@ -231,9 +228,21 @@ export default function MixPage() {
       >
         <div className="space-y-6">
           <Panel title="Prioritize a sound">
-            <ActionButton label="Make the drums louder" prompt="Make the drums louder" />
-            <ActionButton label="Boost the vocals" prompt="Boost the vocals" />
-            <ActionButton label="Boost the bass" prompt="Boost the bass" />
+            <ActionButton
+              label="Make the drums louder"
+              hint="Low-end and kick-band lift, not stem isolation"
+              prompt="Make the drums louder"
+            />
+            <ActionButton
+              label="Boost the vocals"
+              hint="Presence lift around 1-6 kHz, not stem isolation"
+              prompt="Boost the vocals"
+            />
+            <ActionButton
+              label="Boost the bass"
+              hint="Low-shelf lift below 250 Hz, not stem isolation"
+              prompt="Boost the bass"
+            />
           </Panel>
           <Panel title="Mood">
             <ActionButton label="Make it darker" prompt="Make it darker" />

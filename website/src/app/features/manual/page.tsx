@@ -6,7 +6,7 @@ import Sidebar from "@/components/Sidebar";
 import FileUpload from "@/components/FileUpload";
 import AudioPreview from "@/components/AudioPreview";
 import ManualEditor from "@/components/ManualEditor";
-import { uploadFile, downloadUrl, isBackendConfigured, type UploadResponse, type ProcessResponse } from "@/services/api";
+import { uploadFile, downloadUrl, isBackendConfigured, type ProcessResponse } from "@/services/api";
 import FeatureLayout from "../FeatureLayout";
 import { ActionButton, Panel } from "../FeaturePanels";
 
@@ -17,7 +17,6 @@ interface LastAudio {
 
 export default function ManualPage() {
   const [file, setFile] = useState<File | null>(null);
-  const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<ProcessResponse | null>(null);
@@ -30,6 +29,7 @@ export default function ManualPage() {
   useEffect(() => {
     try {
       const v = localStorage.getItem("audelle:lastAudio");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (v) setResumable(JSON.parse(v));
     } catch { /* ignore */ }
     return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
@@ -53,7 +53,6 @@ export default function ManualPage() {
     setUploading(true);
     try {
       const result = await uploadFile(f);
-      setUploadResult(result);
       setActivePath(result.audio_path);
       remember(result.audio_path, f.name);
     } catch (e: unknown) {
@@ -66,7 +65,6 @@ export default function ManualPage() {
   const handleResume = () => {
     if (!resumable) return;
     setFile(null);
-    setUploadResult(null);
     setLastResult(null);
     setHistory([]);
     setEdits(0);
@@ -85,7 +83,6 @@ export default function ManualPage() {
 
   const reset = () => {
     setFile(null);
-    setUploadResult(null);
     setLastResult(null);
     setHistory([]);
     setEdits(0);
@@ -196,7 +193,11 @@ export default function ManualPage() {
         <div className="space-y-6">
           <Panel title="Trim">
             <ActionButton label="First 30 seconds" prompt="Trim from 0:00 to 0:30" />
-            <ActionButton label="Last 30 seconds" prompt="Cut the last 30 seconds" />
+            <ActionButton
+              label="Last 30 seconds"
+              hint="Keeps the tail; a shorter file is kept whole"
+              prompt="Keep the last 30 seconds"
+            />
           </Panel>
           <Panel title="Shape">
             <ActionButton label="Fade in" prompt="Fade in over 2 seconds" />

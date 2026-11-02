@@ -310,6 +310,34 @@ describe("EQ and pitch", () => {
     expect(Math.abs(dominantFreq(down.channels[0]) - 220)).toBeLessThan(15);
   });
 
+  test("keep-last trims the head, and a short file is kept whole", () => {
+    const source: LocalAudio = { channels: [sine(440, 40, 0.4)], sampleRate: SR };
+    const plan = parseLocalPrompt("Keep the last 30 seconds", 40);
+    expect(plan.intent).toBe("trim");
+    expect(plan.params.start).toBeCloseTo(10, 3);
+    expect(plan.params.end).toBeCloseTo(40, 3);
+    const result = applyPlan(source, plan);
+    expect(durationOf(result.audio)).toBeCloseTo(30, 1);
+
+    const only = parseLocalPrompt("Keep only the last 30 seconds", 40);
+    expect(only.intent).toBe("trim");
+    expect(only.params.start).toBeCloseTo(10, 3);
+
+    const short: LocalAudio = { channels: [sine(440, 20, 0.4)], sampleRate: SR };
+    const shortPlan = parseLocalPrompt("Keep the last 30 seconds", 20);
+    expect(shortPlan.params.start).toBe(0);
+    const shortResult = applyPlan(short, shortPlan);
+    expect(durationOf(shortResult.audio)).toBeCloseTo(20, 1);
+    expect(shortResult.summary).toMatch(/whole file/);
+  });
+
+  test("an edit that would remove all audio is rejected", () => {
+    const source: LocalAudio = { channels: [sine(440, 10, 0.4)], sampleRate: SR };
+    const plan = parseLocalPrompt("Cut the last 10 seconds", 10);
+    expect(plan.intent).toBe("trim");
+    expect(() => applyPlan(source, plan)).toThrow(/remove all the audio/);
+  });
+
   test("removing a section shortens the file with a crossfade", () => {
     const source: LocalAudio = { channels: [sine(440, 10, 0.4)], sampleRate: SR };
     const plan = parseLocalPrompt("Remove the section from 0:02 to 0:04", 10);

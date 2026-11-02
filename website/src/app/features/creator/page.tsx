@@ -26,7 +26,8 @@ export default function CreatorPage() {
             tone="accent"
           />
           <ActionButton
-            label="Make the voice clearer and louder"
+            label="Clean up the voice"
+            hint="Wiener denoise for steady noise; stem isolation needs the server"
             prompt="Make voices clearer and remove background noise"
             tone="accent"
           />
