@@ -546,10 +546,15 @@ export default function PromptPage() {
             {!file ? (
               <div className="flex-1 overflow-y-auto">
                 <div className="flex min-h-full flex-col items-center justify-center px-4 py-10 sm:px-8">
-                  <div className="w-full max-w-2xl">
-                  <div className="mb-8 text-center">
-                    <h1 className="mb-3 text-3xl sm:text-4xl lg:text-5xl font-bold text-white">Edit with words</h1>
-                    <p className="text-base sm:text-lg text-white/68">
+                  <div className="w-full max-w-4xl">
+                  <div className="mb-8">
+                    <p className="font-mono text-[0.65rem] uppercase tracking-[0.22em] text-white/40">
+                      Editor / {localMode ? "browser edition" : "server edition"}
+                    </p>
+                    <h1 className="mt-4 font-display text-5xl font-black lowercase leading-[0.9] tracking-[-0.04em] text-[#f2f1ec] sm:text-6xl lg:text-7xl">
+                      edit with words.
+                    </h1>
+                    <p className="mt-4 max-w-xl text-base leading-relaxed text-white/55 sm:text-lg">
           {localMode
             ? "Upload audio and describe what you want to do. Video import and export need the server."
             : "Upload audio or video and describe what you want to do."}
@@ -557,20 +562,20 @@ export default function PromptPage() {
                   </div>
                   <FileUpload onFileSelected={handleFileSelected} onInvalid={(m) => { setErrorMsg(m); }} />
 
-                  <div className="mt-6 rounded-2xl border border-white/5 bg-white/[0.02] p-4">
-                    <p className="mb-2 text-xs text-white/58">...or import from a URL</p>
+                  <div className="mt-6 border border-white/10 bg-black p-4">
+                    <p className="mb-2 font-mono text-[0.65rem] uppercase tracking-[0.18em] text-white/40">...or import from a URL</p>
                     <div className="flex gap-2">
                       <input
                         type="url"
                         value={urlInput}
                         onChange={(e) => setUrlInput(e.target.value)}
                         placeholder="https://example.com/audio.mp3"
-                        className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/48 outline-none focus:border-neon-blue/50"
+                        className="flex-1 rounded-none border border-white/15 bg-white/[0.03] px-3 py-2.5 text-sm text-white placeholder-white/40 outline-none focus:border-white/60"
                       />
                       <button
                         onClick={handleURLUpload}
                         disabled={!urlInput.trim() || urlLoading}
-                        className="shrink-0 rounded-xl bg-white/10 px-4 py-2.5 text-sm text-white/90 hover:bg-white/15 disabled:opacity-40 transition-colors"
+                        className="shrink-0 rounded-none border border-white/20 px-4 py-2.5 text-sm text-white/80 transition-colors hover:border-white/50 hover:text-white disabled:opacity-40"
                       >
                         {urlLoading ? "Loading..." : "Import"}
                       </button>
@@ -578,9 +583,9 @@ export default function PromptPage() {
                     {errorMsg && state === "idle" && <p className="mt-2 text-xs text-red-400">{errorMsg}</p>}
                   </div>
 
-                  <div className="mt-8 text-center">
-                    <p className="mb-3 text-sm text-white/58">Try saying:</p>
-                    <div className="flex flex-wrap justify-center gap-2">
+                  <div className="mt-8">
+                    <p className="mb-3 font-mono text-[0.65rem] uppercase tracking-[0.18em] text-white/40">Try saying</p>
+                    <div className="flex flex-wrap gap-2">
                       {(localMode
                         ? LOCAL_PROMPTS
                         : ["Remove the vocals", "Trim from 1:00 to 2:30", "Add funky drums following the groove", "Add plucky bass guitar", "Add tropical synth", "Add techno drums", "Add an 808 bass", "Add a supersaw lead", "Add edm drums and synth", "Convert to synthwave style", "Make the drums louder and the vocals quieter", "Make voices clearer", "Convert to house style"]
@@ -588,7 +593,7 @@ export default function PromptPage() {
                         <button
                           key={s}
                           onClick={() => handlePromptSelect(s)}
-                          className="rounded-full border border-white/10 px-3 py-1.5 text-xs sm:text-sm text-white/68 transition-colors hover:border-neon-blue/30 hover:text-neon-blue/70"
+                          className="rounded-none border border-white/15 px-3 py-1.5 text-xs text-white/60 transition-colors hover:border-white/50 hover:text-white sm:text-sm"
                         >
                           {s}
                         </button>
@@ -601,8 +606,8 @@ export default function PromptPage() {
             ) : (
               <>
                 <div className="shrink-0 flex items-center gap-3 border-b border-white/5 px-4 sm:px-6 py-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-neon-blue/20 to-neon-purple/20">
-                    <svg className="h-4 w-4 text-neon-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-none border border-white/15 bg-white/[0.04]">
+                    <svg className="h-4 w-4 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
                     </svg>
                   </div>
@@ -614,27 +619,27 @@ export default function PromptPage() {
                     </p>
                   </div>
                   {state === "completed" && (
-                    <span className="rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-medium text-green-400">Done</span>
+                    <span className="border border-white/20 bg-white/[0.06] px-2.5 py-1 font-mono text-[0.65rem] uppercase tracking-[0.14em] text-white/65">Done</span>
                   )}
                   {!localMode && (
                     <Link
                       href="/features/manual"
-                      className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/68 hover:border-white/20 hover:text-white/90 transition-colors"
+                      className="rounded-none border border-white/10 px-3 py-1.5 text-xs text-white/68 hover:border-white/20 hover:text-white/90 transition-colors"
                     >
                       Manual Mode
                     </Link>
                   )}
-                  <button onClick={newChat} title="Clear conversation, keep this file" className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/68 hover:border-white/20 hover:text-white/90 transition-colors">
+                  <button onClick={newChat} title="Clear conversation, keep this file" className="rounded-none border border-white/10 px-3 py-1.5 text-xs text-white/68 hover:border-white/20 hover:text-white/90 transition-colors">
                     New chat
                   </button>
-                  <button onClick={reset} title="Upload a different file" className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/68 hover:border-white/20 hover:text-white/90 transition-colors">
+                  <button onClick={reset} title="Upload a different file" className="rounded-none border border-white/10 px-3 py-1.5 text-xs text-white/68 hover:border-white/20 hover:text-white/90 transition-colors">
                     New file
                   </button>
                 </div>
 
                 {localMode && (
-                  <div className="shrink-0 border-b border-emerald-400/15 bg-emerald-400/[0.05] px-4 sm:px-6 py-2 text-xs text-emerald-200/80">
-                    <span className="font-medium text-emerald-300">Browser mode.</span>{" "}
+                  <div className="shrink-0 border-b border-white/10 bg-white/[0.03] px-4 sm:px-6 py-2 text-xs text-white/50">
+                    <span className="font-medium text-white/75">Browser mode.</span>{" "}
                     Edits run on your device — the audio never leaves it. Trim, fades, gain, normalise,
                     reverse, speed, denoise and band boosts work here; stem separation, generated
                     instruments and track analysis need the server.
@@ -642,12 +647,12 @@ export default function PromptPage() {
                 )}
 
                 {edits > 0 && (lastResult?.download_key || lastResult?.local_url) && (
-                  <div className="shrink-0 flex items-center gap-2 border-b border-neon-blue/10 bg-neon-blue/[0.04] px-4 sm:px-6 py-1.5 text-xs text-neon-blue/80">
+                  <div className="shrink-0 flex items-center gap-2 border-b border-white/10 bg-white/[0.03] px-4 sm:px-6 py-1.5 text-xs text-white/60">
                     <span>Layering on output {edits} — each edit builds on the last.</span>
                     {!fromOriginal ? (
-                      <button onClick={() => setFromOriginal(true)} className="underline hover:text-neon-blue">Start next edit from original instead</button>
+                      <button onClick={() => setFromOriginal(true)} className="underline hover:text-white/70">Start next edit from original instead</button>
                     ) : (
-                      <button onClick={() => setFromOriginal(false)} className="underline hover:text-neon-blue">Back to layering on latest</button>
+                      <button onClick={() => setFromOriginal(false)} className="underline hover:text-white/70">Back to layering on latest</button>
                     )}
                     {fromOriginal && <span className="text-white/68">(next edit starts from your upload)</span>}
                   </div>
@@ -657,14 +662,14 @@ export default function PromptPage() {
                   <>
                     <Link
                       href="/features/manual"
-                      className="shrink-0 flex items-center gap-2 border-b border-neon-purple/10 bg-neon-purple/[0.04] px-4 sm:px-6 py-1.5 text-xs text-neon-purple/80 hover:bg-neon-purple/[0.08] transition-colors"
+                      className="shrink-0 flex items-center gap-2 border-b border-white/10 bg-white/[0.03] px-4 sm:px-6 py-1.5 text-xs text-white/60 hover:bg-white/[0.06] transition-colors"
                     >
                       <span>Want hands-on control? The Manual Editor has waveform select, trims, fades, gain & speed — it picks up your upload automatically.</span>
                       <span className="underline shrink-0">Open Manual Editor →</span>
                     </Link>
                     <Link
                       href="/features/mix"
-                      className="shrink-0 flex items-center gap-2 border-b border-neon-blue/10 bg-neon-blue/[0.04] px-4 sm:px-6 py-1.5 text-xs text-neon-blue/80 hover:bg-neon-blue/[0.08] transition-colors"
+                      className="shrink-0 flex items-center gap-2 border-b border-white/10 bg-white/[0.03] px-4 sm:px-6 py-1.5 text-xs text-white/60 hover:bg-white/[0.06] transition-colors"
                     >
                       <span>Drums louder, vocals lower? Mix Lab has stem faders, wave editing and one-click mix fixes.</span>
                       <span className="underline shrink-0">Open Mix Lab →</span>
@@ -677,7 +682,7 @@ export default function PromptPage() {
                     <h3 className="text-xs font-semibold text-white/78 uppercase tracking-wider">Analysis</h3>
 
                     {objectUrl && (
-                      <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
+                      <div className="rounded-none border border-white/5 bg-white/[0.02] p-3">
                         <p className="mb-2 text-xs text-white/58 uppercase tracking-wider">Input</p>
                         <AudioPreview
                           src={objectUrl}
@@ -689,7 +694,7 @@ export default function PromptPage() {
 
                     <div className="grid grid-cols-2 gap-2">
                       {details.map((d) => (
-                        <div key={d.label} className="rounded-lg border border-white/5 bg-white/[0.02] p-2.5">
+                        <div key={d.label} className="rounded-none border border-white/5 bg-white/[0.02] p-2.5">
                           <span className="block text-xs text-white/58">{d.label}</span>
                           <span className="text-sm font-medium text-white">{d.value}</span>
                         </div>
@@ -698,10 +703,10 @@ export default function PromptPage() {
 
                     {!localMode && (
                       <>
-                    <div className="rounded-xl border border-neon-purple/20 bg-neon-purple/[0.04] p-3">
-                      <h4 className="mb-1 text-xs font-semibold text-neon-purple/80 uppercase tracking-wider">Import your own stem</h4>
+                    <div className="rounded-none border border-white/15 bg-white/[0.03] p-3">
+                      <h4 className="mb-1 text-xs font-semibold text-white/60 uppercase tracking-wider">Import your own stem</h4>
                       <p className="mb-2 text-xs text-white/68">AI detects both BPMs, tempo-matches + beat-aligns, then mixes.</p>
-                      <label className="block w-full cursor-pointer rounded-lg bg-white/5 px-3 py-2 text-center text-xs text-white/84 hover:bg-white/10 transition-colors">
+                      <label className="block w-full cursor-pointer rounded-none bg-white/5 px-3 py-2 text-center text-xs text-white/84 hover:bg-white/10 transition-colors">
                         {stemBusy ? "Analyzing stem..." : stemFile ? stemFile.name : "Choose stem audio..."}
                         <input type="file" accept="audio/*,.mp3,.wav,.flac,.m4a,.ogg" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleStemSelected(f); }} />
                       </label>
@@ -713,29 +718,29 @@ export default function PromptPage() {
                         <input type="range" min={10} max={100} value={Math.round(stemLevel * 100)} onChange={(e) => setStemLevel(Number(e.target.value) / 100)} className="flex-1" />
                         <span className="text-xs text-white/84 w-9 text-right">{Math.round(stemLevel * 100)}%</span>
                       </div>
-                      <button onClick={handleMixStem} disabled={!stemUpload || state === "processing"} className="mt-2 w-full rounded-lg bg-neon-purple/20 px-3 py-2 text-xs font-medium text-neon-purple hover:bg-neon-purple/30 transition-colors disabled:opacity-40">
+                      <button onClick={handleMixStem} disabled={!stemUpload || state === "processing"} className="mt-2 w-full rounded-none bg-white/[0.08] px-3 py-2 text-xs font-medium text-white/70 hover:bg-white/15 transition-colors disabled:opacity-40">
                         Mix stem in
                       </button>
                     </div>
 
-                    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                    <div className="rounded-none border border-white/10 bg-white/[0.02] p-3">
                       <h4 className="mb-2 text-xs font-semibold text-white/78 uppercase tracking-wider">Synths & EDM</h4>
                       <div className="flex flex-wrap gap-1.5">
                         {["Add warm synth pad", "Add tropical synth", "Add futuristic synth", "Add dubstep wobble", "Add techno drums", "Add an 808 bass", "Add a supersaw lead", "Add phonk cowbell", "Add synthwave pad", "Add trumpet", "Add choir pad", "Add edm drums and synth", "Add tropical synth and dubstep wobble", "Convert to tropical style", "Convert to techno style", "Convert to hardstyle style", "Convert to dubstep style"].map((s) => (
-                          <button key={s} onClick={() => handlePromptSelect(s)} className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/78 hover:border-neon-blue/30 hover:text-neon-blue transition-colors">{s}</button>
+                          <button key={s} onClick={() => handlePromptSelect(s)} className="rounded-none border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-white/78 hover:border-white/40 hover:text-white/70 transition-colors">{s}</button>
                         ))}
                       </div>
                     </div>
 
-                    <div className="rounded-xl border border-neon-purple/20 bg-neon-purple/[0.04] p-3">
-                      <h4 className="mb-1 text-xs font-semibold text-neon-purple/80 uppercase tracking-wider">Mix Lab</h4>
+                    <div className="rounded-none border border-white/15 bg-white/[0.03] p-3">
+                      <h4 className="mb-1 text-xs font-semibold text-white/60 uppercase tracking-wider">Mix Lab</h4>
                       <p className="mb-2 text-xs text-white/68">Stem faders, wave editing and one-click mix fixes.</p>
                       <div className="flex flex-wrap gap-1.5">
                         {["Make the drums louder and the vocals quieter", "Prioritize drums over vocals", "Balance the mix: vocals -3dB, drums +6dB"].map((s) => (
-                          <button key={s} onClick={() => handlePromptSelect(s)} className="rounded-full border border-neon-purple/20 bg-white/5 px-2 py-1 text-xs text-white/78 hover:border-neon-purple/40 hover:text-neon-purple transition-colors">{s}</button>
+                          <button key={s} onClick={() => handlePromptSelect(s)} className="rounded-none border border-white/15 bg-white/[0.03] px-2 py-1 text-xs text-white/65 hover:border-white/40 hover:text-white transition-colors">{s}</button>
                         ))}
                       </div>
-                      <Link href="/features/mix" className="mt-2 block text-center text-xs text-neon-purple/80 underline hover:text-neon-purple">Open Mix Lab →</Link>
+                      <Link href="/features/mix" className="mt-2 block text-center text-xs text-white/60 underline hover:text-white/70">Open Mix Lab →</Link>
                     </div>
                       </>
                     )}
@@ -743,11 +748,11 @@ export default function PromptPage() {
                     {understand && (
                       <>
                         {inst && (
-                          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                          <div className="rounded-none border border-white/10 bg-white/[0.02] p-3">
                             <h4 className="mb-2 text-xs font-semibold text-white/78 uppercase tracking-wider">Instruments</h4>
                             <div className="flex flex-wrap gap-1.5">
                               {inst.instruments.map((el) => (
-                                <span key={el.instrument} className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-white/78">
+                                <span key={el.instrument} className="rounded-none border border-white/10 bg-white/[0.03] px-2 py-0.5 text-xs text-white/78">
                                   {el.instrument} · {(el.confidence * 100).toFixed(0)}%
                                 </span>
                               ))}
@@ -757,8 +762,8 @@ export default function PromptPage() {
                         )}
 
                         {genre?.genre && (
-                          <div className="rounded-xl border border-neon-blue/20 bg-neon-blue/[0.04] p-3">
-                            <h4 className="mb-2 text-xs font-semibold text-neon-blue/70 uppercase tracking-wider">Genre</h4>
+                          <div className="rounded-none border border-white/15 bg-white/[0.03] p-3">
+                            <h4 className="mb-2 font-mono text-[0.65rem] uppercase tracking-[0.16em] text-white/45">Genre</h4>
                             <p className="text-sm font-medium text-white capitalize">
                               {genre.genre} <span className="text-xs text-white/58">· {(genre.confidence * 100).toFixed(0)}%</span>
                             </p>
@@ -768,7 +773,7 @@ export default function PromptPage() {
                                   <button
                                     key={a}
                                     onClick={() => handlePromptSelect(a)}
-                                    className="block w-full rounded-lg bg-white/5 px-2 py-1 text-left text-xs text-neon-blue/80 hover:bg-neon-blue/10 transition-colors"
+                                    className="block w-full rounded-none bg-white/5 px-2 py-1 text-left text-xs text-white/60 hover:bg-white/10 transition-colors"
                                   >
                                     {a}
                                   </button>
@@ -779,7 +784,7 @@ export default function PromptPage() {
                         )}
 
                         {sections.length > 0 && (
-                          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                          <div className="rounded-none border border-white/10 bg-white/[0.02] p-3">
                             <h4 className="mb-2 text-xs font-semibold text-white/78 uppercase tracking-wider">Structure</h4>
                             <div className="space-y-1">
                               {sections.map((s, i) => (
@@ -793,7 +798,7 @@ export default function PromptPage() {
                         )}
 
                         {mood && (
-                          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                          <div className="rounded-none border border-white/10 bg-white/[0.02] p-3">
                             <h4 className="mb-1 text-xs font-semibold text-white/78 uppercase tracking-wider">Mood</h4>
                             <p className="text-sm font-medium capitalize text-white/80">{mood.mood}</p>
                             <p className="mt-1 text-xs text-white/58">{mood.description}</p>
@@ -806,11 +811,11 @@ export default function PromptPage() {
                       <div className="space-y-2">
                         <h4 className="text-xs font-semibold text-white/78 uppercase tracking-wider">Output</h4>
                         {(lastResult?.download_key || lastResult?.local_url) && (
-                          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                          <div className="rounded-none border border-white/10 bg-white/[0.02] p-3">
                             <AudioPreview src={lastResult.local_url ?? downloadUrl(lastResult.download_key!)} height={48} />
                             <button
                               onClick={() => handleDownload(lastResult.download_key)}
-                              className="mt-2 w-full rounded-lg bg-neon-blue/15 px-3 py-2 text-xs font-medium text-neon-blue hover:bg-neon-blue/25 transition-colors"
+                              className="mt-2 w-full rounded-none bg-white/[0.08] px-3 py-2 text-xs font-medium text-white/70 hover:bg-white/15 transition-colors"
                             >
                               Download result{localMode ? " (WAV)" : ""}
                             </button>
@@ -819,7 +824,7 @@ export default function PromptPage() {
                         {lastResult?.video_download_key && (
                           <button
                             onClick={() => handleDownload(lastResult.video_download_key)}
-                            className="w-full rounded-lg bg-neon-purple/15 px-3 py-2 text-[0.875rem] font-medium text-neon-purple hover:bg-neon-purple/25 transition-colors"
+                            className="w-full rounded-none bg-white/[0.06] px-3 py-2 text-[0.875rem] font-medium text-white/70 hover:bg-white/15 transition-colors"
                           >
                             Download result as video
                           </button>
@@ -827,7 +832,7 @@ export default function PromptPage() {
                         {lastResult?.layer_download_key && (
                           <button
                             onClick={() => handleDownload(lastResult.layer_download_key)}
-                            className="w-full rounded-lg bg-neon-blue/10 px-3 py-2 text-xs font-medium text-neon-blue hover:bg-neon-blue/20 transition-colors"
+                            className="w-full rounded-none bg-white/[0.06] px-3 py-2 text-xs font-medium text-white/70 hover:bg-white/15 transition-colors"
                           >
                             Download {lastResult.layer_label ?? "added layer"} only
                           </button>
@@ -836,7 +841,7 @@ export default function PromptPage() {
                           <button
                             onClick={handleExportZip}
                             disabled={exporting}
-                            className="w-full rounded-lg bg-neon-purple/15 px-3 py-2 text-xs font-medium text-neon-purple hover:bg-neon-purple/25 transition-colors disabled:opacity-50"
+                            className="w-full rounded-none bg-white/[0.06] px-3 py-2 text-xs font-medium text-white/70 hover:bg-white/15 transition-colors disabled:opacity-50"
                           >
                             {exporting ? "Zipping..." : `Download stems ZIP (${Object.keys(stemsKeys).length})`}
                           </button>
@@ -846,14 +851,14 @@ export default function PromptPage() {
 
                     {errorMsg && state !== "idle" && <p className="text-xs text-red-400">{errorMsg}</p>}
                     {promptHistory.length > 0 && (
-                      <div className="rounded-xl border border-white/5 bg-white/[0.01] p-2">
+                      <div className="rounded-none border border-white/5 bg-white/[0.01] p-2">
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="text-xs text-white/58 uppercase tracking-wider">Recent prompts</span>
                           <button onClick={() => { setPromptHistory([]); localStorage.removeItem("audelle:promptHistory"); }} className="text-xs text-white/48 hover:text-white/68">Clear</button>
                         </div>
                         <div className="flex flex-wrap gap-1.5">
                           {promptHistory.slice(0, 8).map((ph) => (
-                            <button key={ph} onClick={() => setPrompt(ph)} className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-white/78 hover:border-neon-blue/30 hover:text-neon-blue truncate max-w-[150px]">{ph}</button>
+                            <button key={ph} onClick={() => setPrompt(ph)} className="rounded-none border border-white/10 bg-white/[0.03] px-2 py-0.5 text-xs text-white/78 hover:border-white/40 hover:text-white/70 truncate max-w-[150px]">{ph}</button>
                           ))}
                         </div>
                       </div>
@@ -870,16 +875,16 @@ export default function PromptPage() {
                       )}
                       {history.map((h, i) => (
                         <div key={i} className={`flex ${h.role === "user" ? "justify-end" : "justify-start"}`}>
-                          <div className={`max-w-[80%] rounded-xl px-4 py-2.5 text-sm ${h.role === "user" ? "bg-gradient-to-r from-neon-blue/20 to-neon-purple/20 text-white/90" : "bg-white/5 text-white/84"}`}>
+                          <div className={`max-w-[80%] rounded-none px-4 py-2.5 text-sm ${h.role === "user" ? "bg-white/10 text-white/90" : "bg-white/5 text-white/84"}`}>
                             {h.text}
                           </div>
                         </div>
                       ))}
                       {state === "processing" && (
                         <div className="flex w-full justify-start">
-                          <div className="w-full max-w-md rounded-xl bg-neon-blue/10 px-4 py-2.5 text-sm text-neon-blue">
+                          <div className="w-full max-w-md rounded-none bg-white/[0.06] px-4 py-2.5 text-sm text-white/70">
                             <div className="flex items-center gap-2">
-                              <div className="h-3 w-3 shrink-0 animate-spin rounded-full border border-neon-blue border-t-transparent" />
+                              <div className="h-3 w-3 shrink-0 animate-spin rounded-full border border-white/60 border-t-transparent" />
                               <span className="flex-1">
                                 {localProgress
                                   ? `${localProgress.label} ${Math.round(localProgress.fraction * 100)}%`
@@ -896,7 +901,7 @@ export default function PromptPage() {
                                 aria-valuenow={Math.round(localProgress.fraction * 100)}
                               >
                                 <div
-                                  className="h-full rounded-full bg-neon-blue transition-[width] duration-150"
+                                  className="h-full rounded-full bg-white/70 transition-[width] duration-150"
                                   style={{ width: `${Math.max(2, localProgress.fraction * 100)}%` }}
                                 />
                               </div>
@@ -913,12 +918,12 @@ export default function PromptPage() {
 
           <div className="shrink-0 border-t border-white/10 bg-black/90 p-3 sm:p-4 backdrop-blur-sm">
             {notice && (
-              <p role="alert" className="mb-2 flex items-start gap-2 rounded-lg border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">
-                <span aria-hidden className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" />
+              <p role="alert" className="mb-2 flex items-start gap-2 border border-white/20 bg-white/[0.03] px-3 py-2 text-sm text-white/70">
+                <span aria-hidden className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-white/50" />
                 {notice}
               </p>
             )}
-            <p className="mb-2 text-xs text-white/58">
+            <p className="mb-2 font-mono text-[0.65rem] uppercase tracking-[0.16em] text-white/40">
               {state === "uploading"
                 ? "Uploading your file — hold on…"
                 : listening
@@ -936,7 +941,7 @@ export default function PromptPage() {
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   placeholder='e.g. "Remove the kick drum" or "Make this sound darker"'
-                  className="w-full rounded-xl border border-white/15 bg-white/[0.06] px-4 py-3.5 pr-12 text-base text-white placeholder-white/48 outline-none transition-colors focus:border-neon-blue/60"
+                  className="w-full rounded-none border border-white/20 bg-white/[0.03] px-4 py-3.5 pr-12 text-base text-white placeholder-white/40 outline-none transition-colors focus:border-white/60"
                   disabled={state === "processing" || state === "uploading"}
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleProcess(); } }}
                   autoFocus
@@ -946,10 +951,10 @@ export default function PromptPage() {
                   title={listening ? "Stop listening" : "Voice input"}
                   aria-label={listening ? "Stop voice input" : "Voice input"}
                   aria-pressed={listening}
-                  className={`absolute right-2.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg transition-colors ${
+                  className={`absolute right-2.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-none transition-colors ${
                     listening
-                      ? "bg-neon-blue/20 text-neon-blue"
-                      : "text-white/58 hover:bg-white/10 hover:text-white"
+                      ? "bg-white/15 text-white"
+                      : "text-white/45 hover:bg-white/10 hover:text-white"
                   }`}
                 >
                   <svg className={`h-[18px] w-[18px] ${listening ? "animate-pulse" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -960,7 +965,7 @@ export default function PromptPage() {
               <button
                 onClick={handleProcess}
                 disabled={!prompt.trim() || state === "processing" || state === "uploading"}
-                className="shrink-0 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple px-6 py-3.5 text-base font-semibold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                className="shrink-0 rounded-none bg-[#f2f1ec] px-6 py-3.5 text-base font-medium text-black transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {state === "processing" ? "..." : "Process"}
               </button>

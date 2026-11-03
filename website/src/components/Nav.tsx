@@ -62,7 +62,7 @@ export default function Nav() {
               aria-current={active ? "page" : undefined}
               className={`shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm transition-colors ${
                 active
-                  ? "border-neon-blue/50 bg-neon-blue/15 font-medium text-white"
+                  ? "border-white/40 bg-white/10 font-medium text-white"
                   : "border-white/12 text-white/72 hover:border-white/30 hover:text-white"
               }`}
             >

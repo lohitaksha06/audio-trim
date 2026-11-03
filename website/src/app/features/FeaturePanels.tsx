@@ -76,23 +76,23 @@ export function ActionButton({
             ? support?.reason ?? "This one needs the backend"
             : hint
       }
-      className={`w-full rounded-xl border p-3.5 text-left text-[0.9375rem] transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
+      className={`w-full rounded-none border p-3.5 text-left text-[0.9375rem] transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
         tone === "accent"
-          ? "border-neon-purple/25 bg-neon-purple/[0.06] text-white/90 hover:border-neon-purple/45 hover:bg-neon-purple/10"
-          : "border-white/10 bg-white/[0.02] text-white/84 hover:border-neon-blue/35 hover:bg-neon-blue/5 hover:text-neon-blue"
+          ? "border-white/20 bg-white/[0.04] text-white/90 hover:border-white/40 hover:bg-white/[0.06]"
+          : "border-white/10 bg-transparent text-white/75 hover:border-white/30 hover:bg-white/[0.03] hover:text-white"
       }`}
     >
       <span className="flex items-center justify-between gap-2">
         <span>{label}</span>
         {serverOnly && (
-          <span className="shrink-0 rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 text-[0.6875rem] font-medium uppercase tracking-wide text-amber-200">
+          <span className="shrink-0 border border-white/20 bg-white/[0.05] px-2 py-0.5 font-mono text-[0.6rem] uppercase tracking-[0.14em] text-white/55">
             Server
           </span>
         )}
       </span>
-      {hint && <span className="mt-1 block text-[0.8125rem] leading-snug text-white/58">{hint}</span>}
+      {hint && <span className="mt-1 block text-[0.8125rem] leading-snug text-white/50">{hint}</span>}
       {serverOnly && (
-        <span className="mt-1 block text-[0.75rem] leading-snug text-amber-200/70">
+        <span className="mt-1 block text-[0.75rem] leading-snug text-white/40">
           Needs the backend — click to see the local alternative.
         </span>
       )}
@@ -134,7 +134,7 @@ export function Conversation({
           <div
             className={`max-w-[85%] rounded-xl px-4 py-3 text-[0.9375rem] leading-relaxed ${
               h.role === "user"
-                ? "bg-gradient-to-r from-neon-blue/20 to-neon-purple/20 text-white/90"
+                ? "bg-white/10 text-white/90"
                 : "border border-white/10 bg-white/[0.04] text-white/84"
             }`}
           >
@@ -143,8 +143,8 @@ export function Conversation({
         </div>
       ))}
       {busy && (
-        <div className="flex items-center gap-2 rounded-xl border border-neon-blue/25 bg-neon-blue/10 px-4 py-3 text-[0.9375rem] text-neon-blue">
-          <span className="h-3 w-3 animate-spin rounded-full border border-neon-blue border-t-transparent" />
+        <div className="flex items-center gap-2 border border-white/15 bg-white/[0.03] px-4 py-3 text-[0.9375rem] text-white/60">
+          <span className="h-3 w-3 animate-spin rounded-full border border-white/60 border-t-transparent" />
           Processing…
         </div>
       )}

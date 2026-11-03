@@ -64,16 +64,16 @@ export default function FileUpload({ onFileSelected, onInvalid }: FileUploadProp
       role="button"
       tabIndex={0}
       aria-label={localMode ? "Upload audio file" : "Upload audio or video file"}
-      className={`group relative cursor-pointer rounded-2xl border-2 border-dashed p-10 sm:p-14 lg:p-16 transition-all duration-300 ${
+      className={`group relative cursor-pointer rounded-none border border-dashed p-10 sm:p-14 lg:p-16 transition-colors duration-300 ${
         dragging
-          ? "border-neon-blue bg-neon-blue/5 shadow-[0_0_40px_rgba(0,212,255,0.15)]"
-          : "border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]"
+          ? "border-white/60 bg-white/[0.04]"
+          : "border-white/20 bg-black hover:border-white/40 hover:bg-white/[0.02]"
       }`}
     >
       <div className="flex flex-col items-center">
-        <div className="mb-5 flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full bg-white/5 group-hover:bg-white/10 transition-colors">
+        <div className="mb-5 flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center border border-white/15 bg-white/[0.03] transition-colors group-hover:border-white/30">
           <svg
-            className="h-8 w-8 sm:h-10 sm:w-10 text-white/68"
+            className="h-8 w-8 sm:h-10 sm:w-10 text-white/60"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -86,15 +86,15 @@ export default function FileUpload({ onFileSelected, onInvalid }: FileUploadProp
             />
           </svg>
         </div>
-        <p className="mb-1.5 text-lg sm:text-xl font-medium text-white/90">
+        <p className="mb-1.5 font-display text-xl font-bold text-[#f2f1ec] sm:text-3xl">
           {localMode ? "Drop your audio file here" : "Drop your audio or video file here"}
         </p>
-        <p className="mb-5 text-sm sm:text-base text-white/58">
+        <p className="mb-5 text-sm text-white/50 sm:text-base">
           or click to browse
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-2 text-xs sm:text-sm text-white/48">
+        <div className="flex flex-wrap items-center justify-center gap-2 font-mono text-[0.65rem] uppercase tracking-[0.14em] text-white/45">
           {(localMode ? ["MP3", "WAV", "FLAC", "M4A", "AAC", "OGG"] : ["MP3", "WAV", "FLAC", "M4A", "MP4", "MOV", "AVI", "MKV"]).map((fmt) => (
-            <span key={fmt} className="rounded-md border border-white/10 px-2.5 py-1">
+            <span key={fmt} className="rounded-none border border-white/15 px-2.5 py-1">
               {fmt}
             </span>
           ))}

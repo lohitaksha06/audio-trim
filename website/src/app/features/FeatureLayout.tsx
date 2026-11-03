@@ -358,8 +358,8 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
           {/* Page Header */}
           <div className="shrink-0 border-b border-white/5 px-4 sm:px-6 py-3 flex items-center justify-between">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">{title}</h1>
-              <p className="text-[0.9375rem] text-white/72">{subtitle}</p>
+              <h1 className="font-display text-2xl font-bold lowercase tracking-[-0.03em] text-[#f2f1ec] sm:text-3xl">{title}</h1>
+              <p className="text-[0.9375rem] text-white/55">{subtitle}</p>
             </div>
             {file && (
               <div className="flex gap-2">
@@ -372,7 +372,7 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
               </div>
             )}
             {edits > 0 && (lastResult?.download_key || lastResult?.local_url) && (
-              <div className="shrink-0 text-xs text-neon-blue/70 px-1">
+              <div className="shrink-0 px-1 font-mono text-[0.65rem] uppercase tracking-[0.12em] text-white/45">
                 Layering on output {edits}
                 {!fromOriginal ? (
                   <button onClick={() => setFromOriginal(true)} className="underline ml-1">from original instead</button>
@@ -386,18 +386,18 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
           {/* Content area */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6">
             {localMode && (
-              <p className="mb-3 rounded-lg border border-neon-blue/20 bg-neon-blue/[0.05] px-3 py-2 text-xs text-neon-blue/90">
+              <p className="mb-3 border border-white/15 bg-white/[0.03] px-3 py-2 text-xs leading-relaxed text-white/50">
                 Browser mode: the file is decoded on this device and every edit runs here. Nothing is uploaded.
                 Audio only — video import and export need the server. Buttons marked{" "}
-                <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-1.5 py-0.5 text-amber-200">Server</span> need
+                <span className="border border-white/20 bg-white/[0.05] px-1.5 py-0.5 font-mono text-[0.6rem] uppercase tracking-[0.14em] text-white/55">Server</span> need
                 the backend and will explain what runs locally instead.
               </p>
             )}
             {/* File info bar when file loaded */}
             {file && (
               <div className="flex items-center gap-3 mb-4 pb-4 border-b border-white/5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-neon-blue/20 to-neon-purple/20">
-                  <svg className="h-4 w-4 text-neon-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <div className="flex h-9 w-9 items-center justify-center border border-white/15 bg-white/[0.03]">
+                  <svg className="h-4 w-4 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
                   </svg>
                 </div>
@@ -407,12 +407,12 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
                     {uploadResult?.is_video ? "Video" : "Audio"} · {formatSize(file.size)}
                     {analysis && <> · {formatDuration(analysis.duration_seconds)} · {analysis.bpm ? `${analysis.bpm.toFixed(0)} BPM` : "— BPM"}</>}
                     {state === "uploading" && (
-                      <span className="ml-2 text-neon-blue/80 animate-pulse">decoding and measuring on this device…</span>
+                      <span className="ml-2 text-white/45 animate-pulse">decoding and measuring on this device…</span>
                     )}
                   </p>
                 </div>
                 {state === "completed" && (
-                  <span className="rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-medium text-green-400">Done</span>
+                  <span className="border border-white/20 bg-white/[0.06] px-2.5 py-1 font-mono text-[0.65rem] uppercase tracking-[0.14em] text-white/65">Done</span>
                 )}
               </div>
             )}
@@ -435,13 +435,13 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
                     <div className="rounded-lg border border-white/5 bg-black/40 p-2.5 text-center"><div className="text-[0.8125rem] text-white/58">Key</div><div className="mt-0.5 text-[0.9375rem] text-white">{analysis?.key ?? "—"}</div></div>
                   </div>
                   {localProgress && (
-                    <div className="rounded-xl border border-neon-blue/20 bg-neon-blue/[0.04] p-3">
-                      <div className="flex justify-between text-xs text-neon-blue/90">
+                    <div className="border border-white/15 bg-white/[0.03] p-3">
+                      <div className="flex justify-between text-xs text-white/60">
                         <span>{localProgress.label}</span>
                         <span>{Math.round(localProgress.fraction * 100)}%</span>
                       </div>
                       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
-                        <div className="h-full rounded-full bg-neon-blue transition-[width]" style={{ width: `${Math.round(localProgress.fraction * 100)}%` }} />
+                        <div className="h-full rounded-full bg-white/70 transition-[width]" style={{ width: `${Math.round(localProgress.fraction * 100)}%` }} />
                       </div>
                     </div>
                   )}
@@ -456,12 +456,12 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
                     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
                       <AudioPreview src={lastResult.local_url ?? downloadUrl(lastResult.download_key!)} height={48} />
                       {lastResult.layer_download_key && (
-                        <button onClick={()=>handleDownload(lastResult.layer_download_key)} className="mt-2 w-full rounded-lg bg-neon-blue/10 px-3 py-2.5 text-[0.875rem] font-medium text-neon-blue hover:bg-neon-blue/20 transition-colors">Download {lastResult.layer_label ?? "added layer"} only</button>
+                        <button onClick={()=>handleDownload(lastResult.layer_download_key)} className="mt-2 w-full rounded-none border border-white/20 bg-white/[0.04] px-3 py-2.5 text-[0.875rem] font-medium text-white/75 hover:border-white/40 hover:text-white transition-colors">Download {lastResult.layer_label ?? "added layer"} only</button>
                       )}
                       <div className="mt-2 flex gap-2">
-                        <button onClick={()=>handleDownload(lastResult.download_key)} className="flex-1 rounded-lg bg-neon-blue/15 px-3 py-2.5 text-[0.875rem] font-medium text-neon-blue hover:bg-neon-blue/25 transition-colors">Download result</button>
+                        <button onClick={()=>handleDownload(lastResult.download_key)} className="flex-1 rounded-none border border-white/20 bg-white/[0.06] px-3 py-2.5 text-[0.875rem] font-medium text-white/80 hover:border-white/40 hover:text-white transition-colors">Download result</button>
                         {lastResult.stems_keys && Object.keys(lastResult.stems_keys).length>0 && (
-                          <button onClick={handleExportZip} disabled={exporting} className="flex-1 rounded-lg bg-neon-purple/15 px-3 py-2.5 text-[0.875rem] font-medium text-neon-purple hover:bg-neon-purple/25 disabled:opacity-50 transition-colors">{exporting?"Zipping...":`Stems ZIP (${Object.keys(lastResult.stems_keys).length})`}</button>
+                          <button onClick={handleExportZip} disabled={exporting} className="flex-1 rounded-none border border-white/20 px-3 py-2.5 text-[0.875rem] font-medium text-white/65 hover:border-white/40 hover:text-white disabled:opacity-50 transition-colors">{exporting?"Zipping...":`Stems ZIP (${Object.keys(lastResult.stems_keys).length})`}</button>
                         )}
                       </div>
                     </div>
@@ -480,8 +480,8 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
           {/* ALWAYS VISIBLE Prompt Input at bottom */}
           <div className="shrink-0 border-t border-white/10 bg-black/90 p-3 sm:p-4 backdrop-blur-sm">
             {notice && (
-              <p role="alert" className="mb-2 flex items-start gap-2 rounded-lg border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">
-                <span aria-hidden className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" />
+              <p role="alert" className="mb-2 flex items-start gap-2 border border-white/20 bg-white/[0.03] px-3 py-2 text-sm text-white/65">
+                <span aria-hidden className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-white/50" />
                 {notice}
               </p>
             )}
@@ -494,7 +494,7 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder="Describe what you want to do..."
-                className="w-full flex-1 rounded-xl border border-white/15 bg-white/[0.06] px-4 py-3.5 text-base text-white placeholder-white/48 outline-none transition-colors focus:border-neon-blue/60"
+                className="w-full flex-1 rounded-none border border-white/20 bg-white/[0.03] px-4 py-3.5 text-base text-white placeholder-white/40 outline-none transition-colors focus:border-white/60"
                 disabled={state === "processing"}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleProcess(); } }}
                 autoFocus
@@ -502,7 +502,7 @@ export default function FeatureLayout({ children, title, subtitle }: FeatureLayo
               <button
                 onClick={() => void handleProcess()}
                 disabled={!prompt.trim() || state === "processing"}
-                className="shrink-0 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple px-6 py-3.5 text-base font-semibold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                className="shrink-0 rounded-none bg-[#f2f1ec] px-6 py-3.5 text-base font-medium text-black transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {state === "processing" ? "..." : "Process"}
               </button>

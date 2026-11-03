@@ -124,21 +124,21 @@ export default function Sidebar({}: SidebarProps) {
                 aria-current={isActive ? "page" : undefined}
                 className={`group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-[0.9375rem] transition-colors ${
                   isActive
-                    ? "bg-neon-blue/12 font-medium text-white"
+                    ? "bg-white/[0.08] font-medium text-white"
                     : "text-white/72 hover:bg-white/[0.06] hover:text-white"
                 }`}
               >
                 <span
                   className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
                     isActive
-                      ? "bg-neon-blue/20 text-neon-blue"
+                      ? "bg-white/10 text-white"
                       : "text-white/60 group-hover:text-white/90"
                   }`}
                 >
                   {FEATURE_ICONS[cat.href]}
                 </span>
                 <span className="truncate">{cat.name}</span>
-                {isActive && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-neon-blue" />}
+                {isActive && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-white/60" />}
               </Link>
             );
           })}
@@ -152,13 +152,13 @@ export default function Sidebar({}: SidebarProps) {
           aria-current={guideActive ? "page" : undefined}
           className={`group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-[0.9375rem] transition-colors ${
             guideActive
-              ? "bg-neon-purple/12 font-medium text-white"
+              ? "bg-white/[0.08] font-medium text-white"
               : "text-white/72 hover:bg-white/[0.06] hover:text-white"
           }`}
         >
           <span
             className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
-              guideActive ? "bg-neon-purple/20 text-neon-purple-light" : "text-neon-purple-light/80"
+              guideActive ? "bg-white/10 text-white" : "text-white/60 group-hover:text-white/90"
             }`}
           >
             <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
