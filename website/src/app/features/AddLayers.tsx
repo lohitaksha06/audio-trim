@@ -1,5 +1,6 @@
 "use client";
 
+import { isBackendConfigured } from "@/services/api";
 import { ActionButton, Panel } from "./FeaturePanels";
 import {
   BEAT_STYLES,
@@ -27,6 +28,9 @@ function Grid({ children }: { children: React.ReactNode }) {
 }
 
 export function AddBeats() {
+  // Every style renders a recorded drum bank on the server. In browser mode
+  // this block was a wall of disabled "Server" buttons; hide it instead.
+  if (!isBackendConfigured) return null;
   return (
     <Panel title="Beats & drum patterns">
       <p className="text-xs text-white/58">
@@ -49,6 +53,7 @@ export function AddBeats() {
 }
 
 export function AddInstruments() {
+  if (!isBackendConfigured) return null;
   return (
     <Panel title="Instruments (trained timbre model)">
       <p className="text-xs text-white/58">
@@ -72,6 +77,7 @@ export function AddInstruments() {
 }
 
 export function AddSfx() {
+  if (!isBackendConfigured) return null;
   return (
     <Panel title="Synth sounds (rule-based DSP)">
       <p className="text-xs text-white/58">

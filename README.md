@@ -111,6 +111,16 @@ audio-trim/
 
 ---
 
+## ML coursework (standalone)
+
+`ml/` is a separate instruction-understanding project: it learns to map a
+natural-language editing instruction to an operation, target, and amount. It
+has its own dataset, training scripts, evaluation, and demo, and it does **not**
+import or modify the app. Audelle integration comes later, on a branch, after
+the ML submission. Start at [`ml/README.md`](ml/README.md).
+
+---
+
 ## Work Plan
 
 ### Phase 1 — ML Backbone (Server) ✅ (implemented in `server/ml/`)

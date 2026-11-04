@@ -1,6 +1,7 @@
 "use client";
 
 import FeatureLayout from "../FeatureLayout";
+import { isBackendConfigured } from "@/services/api";
 import { ActionButton, Panel, Row } from "../FeaturePanels";
 import { useFeaturePrompt } from "../FeaturePromptContext";
 
@@ -27,22 +28,28 @@ function SourceInfo() {
 
 export default function ConvertPage() {
   return (
-    <FeatureLayout title="Format Conversion" subtitle="Convert between audio formats">
+    <FeatureLayout
+      title="Format Conversion"
+      subtitle="Convert between audio formats"
+      featureKey="convert"
+      eyebrow="format conversion"
+      accent="#d8b46a"
+      intro="Export the current render in the format your platform needs."
+    >
       <div className="space-y-6">
         <SourceInfo />
 
         <Panel title="Convert to">
-          {FORMATS.map((fmt) => (
+          {(isBackendConfigured ? FORMATS : FORMATS.filter((fmt) => fmt.ext === "WAV")).map((fmt) => (
             <ActionButton key={fmt.ext} label={fmt.ext} hint={fmt.desc} prompt={fmt.prompt} />
           ))}
         </Panel>
 
         <Panel title="Quality">
           <p className="rounded-xl border border-white/12 bg-white/[0.02] p-4 text-sm text-white/58">
-            The converter uses each codec&apos;s default settings — there is no bitrate or
-            sample-rate control yet. Browser mode can only encode WAV; the compressed formats are
-            marked <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-1.5 py-0.5 text-amber-200">Server</span> and
-            need the backend.
+            {isBackendConfigured
+              ? "The converter uses each codec's default settings — there is no bitrate or sample-rate control yet."
+              : "Browser mode exports WAV. FLAC, MP3, AAC and OGG need the backend; use the WAV download above in the meantime."}
           </p>
         </Panel>
       </div>

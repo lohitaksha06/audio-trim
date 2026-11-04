@@ -1,6 +1,7 @@
 "use client";
 
 import FeatureLayout from "../FeatureLayout";
+import { isBackendConfigured } from "@/services/api";
 import { ActionButton, Panel, Row } from "../FeaturePanels";
 import { useFeaturePrompt } from "../FeaturePromptContext";
 
@@ -45,7 +46,14 @@ function EnergyCurve() {
 
 export default function MoodPage() {
   return (
-    <FeatureLayout title="Mood & Style" subtitle="Transform the feel, tone and character of your audio">
+    <FeatureLayout
+      title="Mood & Style"
+      subtitle="Transform the feel, tone and character of your audio"
+      featureKey="mood"
+      eyebrow="mood & style"
+      accent="#c39bf0"
+      intro="Shape brightness, space and energy without changing the performance."
+    >
       <div className="space-y-6">
         <RealMood />
         <EnergyCurve />
@@ -72,12 +80,14 @@ export default function MoodPage() {
           <ActionButton label="Normalize loudness" prompt="Normalize the volume" tone="accent" />
         </Panel>
 
-        <Panel title="Style presets">
-          <ActionButton label="House style" prompt="Convert this song into a house music style" />
-          <ActionButton label="Techno style" prompt="Convert to techno style" />
-          <ActionButton label="Synthwave style" prompt="Convert to synthwave style" />
-          <ActionButton label="Lo-fi" prompt="Make it lofi" />
-        </Panel>
+        {isBackendConfigured && (
+          <Panel title="Style presets">
+            <ActionButton label="House style" prompt="Convert this song into a house music style" />
+            <ActionButton label="Techno style" prompt="Convert to techno style" />
+            <ActionButton label="Synthwave style" prompt="Convert to synthwave style" />
+            <ActionButton label="Lo-fi" prompt="Make it lofi" />
+          </Panel>
+        )}
       </div>
     </FeatureLayout>
   );

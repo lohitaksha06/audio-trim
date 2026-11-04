@@ -1,15 +1,37 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { processAudio, type ProcessResponse } from "@/services/api";
+import { isBackendConfigured, processAudio, type ProcessResponse } from "@/services/api";
+import {
+  durationOf,
+  parseLocalPrompt,
+  runLocalPlanAsync,
+  type LocalAudio,
+  type LocalPlan,
+} from "@/lib/audio";
+
+export interface LocalEditResult {
+  audio: LocalAudio;
+  blob: Blob;
+  summary: string;
+  intent: string;
+  params: Record<string, unknown>;
+}
 
 interface ManualEditorProps {
   /** Playable URL (object URL or /api/export/download URL). */
   src: string;
   /** Server audio_path / storage key that edits chain onto. */
-  audioPath: string;
+  audioPath?: string;
+  /** Browser-mode source. When set, edits run locally instead of via HTTP. */
+  localAudio?: LocalAudio | null;
   /** Page updates its chaining state + output panel from the result. */
   onResult: (res: ProcessResponse, label: string) => void;
+  /** Browser-mode result; keeps the edited buffers without re-decoding. */
+  onLocalResult?: (result: LocalEditResult, label: string) => void;
+  /** Lets the page show a non-blocking render indicator. */
+  onBusyChange?: (busy: boolean) => void;
+  disabled?: boolean;
 }
 
 const PEAKS = 900;
@@ -21,7 +43,15 @@ const fmt = (s: number) => {
   return `${m}:${sec}`;
 };
 
-export default function ManualEditor({ src, audioPath, onResult }: ManualEditorProps) {
+export default function ManualEditor({
+  src,
+  audioPath,
+  localAudio,
+  onResult,
+  onLocalResult,
+  onBusyChange,
+  disabled,
+}: ManualEditorProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const peaksRef = useRef<Float32Array | null>(null);
@@ -35,6 +65,7 @@ export default function ManualEditor({ src, audioPath, onResult }: ManualEditorP
   const [playing, setPlaying] = useState(false);
   const [loadingWave, setLoadingWave] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ fraction: number; label: string } | null>(null);
   const [error, setError] = useState("");
 
   // adjust controls
@@ -46,6 +77,7 @@ export default function ManualEditor({ src, audioPath, onResult }: ManualEditorP
   // decode peaks whenever the source changes
   useEffect(() => {
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingWave(true);
     peaksRef.current = null;
     setStart(0);
@@ -206,7 +238,7 @@ export default function ManualEditor({ src, audioPath, onResult }: ManualEditorP
     }
   };
 
-  const onPointerUp = (e: React.PointerEvent) => {
+  const onPointerUp = () => {
     if (dragRef.current === "select") {
       // plain click (no drag) = seek
       if (Math.abs(end - start) < 0.05 && audioRef.current) {
@@ -233,16 +265,43 @@ export default function ManualEditor({ src, audioPath, onResult }: ManualEditorP
     void el.play();
   };
 
-  const runOp = async (label: string, prompt: string) => {
+  const runOp = async (label: string, prompt: string, exact?: LocalPlan) => {
+    if (disabled) return;
     setBusy(label);
+    onBusyChange?.(true);
     setError("");
+    setProgress(null);
     try {
-      const res = await processAudio(audioPath, prompt);
-      onResult(res, label);
+      if (!isBackendConfigured) {
+        if (!localAudio) throw new Error("Load a file first.");
+        const plan = exact ?? parseLocalPrompt(prompt, durationOf(localAudio));
+        if (plan.unsupported || plan.intent === "unknown") {
+          throw new Error(plan.unsupported ?? "That edit is not available in browser mode.");
+        }
+        const result = await runLocalPlanAsync(localAudio, plan, (fraction, step) => {
+          setProgress({ fraction, label: step });
+        });
+        onLocalResult?.(
+          {
+            audio: result.audio,
+            blob: result.blob,
+            summary: result.plan.summary,
+            intent: plan.intent,
+            params: plan.params,
+          },
+          label,
+        );
+      } else {
+        if (!audioPath) throw new Error("Upload the file again before editing.");
+        const res = await processAudio(audioPath, prompt);
+        onResult(res, label);
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : `${label} failed`);
     } finally {
       setBusy(null);
+      onBusyChange?.(false);
+      setProgress(null);
     }
   };
 
@@ -290,10 +349,18 @@ export default function ManualEditor({ src, audioPath, onResult }: ManualEditorP
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3">
           <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/78">Region</h4>
           <div className="flex flex-col gap-2">
-            <button type="button" onClick={() => runOp("Keep selection", `trim from ${start.toFixed(2)} to ${end.toFixed(2)}`)} disabled={!hasSel || !!busy} className="rounded-lg bg-gradient-to-r from-neon-blue to-neon-purple px-3 py-2 text-xs font-semibold text-black hover:scale-[1.01] transition-transform disabled:opacity-40">
+            <button type="button" onClick={() => runOp("Keep selection", `trim from ${start.toFixed(2)} to ${end.toFixed(2)}`, {
+              intent: "trim",
+              params: { start, end },
+              summary: `Trimmed to ${fmt(start)}–${fmt(end)}`,
+            })} disabled={!hasSel || !!busy} className="rounded-lg bg-gradient-to-r from-neon-blue to-neon-purple px-3 py-2 text-xs font-semibold text-black hover:scale-[1.01] transition-transform disabled:opacity-40">
               {busy === "Keep selection" ? "Working…" : "Keep selection (trim)"}
             </button>
-            <button type="button" onClick={() => runOp("Cut selection", `remove the section from ${start.toFixed(2)} to ${end.toFixed(2)}`)} disabled={!hasSel || !!busy} className="rounded-lg border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs text-red-300 hover:bg-red-500/20 transition-colors disabled:opacity-40">
+            <button type="button" onClick={() => runOp("Cut selection", `remove the section from ${start.toFixed(2)} to ${end.toFixed(2)}`, {
+              intent: "remove",
+              params: { start, end },
+              summary: `Cut ${selLen.toFixed(1)} s (${fmt(start)}–${fmt(end)})`,
+            })} disabled={!hasSel || !!busy} className="rounded-lg border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs text-red-300 hover:bg-red-500/20 transition-colors disabled:opacity-40">
               {busy === "Cut selection" ? "Working…" : "Cut selection out"}
             </button>
           </div>
@@ -311,7 +378,11 @@ export default function ManualEditor({ src, audioPath, onResult }: ManualEditorP
             <input type="range" min={0} max={10} step={0.5} value={fadeOut} onChange={(e) => setFadeOut(Number(e.target.value))} className="flex-1 accent-neon-blue" />
             <span className="w-10 text-right font-mono text-white/90">{fadeOut.toFixed(1)}s</span>
           </label>
-          <button type="button" onClick={() => runOp("Fades", `fade in ${fadeIn.toFixed(1)}s and fade out ${fadeOut.toFixed(1)}s`)} disabled={(fadeIn <= 0 && fadeOut <= 0) || !!busy} className="w-full rounded-lg bg-neon-blue/15 px-3 py-2 text-xs font-medium text-neon-blue hover:bg-neon-blue/25 transition-colors disabled:opacity-40">
+          <button type="button" onClick={() => runOp("Fades", `fade in ${fadeIn.toFixed(1)}s and fade out ${fadeOut.toFixed(1)}s`, {
+            intent: "fade",
+            params: { fade_in_seconds: fadeIn, fade_out_seconds: fadeOut },
+            summary: `Faded in ${fadeIn.toFixed(1)} s and out ${fadeOut.toFixed(1)} s`,
+          })} disabled={(fadeIn <= 0 && fadeOut <= 0) || !!busy} className="w-full rounded-lg bg-neon-blue/15 px-3 py-2 text-xs font-medium text-neon-blue hover:bg-neon-blue/25 transition-colors disabled:opacity-40">
             {busy === "Fades" ? "Working…" : "Apply fades"}
           </button>
         </div>
@@ -324,10 +395,18 @@ export default function ManualEditor({ src, audioPath, onResult }: ManualEditorP
             <span className="w-14 text-right font-mono text-white/90">{gainDb > 0 ? `+${gainDb.toFixed(1)}` : gainDb.toFixed(1)} dB</span>
           </label>
           <div className="flex gap-2">
-            <button type="button" onClick={() => runOp("Gain", `set gain to ${gainDb >= 0 ? "+" : ""}${gainDb.toFixed(1)}dB`)} disabled={gainDb === 0 || !!busy} className="flex-1 rounded-lg bg-neon-purple/15 px-3 py-2 text-xs font-medium text-neon-purple hover:bg-neon-purple/25 transition-colors disabled:opacity-40">
+            <button type="button" onClick={() => runOp("Gain", `set gain to ${gainDb >= 0 ? "+" : ""}${gainDb.toFixed(1)}dB`, {
+              intent: "gain",
+              params: { db: gainDb },
+              summary: `Gain ${gainDb >= 0 ? "+" : ""}${gainDb.toFixed(1)} dB`,
+            })} disabled={gainDb === 0 || !!busy} className="flex-1 rounded-lg bg-neon-purple/15 px-3 py-2 text-xs font-medium text-neon-purple hover:bg-neon-purple/25 transition-colors disabled:opacity-40">
               {busy === "Gain" ? "Working…" : "Apply gain"}
             </button>
-            <button type="button" onClick={() => runOp("Normalize", "normalize the volume")} disabled={!!busy} className="flex-1 rounded-lg border border-white/10 px-3 py-2 text-xs text-white/78 hover:border-white/20 transition-colors disabled:opacity-40">
+            <button type="button" onClick={() => runOp("Normalize", "normalize the volume", {
+              intent: "normalize",
+              params: {},
+              summary: "Normalised to −1 dBFS peak",
+            })} disabled={!!busy} className="flex-1 rounded-lg border border-white/10 px-3 py-2 text-xs text-white/78 hover:border-white/20 transition-colors disabled:opacity-40">
               {busy === "Normalize" ? "Working…" : "Normalize"}
             </button>
           </div>
@@ -342,7 +421,11 @@ export default function ManualEditor({ src, audioPath, onResult }: ManualEditorP
           </label>
           <button
             type="button"
-            onClick={() => runOp("Speed", speed >= 1 ? `make it ${speed.toFixed(2)}x faster` : `make it ${(1 / speed).toFixed(2)}x slower`)}
+            onClick={() => runOp("Speed", speed >= 1 ? `make it ${speed.toFixed(2)}x faster` : `make it ${(1 / speed).toFixed(2)}x slower`, {
+              intent: "speed",
+              params: { factor: speed },
+              summary: `Speed ${speed.toFixed(2)}×, pitch preserved`,
+            })}
             disabled={Math.abs(speed - 1) < 0.01 || !!busy}
             className="w-full rounded-lg bg-neon-blue/15 px-3 py-2 text-xs font-medium text-neon-blue hover:bg-neon-blue/25 transition-colors disabled:opacity-40"
           >
@@ -351,6 +434,20 @@ export default function ManualEditor({ src, audioPath, onResult }: ManualEditorP
         </div>
       </div>
 
+      {progress && (
+        <div className="rounded-lg border border-white/12 bg-white/[0.03] p-2.5">
+          <div className="flex justify-between text-[0.7rem] text-white/60">
+            <span>{progress.label}</span>
+            <span>{Math.round(progress.fraction * 100)}%</span>
+          </div>
+          <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-white/70 transition-[width]"
+              style={{ width: `${Math.round(progress.fraction * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
       {error && <p className="text-xs text-red-400">{error}</p>}
     </div>
   );

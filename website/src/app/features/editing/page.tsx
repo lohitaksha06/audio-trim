@@ -30,7 +30,14 @@ function StructureTimeline() {
 
 export default function EditingPage() {
   return (
-    <FeatureLayout title="Smart Editing" subtitle="Trim, cut, rearrange and change tempo with natural language">
+    <FeatureLayout
+      title="Smart Editing"
+      subtitle="Trim, cut, rearrange and change tempo with natural language"
+      featureKey="editing"
+      eyebrow="smart editing"
+      accent="#f6c445"
+      intro="Describe a cut, a tempo or a rearrangement; the engine turns it into a real edit."
+    >
       <div className="space-y-6">
         {/* Only shown once real analysis exists — never invented timestamps. */}
         <StructureTimeline />

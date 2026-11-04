@@ -10,20 +10,27 @@
  * There is no shared state to reset between edits.
  */
 
-import { applyPlan } from "./engine";
+import { analyzeLocal, applyPlan, type LocalAnalysis } from "./engine";
+import { mixAudio } from "./mix";
 import { encodeWavBuffer } from "./wav";
 import type { LocalAudio, LocalPlan } from "./types";
 
 export interface WorkerRequest {
   id: number;
+  /** `analyze` measures; `mix` sums a second stem; default is a render plan. */
+  kind?: "plan" | "analyze" | "mix";
   /** Transferable copies of the source channels. */
   channels: ArrayBuffer[];
   sampleRate: number;
-  plan: LocalPlan;
+  plan?: LocalPlan;
+  overlayChannels?: ArrayBuffer[];
+  overlaySampleRate?: number;
+  levelDb?: number;
 }
 
 export type WorkerResponse =
   | { type: "progress"; id: number; fraction: number; label: string }
+  | { type: "analysis"; id: number; analysis: LocalAnalysis }
   | {
       type: "done";
       id: number;
@@ -46,12 +53,53 @@ interface WorkerScope {
 const ctx = self as unknown as WorkerScope;
 
 ctx.onmessage = (event: MessageEvent<WorkerRequest>) => {
-  const { id, channels, sampleRate, plan } = event.data;
+  const {
+    id,
+    kind,
+    channels,
+    sampleRate,
+    plan,
+    overlayChannels,
+    overlaySampleRate,
+    levelDb,
+  } = event.data;
   try {
     const audio: LocalAudio = {
       sampleRate,
       channels: channels.map((buffer) => new Float32Array(buffer)),
     };
+
+    if (kind === "analyze") {
+      const analysis = analyzeLocal(audio);
+      ctx.postMessage({ type: "analysis", id, analysis });
+      return;
+    }
+
+    if (kind === "mix") {
+      const overlay: LocalAudio = {
+        sampleRate: overlaySampleRate ?? sampleRate,
+        channels: (overlayChannels ?? []).map((buffer) => new Float32Array(buffer)),
+      };
+      if (!overlay.channels.length) throw new Error("No stem channels supplied");
+      const mixed = mixAudio(audio, overlay, levelDb ?? 0);
+      const wav = encodeWavBuffer(mixed.audio);
+      const outChannels = mixed.audio.channels.map((channel) => channel.buffer as ArrayBuffer);
+      ctx.postMessage(
+        {
+          type: "done",
+          id,
+          wav,
+          channels: outChannels,
+          sampleRate: mixed.audio.sampleRate,
+          metadata: { mixed_seconds: mixed.mixedSeconds, level_db: mixed.appliedDb },
+          summary: "Local stem mix",
+        },
+        [wav, ...outChannels],
+      );
+      return;
+    }
+
+    if (!plan) throw new Error("No render plan supplied");
 
     let lastFraction = -1;
     const output = applyPlan(audio, plan, (fraction, label) => {

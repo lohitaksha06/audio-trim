@@ -5,7 +5,14 @@ import { ActionButton, Panel } from "../FeaturePanels";
 
 export default function FilmPage() {
   return (
-    <FeatureLayout title="Film & Video" subtitle="Clean dialogue and pull stems for post-production">
+    <FeatureLayout
+      title="Film & Video"
+      subtitle="Clean dialogue and pull stems for post-production"
+      featureKey="film"
+      eyebrow="film & video"
+      accent="#5fc9d8"
+      intro="Dialogue cleanup and stem preparation for picture editing and post-production."
+    >
       <div className="space-y-6">
         <Panel title="Dialogue">
           <ActionButton

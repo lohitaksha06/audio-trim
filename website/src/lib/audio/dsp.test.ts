@@ -28,6 +28,7 @@ import {
 } from "./ops";
 import { estimateTempo } from "./tempo";
 import { LOCAL_PROMPTS, localSupport, parseLocalPrompt, parseTime } from "./parse";
+import { bandPeaks, mixAudio, stemGainsToEq } from "./mix";
 import { durationOf, encodeWav, encodeWavBuffer } from "./wav";
 import { applyPlan, runLocalPlan } from "./engine";
 import { runLocalPlanAsync } from "./client";
@@ -694,5 +695,70 @@ describe("worker handoff", () => {
     const blobBytes = new Uint8Array(await encodeWav(audio).arrayBuffer());
     expect(buffer.byteLength).toBe(blobBytes.byteLength);
     expect(new Uint8Array(buffer)).toEqual(blobBytes);
+  });
+});
+
+describe("local stem mixer", () => {
+  test("vocal/drum isolation plans are local and trim stays trim", () => {
+    const keep = parseLocalPrompt("Keep only the vocals", 20);
+    expect(keep.intent).toBe("stem_mix");
+    expect(keep.unsupported).toBeUndefined();
+    expect(localSupport("Keep only the vocals").supported).toBe(true);
+
+    const remove = parseLocalPrompt("Remove the drums", 20);
+    expect(remove.intent).toBe("stem_mix");
+
+    const trimPlan = parseLocalPrompt("Cut the first 5 seconds", 20);
+    expect(trimPlan.intent).toBe("trim");
+    expect(trimPlan.params.start).toBe(5);
+  });
+
+  test("stem_mix keeps the duration and actually changes the audio", () => {
+    const source: LocalAudio = {
+      sampleRate: SR,
+      channels: [Float32Array.from(sine(110, 2, 0.35).map((v, i) => v + Math.sin((2 * Math.PI * 5000 * i) / SR) * 0.25))],
+    };
+    const result = applyPlan(source, parseLocalPrompt("Keep only the vocals", 2));
+    const out = result.audio.channels[0];
+    expect(out.length).toBe(source.channels[0].length);
+    let diff = 0;
+    for (let i = 0; i < out.length; i++) {
+      expect(Number.isFinite(out[i])).toBe(true);
+      diff += Math.abs(out[i] - source.channels[0][i]);
+    }
+    expect(diff).toBeGreaterThan(0);
+  });
+
+  test("mixAudio resamples an imported stem and applies its level", () => {
+    const base: LocalAudio = { sampleRate: 8000, channels: [new Float32Array(8000)] };
+    const overlay: LocalAudio = { sampleRate: 4000, channels: [new Float32Array(4000).fill(0.5)] };
+    const mixed = mixAudio(base, overlay, 0);
+    expect(mixed.audio.channels[0].length).toBe(8000);
+    expect(mixed.audio.channels[0][100]).toBeCloseTo(0.5, 5);
+    expect(mixed.mixedSeconds).toBeCloseTo(1, 5);
+
+    const quieter = mixAudio(base, overlay, -6);
+    expect(quieter.audio.channels[0][100]).toBeCloseTo(0.5 * Math.pow(10, -6 / 20), 4);
+  });
+
+  test("band envelopes are normalised and follow the frequency split", () => {
+    const bass: LocalAudio = { sampleRate: SR, channels: [sine(90, 1, 0.8)] };
+    const bassPeaks = bandPeaks(bass, 64);
+    const bassAvg = bassPeaks.bass.reduce((sum, value) => sum + value, 0) / 64;
+    const vocalAvg = bassPeaks.vocals.reduce((sum, value) => sum + value, 0) / 64;
+    expect(bassAvg).toBeGreaterThan(vocalAvg);
+
+    const high: LocalAudio = { sampleRate: SR, channels: [sine(7000, 1, 0.8)] };
+    const highPeaks = bandPeaks(high, 64);
+    const highVocal = highPeaks.vocals.reduce((sum, value) => sum + value, 0) / 64;
+    const highBass = highPeaks.bass.reduce((sum, value) => sum + value, 0) / 64;
+    expect(highVocal).toBeGreaterThan(highBass);
+  });
+
+  test("stem gains map to a non-flat five-band EQ", () => {
+    const eq = stemGainsToEq({ vocals: 6, drums: 0, bass: -4, other: 2 });
+    expect(eq["910"]).toBeGreaterThan(0);
+    expect(eq["60"]).toBeLessThan(0);
+    expect(eq["14000"]).toBeGreaterThan(0);
   });
 });

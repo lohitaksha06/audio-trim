@@ -1,12 +1,20 @@
 "use client";
 
 import FeatureLayout from "../FeatureLayout";
+import { isBackendConfigured } from "@/services/api";
 import { ActionButton, Panel } from "../FeaturePanels";
 import { AddBeats, AddInstruments } from "../AddLayers";
 
 export default function CreatorPage() {
   return (
-    <FeatureLayout title="Content Creator" subtitle="Short-form cuts, clean audio, and platform-ready exports">
+    <FeatureLayout
+      title="Content Creator"
+      subtitle="Short-form cuts, clean audio, and platform-ready exports"
+      featureKey="creator"
+      eyebrow="content creator"
+      accent="#f79f7f"
+      intro="Make short clips from long recordings and clean the audio before publishing."
+    >
       <div className="space-y-6">
         <Panel title="Short-form cuts">
           <ActionButton
@@ -44,8 +52,13 @@ export default function CreatorPage() {
         <AddInstruments />
 
         <Panel title="Export">
-          <ActionButton label="Export as MP3" prompt="Convert this file to mp3 format" />
+          {isBackendConfigured && (
+            <ActionButton label="Export as MP3" prompt="Convert this file to mp3 format" />
+          )}
           <ActionButton label="Export as WAV" prompt="Convert this file to wav format" />
+          {!isBackendConfigured && (
+            <p className="text-xs text-white/45">WAV is the only browser-side export; MP3 needs the backend.</p>
+          )}
         </Panel>
       </div>
     </FeatureLayout>

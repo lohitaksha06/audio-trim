@@ -1,6 +1,7 @@
 "use client";
 
 import FeatureLayout from "../FeatureLayout";
+import { isBackendConfigured } from "@/services/api";
 import { ActionButton, Panel } from "../FeaturePanels";
 import { useFeaturePrompt } from "../FeaturePromptContext";
 
@@ -72,34 +73,43 @@ function SpeakerSummary() {
  */
 export default function PodcastPage() {
   return (
-    <FeatureLayout title="Podcast Tools" subtitle="Clean up dialogue, normalize speakers, and cut filler words">
+    <FeatureLayout
+      title="Podcast Tools"
+      subtitle="Clean up dialogue, normalize speakers, and cut filler words"
+      featureKey="podcast"
+      eyebrow="podcast"
+      accent="#6aa9ff"
+      intro="Dialogue cleanup, pause removal and speaker tools for spoken-word recordings."
+    >
       <div className="space-y-6">
         <SpeakerSummary />
 
-        <Panel title="Speaker work (real diarization)">
-          <ActionButton
-            label="Split by speaker"
-            hint="Detects speakers, then exports one track per person"
-            prompt="Split this interview by speaker into separate tracks"
-            tone="accent"
-          />
-          <ActionButton
-            label="Keep only speaker 1"
-            hint="Cuts every other speaker's turn"
-            prompt="Keep only speaker 1"
-            tone="accent"
-          />
-          <ActionButton
-            label="Remove speaker 2"
-            prompt="Remove speaker 2"
-            tone="accent"
-          />
-          <ActionButton
-            label="Generate chapters"
-            hint="Chapter marks at real pauses in the conversation"
-            prompt="Generate chapters from this transcript"
-          />
-        </Panel>
+        {isBackendConfigured && (
+          <Panel title="Speaker work (real diarization)">
+            <ActionButton
+              label="Split by speaker"
+              hint="Detects speakers, then exports one track per person"
+              prompt="Split this interview by speaker into separate tracks"
+              tone="accent"
+            />
+            <ActionButton
+              label="Keep only speaker 1"
+              hint="Cuts every other speaker's turn"
+              prompt="Keep only speaker 1"
+              tone="accent"
+            />
+            <ActionButton
+              label="Remove speaker 2"
+              prompt="Remove speaker 2"
+              tone="accent"
+            />
+            <ActionButton
+              label="Generate chapters"
+              hint="Chapter marks at real pauses in the conversation"
+              prompt="Generate chapters from this transcript"
+            />
+          </Panel>
+        )}
 
         <Panel title="Dialogue cleanup">
           <ActionButton

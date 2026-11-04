@@ -231,6 +231,16 @@ export function applyPlan(source: LocalAudio, plan: LocalPlan, onProgress?: Loca
       metadata.direction = direction;
       break;
     }
+    case "stem_mix": {
+      // A band-isolation approximation for the browser: no Demucs, but the
+      // target frequency region is lifted or cut relative to the rest.
+      const gains = (plan.params.gains ?? {}) as Record<string, number>;
+      audio = applyEq(cloneAudio(source), gains, null, null, spectral("Shaping bands"));
+      metadata.method = "band_mix";
+      metadata.stem_gains = plan.params.stem_gains ?? null;
+      metadata.duration_seconds = durationOf(audio);
+      break;
+    }
     case "tone": {
       const kind = String(plan.params.kind ?? "darker") as ToneKind;
       audio = shapeTone(source, kind, spectral("Shaping tone"));

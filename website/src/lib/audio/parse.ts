@@ -9,6 +9,7 @@
  */
 
 import type { LocalPlan } from "./types";
+import { stemGainsToEq, type StemBand } from "./mix";
 
 /** Time token: `1:02`, `1:02.5`, `1:02:03`, `90`, `90s`, `2 min`, `1.5 minutes`. */
 const T = String.raw`\d+(?::\d{1,2}){0,2}(?:\.\d+)?(?:\s*(?:h|hr|hrs|hour|hours|m|min|mins|minute|minutes|s|sec|secs|second|seconds))?`;
@@ -67,6 +68,55 @@ const TARGETS: { target: "vocals" | "drums" | "bass"; re: RegExp }[] = [
   { target: "drums", re: /\b(drums?|kick|snare|hats?|hi-?hats?|percussion|beat)\b/ },
   { target: "bass", re: /\b(bass|bassline|sub bass|808)\b/ },
 ];
+
+/**
+ * Local "keep only / remove this part" approximation.
+ *
+ * This is a four-band mix, not source separation, but it is a real render:
+ * a solo lifts the target band and pulls the others down; a remove cuts the
+ * target band. It covers the common vocal/karaoke/drum requests without
+ * pretending the browser has Demucs.
+ */
+function stemMixPlan(lower: string): LocalPlan | null {
+  const targets = TARGETS.filter((item) => item.re.test(lower)).map((item) => item.target);
+  const keepVocals =
+    /\b(keep|only)\s+(the\s+)?(voice|vocals?|vocal)\b/.test(lower) ||
+    /\b(acapella|a\s+cappella|vocal\s+only|voice\s+only)\b/.test(lower) ||
+    /\bremove\s+all\s+instruments\b/.test(lower);
+  const karaoke =
+    /\b(karaoke|instrumental|no\s+vocals|without\s+vocals)\b/.test(lower);
+  const remove = /\b(remove|delete|mute|cut|drop|kill|strip)\b/.test(lower);
+  const keep =
+    /\b(keep\s+only|only|just|isolate|extract|give\s+me|solo)\b/.test(lower);
+
+  if (keepVocals) {
+    return buildStemPlan({ vocals: 7, drums: -10, bass: -10, other: -6 }, "Vocal-forward mix");
+  }
+  if (karaoke) {
+    return buildStemPlan({ vocals: -12, drums: 2, bass: 2, other: 2 }, "Karaoke-style vocal cut");
+  }
+  if (!targets.length) return null;
+
+  if (keep && !remove) {
+    const gains: Record<StemBand, number> = { vocals: 0, drums: 0, bass: 0, other: -10 };
+    for (const target of targets) gains[target] = 8;
+    return buildStemPlan(gains, `Soloed ${targets.join(" + ")}`);
+  }
+  if (remove) {
+    const gains: Record<StemBand, number> = { vocals: 0, drums: 0, bass: 0, other: 0 };
+    for (const target of targets) gains[target] = -12;
+    return buildStemPlan(gains, `Cut ${targets.join(" + ")}`);
+  }
+  return null;
+}
+
+function buildStemPlan(gains: Record<StemBand, number>, label: string): LocalPlan {
+  return {
+    intent: "stem_mix",
+    params: { gains: stemGainsToEq(gains), stem_gains: gains },
+    summary: `${label} with a 4-band mix (not AI stem isolation)`,
+  };
+}
 
 function formatSeconds(value: number): string {
   const m = Math.floor(value / 60);
@@ -387,9 +437,14 @@ export function parseLocalPrompt(prompt: string, duration: number): LocalPlan {
     };
   }
 
+  // --- keep / remove a part -----------------------------------------------
+  // Runs before trim so "cut the drums" does not become "tell me the range".
+  const stemPlan = stemMixPlan(lower);
+  if (stemPlan) return stemPlan;
+
   // --- trim ---------------------------------------------------------------
-  // "Keep the last N" is a trim too, but "keep only the vocals" must stay
-  // server-only rather than falling into trimPlan's "tell me the range" reply.
+  // "Keep the last N" is a trim too, but "keep only the vocals" is handled
+  // above as a band-isolation render rather than a trim.
   if (/\b(trim|cut|crop|shorten)\b|\bkeep\s+(?:only\s+)?(?:the\s+)?last\b/.test(lower)) {
     const plan = trimPlan(lower, duration);
     if (plan) return plan;

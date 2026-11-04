@@ -15,6 +15,20 @@ const STEM_LABELS: Record<string, string> = {
   other: "Other",
 };
 
+function LocalNote() {
+  const ctx = useFeaturePrompt();
+  if (!ctx?.localMode) return null;
+  return (
+    <Panel title="Browser mode: 4-band isolation">
+      <p className="rounded-xl border border-[#7fd1a8]/20 bg-[#7fd1a8]/[0.04] p-4 text-sm leading-relaxed text-white/65">
+        Keep/remove vocals, drums or bass through a four-band mix with a real WAV output. This is
+        not Demucs stem separation; piano and guitar isolation, and the four-stem export, need the
+        backend. For hands-on faders, open <strong className="text-white/85">Mix Lab</strong>.
+      </p>
+    </Panel>
+  );
+}
+
 function DetectedStems() {
   const ctx = useFeaturePrompt();
   const found = ctx?.understand?.instruments?.instruments ?? [];
@@ -48,8 +62,16 @@ function DetectedStems() {
 
 export default function SeparationPage() {
   return (
-    <FeatureLayout title="Source Separation" subtitle="Isolate, remove, or extract individual instruments">
+    <FeatureLayout
+      title="Source Separation"
+      subtitle="Isolate, remove, or extract individual instruments"
+      featureKey="separation"
+      eyebrow="source separation"
+      accent="#7fd1a8"
+      intro="Pull a part out of the mix, remove a part, or bring in your own vocal stem."
+    >
       <div className="space-y-6">
+        <LocalNote />
         <DetectedStems />
 
         <Panel title="Split into stems">

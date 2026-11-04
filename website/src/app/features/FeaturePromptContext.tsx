@@ -1,6 +1,7 @@
 "use client";
 import { createContext, useContext } from "react";
 import type { UploadResponse, UnderstandResponse } from "@/services/api";
+import type { LocalAudio } from "@/lib/audio";
 
 /**
  * Shared state for the feature pages: the real uploaded file, its measured
@@ -22,6 +23,12 @@ export const FeaturePromptContext = createContext<{
   edits: number;
   /** Metadata of the most recent result, for feature-specific panels. */
   lastMetadata: Record<string, unknown> | null;
+  /** True when this build has no backend and edits run on-device. */
+  localMode: boolean;
+  /** Playable URL for the current audio, when available. */
+  objectUrl: string | null;
+  /** Current decoded audio for local mixing components. */
+  localAudio: LocalAudio | null;
 } | null>(null);
 
 export function useFeaturePrompt() {
