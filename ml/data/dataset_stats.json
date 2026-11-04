@@ -1,0 +1,212 @@
+{
+  "dataset": {
+    "rows": 1482,
+    "groups": 297,
+    "multi_operation_rows": 95,
+    "rows_with_amount": 305,
+    "rows_with_span": 130,
+    "operations": {
+      "add_effect": 135,
+      "cut_segment": 130,
+      "denoise": 125,
+      "fade": 125,
+      "gain": 175,
+      "isolate_stem": 150,
+      "normalize": 107,
+      "remove_silence": 90,
+      "remove_speaker": 130,
+      "remove_stem": 155,
+      "speed": 130,
+      "trim_segment": 125
+    },
+    "targets": {
+      "bass": 100,
+      "drums": 185,
+      "full_mix": 722,
+      "guitar": 90,
+      "keys": 75,
+      "other": 5,
+      "speaker_1": 55,
+      "speaker_2": 75,
+      "vocals": 245
+    },
+    "units": {
+      "bpm": 25,
+      "dB": 135,
+      "factor": 50,
+      "seconds": 95
+    },
+    "sources": {
+      "seed": 297,
+      "template": 1185
+    }
+  },
+  "splits": {
+    "train": {
+      "rows": 1032,
+      "groups": 207,
+      "multi_operation_rows": 70,
+      "rows_with_amount": 215,
+      "rows_with_span": 95,
+      "operations": {
+        "add_effect": 100,
+        "cut_segment": 85,
+        "denoise": 85,
+        "fade": 90,
+        "gain": 125,
+        "isolate_stem": 110,
+        "normalize": 72,
+        "remove_silence": 60,
+        "remove_speaker": 90,
+        "remove_stem": 115,
+        "speed": 85,
+        "trim_segment": 85
+      },
+      "targets": {
+        "bass": 85,
+        "drums": 135,
+        "full_mix": 492,
+        "guitar": 55,
+        "keys": 45,
+        "other": 5,
+        "speaker_1": 40,
+        "speaker_2": 50,
+        "vocals": 180
+      },
+      "units": {
+        "bpm": 20,
+        "dB": 85,
+        "factor": 40,
+        "seconds": 70
+      },
+      "sources": {
+        "seed": 207,
+        "template": 825
+      },
+      "handwritten": 207
+    },
+    "val": {
+      "rows": 225,
+      "groups": 45,
+      "multi_operation_rows": 15,
+      "rows_with_amount": 45,
+      "rows_with_span": 15,
+      "operations": {
+        "add_effect": 20,
+        "cut_segment": 25,
+        "denoise": 20,
+        "fade": 15,
+        "gain": 25,
+        "isolate_stem": 20,
+        "normalize": 15,
+        "remove_silence": 15,
+        "remove_speaker": 20,
+        "remove_stem": 20,
+        "speed": 25,
+        "trim_segment": 20
+      },
+      "targets": {
+        "drums": 30,
+        "full_mix": 110,
+        "guitar": 25,
+        "keys": 10,
+        "speaker_1": 5,
+        "speaker_2": 15,
+        "vocals": 40
+      },
+      "units": {
+        "bpm": 5,
+        "dB": 25,
+        "seconds": 15
+      },
+      "sources": {
+        "seed": 45,
+        "template": 180
+      },
+      "handwritten": 45
+    },
+    "test": {
+      "rows": 225,
+      "groups": 45,
+      "multi_operation_rows": 10,
+      "rows_with_amount": 45,
+      "rows_with_span": 20,
+      "operations": {
+        "add_effect": 15,
+        "cut_segment": 20,
+        "denoise": 20,
+        "fade": 20,
+        "gain": 25,
+        "isolate_stem": 20,
+        "normalize": 20,
+        "remove_silence": 15,
+        "remove_speaker": 20,
+        "remove_stem": 20,
+        "speed": 20,
+        "trim_segment": 20
+      },
+      "targets": {
+        "bass": 15,
+        "drums": 20,
+        "full_mix": 120,
+        "guitar": 10,
+        "keys": 20,
+        "speaker_1": 10,
+        "speaker_2": 10,
+        "vocals": 25
+      },
+      "units": {
+        "dB": 25,
+        "factor": 10,
+        "seconds": 10
+      },
+      "sources": {
+        "seed": 45,
+        "template": 180
+      },
+      "handwritten": 45
+    }
+  },
+  "heldout": {
+    "rows": 80,
+    "groups": 80,
+    "multi_operation_rows": 5,
+    "rows_with_amount": 19,
+    "rows_with_span": 7,
+    "operations": {
+      "add_effect": 7,
+      "cut_segment": 8,
+      "denoise": 7,
+      "fade": 7,
+      "gain": 10,
+      "isolate_stem": 6,
+      "normalize": 6,
+      "remove_silence": 5,
+      "remove_speaker": 7,
+      "remove_stem": 8,
+      "speed": 7,
+      "trim_segment": 7
+    },
+    "targets": {
+      "bass": 5,
+      "drums": 8,
+      "full_mix": 43,
+      "guitar": 5,
+      "keys": 4,
+      "speaker_1": 1,
+      "speaker_2": 6,
+      "vocals": 11
+    },
+    "units": {
+      "bpm": 2,
+      "dB": 9,
+      "factor": 3,
+      "seconds": 5
+    },
+    "sources": {
+      "seed": 80
+    }
+  },
+  "seed": 13,
+  "variants_per_seed": 4
+}

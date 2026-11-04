@@ -1,0 +1,16 @@
+# Generated checkpoints (large; rebuild with scripts/train_transformer.py)
+models/transformer/
+models/transformer_smoke/
+models/checkpoints/
+
+# The small TF-IDF baseline is committed so the demo works without training.
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Review queue, not data
+data/proposed_paraphrases.jsonl

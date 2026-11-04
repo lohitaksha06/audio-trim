@@ -1,0 +1,297 @@
+{"id": "seed-0001", "text": "make the drums louder by 6 db", "ops": ["gain"], "targets": ["drums"], "amount": 6.0, "unit": "dB", "span": null, "notes": ""}
+{"id": "seed-0002", "text": "turn the vocals down by 3 db", "ops": ["gain"], "targets": ["vocals"], "amount": -3.0, "unit": "dB", "span": null, "notes": ""}
+{"id": "seed-0003", "text": "boost the bass by 4 db", "ops": ["gain"], "targets": ["bass"], "amount": 4.0, "unit": "dB", "span": null, "notes": ""}
+{"id": "seed-0004", "text": "lower the guitar 5 db", "ops": ["gain"], "targets": ["guitar"], "amount": -5.0, "unit": "dB", "span": null, "notes": ""}
+{"id": "seed-0005", "text": "increase the volume of the keys by 2 db", "ops": ["gain"], "targets": ["keys"], "amount": 2.0, "unit": "dB", "span": null, "notes": ""}
+{"id": "seed-0006", "text": "raise the whole mix by 3 db", "ops": ["gain"], "targets": ["full_mix"], "amount": 3.0, "unit": "dB", "span": null, "notes": ""}
+{"id": "seed-0007", "text": "make the vocals 2 db quieter", "ops": ["gain"], "targets": ["vocals"], "amount": -2.0, "unit": "dB", "span": null, "notes": ""}
+{"id": "seed-0008", "text": "turn up the drums by 1.5 db", "ops": ["gain"], "targets": ["drums"], "amount": 1.5, "unit": "dB", "span": null, "notes": ""}
+{"id": "seed-0009", "text": "cut the bass by 6 db", "ops": ["gain"], "targets": ["bass"], "amount": -6.0, "unit": "dB", "span": null, "notes": "level change, not a time cut"}
+{"id": "seed-0010", "text": "pump the kick up by 4 db", "ops": ["gain"], "targets": ["drums"], "amount": 4.0, "unit": "dB", "span": null, "notes": "kick folds into drums"}
+{"id": "seed-0011", "text": "make the song 8 db louder", "ops": ["gain"], "targets": ["full_mix"], "amount": 8.0, "unit": "dB", "span": null, "notes": ""}
+{"id": "seed-0012", "text": "reduce the overall level by 2 db", "ops": ["gain"], "targets": ["full_mix"], "amount": -2.0, "unit": "dB", "span": null, "notes": ""}
+{"id": "seed-0013", "text": "boost the background vocals by 3 db", "ops": ["gain"], "targets": ["vocals"], "amount": 3.0, "unit": "dB", "span": null, "notes": ""}
+{"id": "seed-0014", "text": "turn the cymbals down 4 db", "ops": ["gain"], "targets": ["drums"], "amount": -4.0, "unit": "dB", "span": null, "notes": ""}
+{"id": "seed-0015", "text": "add 2 db to the bass", "ops": ["gain"], "targets": ["bass"], "amount": 2.0, "unit": "dB", "span": null, "notes": ""}
+{"id": "seed-0016", "text": "set the guitar gain to plus 3 db", "ops": ["gain"], "targets": ["guitar"], "amount": 3.0, "unit": "dB", "span": null, "notes": ""}
+{"id": "seed-0017", "text": "make the drums a bit louder", "ops": ["gain"], "targets": ["drums"], "amount": null, "unit": null, "span": null, "notes": "direction only, no number"}
+{"id": "seed-0018", "text": "quiet down the drums a little", "ops": ["gain"], "targets": ["drums"], "amount": null, "unit": null, "span": null, "notes": "direction only, no number"}
+{"id": "seed-0019", "text": "make the vocals much louder", "ops": ["gain"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": "direction only, no number"}
+{"id": "seed-0020", "text": "drop the keys by 5 db", "ops": ["gain"], "targets": ["keys"], "amount": -5.0, "unit": "dB", "span": null, "notes": ""}
+{"id": "seed-0021", "text": "fade in the vocals over 2 seconds", "ops": ["fade"], "targets": ["vocals"], "amount": 2.0, "unit": "seconds", "span": null, "notes": "fade direction is not a label"}
+{"id": "seed-0022", "text": "fade out the whole track over 4 seconds", "ops": ["fade"], "targets": ["full_mix"], "amount": 4.0, "unit": "seconds", "span": null, "notes": ""}
+{"id": "seed-0023", "text": "add a 1 second fade in to the intro", "ops": ["fade"], "targets": ["full_mix"], "amount": 1.0, "unit": "seconds", "span": null, "notes": ""}
+{"id": "seed-0024", "text": "fade the drums out slowly over 6 seconds", "ops": ["fade"], "targets": ["drums"], "amount": 6.0, "unit": "seconds", "span": null, "notes": ""}
+{"id": "seed-0025", "text": "put a fade out on the last 3 seconds", "ops": ["fade"], "targets": ["full_mix"], "amount": 3.0, "unit": "seconds", "span": null, "notes": ""}
+{"id": "seed-0026", "text": "fade in at the start", "ops": ["fade"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "no duration stated"}
+{"id": "seed-0027", "text": "fade out the vocals at 2:30", "ops": ["fade"], "targets": ["vocals"], "amount": null, "unit": null, "span": [150.0, null], "notes": ""}
+{"id": "seed-0028", "text": "two second fade out on the guitar", "ops": ["fade"], "targets": ["guitar"], "amount": 2.0, "unit": "seconds", "span": null, "notes": ""}
+{"id": "seed-0029", "text": "fade the bass in", "ops": ["fade"], "targets": ["bass"], "amount": null, "unit": null, "span": null, "notes": "no duration stated"}
+{"id": "seed-0030", "text": "fade everything out over 5 seconds", "ops": ["fade"], "targets": ["full_mix"], "amount": 5.0, "unit": "seconds", "span": null, "notes": ""}
+{"id": "seed-0031", "text": "give the ending a slow fade out", "ops": ["fade"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "no duration stated"}
+{"id": "seed-0032", "text": "short fade in on the vocals, 0.5 seconds", "ops": ["fade"], "targets": ["vocals"], "amount": 0.5, "unit": "seconds", "span": null, "notes": ""}
+{"id": "seed-0033", "text": "fade the keys out at the end in 3 seconds", "ops": ["fade"], "targets": ["keys"], "amount": 3.0, "unit": "seconds", "span": null, "notes": ""}
+{"id": "seed-0034", "text": "add a fade out to the last 8 seconds", "ops": ["fade"], "targets": ["full_mix"], "amount": 8.0, "unit": "seconds", "span": null, "notes": "duration doubles as the region"}
+{"id": "seed-0035", "text": "remove the vocals", "ops": ["remove_stem"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0036", "text": "take out the drums", "ops": ["remove_stem"], "targets": ["drums"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0037", "text": "delete the bass line", "ops": ["remove_stem"], "targets": ["bass"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0038", "text": "strip the guitar from the mix", "ops": ["remove_stem"], "targets": ["guitar"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0039", "text": "get rid of the keys", "ops": ["remove_stem"], "targets": ["keys"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0040", "text": "mute the vocals", "ops": ["remove_stem"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0041", "text": "remove the drums from 2:30 to 3:45", "ops": ["remove_stem"], "targets": ["drums"], "amount": null, "unit": null, "span": [150.0, 225.0], "notes": ""}
+{"id": "seed-0042", "text": "drop the bass for the chorus", "ops": ["remove_stem"], "targets": ["bass"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0043", "text": "remove all the vocals", "ops": ["remove_stem"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0044", "text": "take the piano out", "ops": ["remove_stem"], "targets": ["keys"], "amount": null, "unit": null, "span": null, "notes": "piano folds into keys"}
+{"id": "seed-0045", "text": "kill the drums in the intro", "ops": ["remove_stem"], "targets": ["drums"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0046", "text": "remove the background vocals", "ops": ["remove_stem"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0047", "text": "cut the guitar out", "ops": ["remove_stem"], "targets": ["guitar"], "amount": null, "unit": null, "span": null, "notes": "cut X out means remove the stem"}
+{"id": "seed-0048", "text": "remove the vocals and the drums", "ops": ["remove_stem"], "targets": ["vocals", "drums"], "amount": null, "unit": null, "span": null, "notes": "two targets, one operation"}
+{"id": "seed-0049", "text": "strip out the drums", "ops": ["remove_stem"], "targets": ["drums"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0050", "text": "remove the kick drum", "ops": ["remove_stem"], "targets": ["drums"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0051", "text": "keep only the vocals", "ops": ["isolate_stem"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0052", "text": "isolate the drums", "ops": ["isolate_stem"], "targets": ["drums"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0053", "text": "extract just the bass", "ops": ["isolate_stem"], "targets": ["bass"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0054", "text": "give me the vocals only", "ops": ["isolate_stem"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0055", "text": "keep the guitar and remove everything else", "ops": ["isolate_stem"], "targets": ["guitar"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0056", "text": "solo the drums", "ops": ["isolate_stem"], "targets": ["drums"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0057", "text": "just the piano please", "ops": ["isolate_stem"], "targets": ["keys"], "amount": null, "unit": null, "span": null, "notes": "piano folds into keys"}
+{"id": "seed-0058", "text": "separate out the bass track", "ops": ["isolate_stem"], "targets": ["bass"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0059", "text": "make an acapella", "ops": ["isolate_stem"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": "acapella means vocals only"}
+{"id": "seed-0060", "text": "isolate the guitar stem", "ops": ["isolate_stem"], "targets": ["guitar"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0061", "text": "only the drums should remain", "ops": ["isolate_stem"], "targets": ["drums"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0062", "text": "pull out the vocals", "ops": ["isolate_stem"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0063", "text": "keep just the bass and drums", "ops": ["isolate_stem"], "targets": ["bass", "drums"], "amount": null, "unit": null, "span": null, "notes": "two targets, one operation"}
+{"id": "seed-0064", "text": "give me a vocals-only version", "ops": ["isolate_stem"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0065", "text": "cut from 0:05 to 0:20", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [5.0, 20.0], "notes": "cut means remove the region"}
+{"id": "seed-0066", "text": "remove the section from 0:02 to 0:04", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [2.0, 4.0], "notes": ""}
+{"id": "seed-0067", "text": "delete everything between 1:00 and 1:10", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [60.0, 70.0], "notes": ""}
+{"id": "seed-0068", "text": "cut out the bridge", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "structural region, no timestamp"}
+{"id": "seed-0069", "text": "remove the guitar solo", "ops": ["cut_segment"], "targets": ["guitar"], "amount": null, "unit": null, "span": null, "notes": "solo is a region, not the whole stem"}
+{"id": "seed-0070", "text": "cut the intro", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0071", "text": "take out the second verse", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0072", "text": "cut from 10 to 15 seconds", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [10.0, 15.0], "notes": ""}
+{"id": "seed-0073", "text": "remove the part at 1:23", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [83.0, null], "notes": ""}
+{"id": "seed-0074", "text": "cut out that cymbal crash at 1:23", "ops": ["cut_segment"], "targets": ["drums"], "amount": null, "unit": null, "span": [83.0, null], "notes": ""}
+{"id": "seed-0075", "text": "delete the chorus from 0:45 to 1:10", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [45.0, 70.0], "notes": ""}
+{"id": "seed-0076", "text": "get rid of the first 5 seconds", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [0.0, 5.0], "notes": ""}
+{"id": "seed-0077", "text": "cut the drum fill at 2:10", "ops": ["cut_segment"], "targets": ["drums"], "amount": null, "unit": null, "span": [130.0, null], "notes": ""}
+{"id": "seed-0078", "text": "remove the last 10 seconds", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "relative region, no absolute timestamps"}
+{"id": "seed-0079", "text": "trim the intro", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "trim means keep the selection"}
+{"id": "seed-0080", "text": "keep only from 0:05 to 0:20", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [5.0, 20.0], "notes": ""}
+{"id": "seed-0081", "text": "shorten from 0:02 to 0:08", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [2.0, 8.0], "notes": ""}
+{"id": "seed-0082", "text": "crop from 1:30 to 2:00", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [90.0, 120.0], "notes": ""}
+{"id": "seed-0083", "text": "keep the first 30 seconds", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0084", "text": "trim the track to 1 minute", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0085", "text": "keep from 10 seconds to 40 seconds", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [10.0, 40.0], "notes": ""}
+{"id": "seed-0086", "text": "make the clip 15 seconds long starting at 0:10", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [10.0, 25.0], "notes": ""}
+{"id": "seed-0087", "text": "keep only the intro", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0088", "text": "shorten the song to 2 minutes", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0089", "text": "trim to the chorus only", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0090", "text": "cut it down to the first verse", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0091", "text": "keep just the outro", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0092", "text": "remove speaker 2", "ops": ["remove_speaker"], "targets": ["speaker_2"], "amount": null, "unit": null, "span": null, "notes": "target is the speaker to remove"}
+{"id": "seed-0093", "text": "delete speaker 2 from the interview", "ops": ["remove_speaker"], "targets": ["speaker_2"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0094", "text": "take out the second speaker", "ops": ["remove_speaker"], "targets": ["speaker_2"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0095", "text": "mute speaker 1", "ops": ["remove_speaker"], "targets": ["speaker_1"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0096", "text": "only keep the first speaker", "ops": ["remove_speaker"], "targets": ["speaker_2"], "amount": null, "unit": null, "span": null, "notes": "canonicalised: keep 1 == remove 2"}
+{"id": "seed-0097", "text": "remove the host from the recording", "ops": ["remove_speaker"], "targets": ["speaker_1"], "amount": null, "unit": null, "span": null, "notes": "host is speaker 1 by convention"}
+{"id": "seed-0098", "text": "keep just speaker 2 and drop the rest", "ops": ["remove_speaker"], "targets": ["speaker_1"], "amount": null, "unit": null, "span": null, "notes": "canonicalised: keep 2 == remove 1"}
+{"id": "seed-0099", "text": "remove speaker 2 between 1:00 and 2:00", "ops": ["remove_speaker"], "targets": ["speaker_2"], "amount": null, "unit": null, "span": [60.0, 120.0], "notes": ""}
+{"id": "seed-0100", "text": "cut out the interviewer", "ops": ["remove_speaker"], "targets": ["speaker_1"], "amount": null, "unit": null, "span": null, "notes": "interviewer is speaker 1 by convention"}
+{"id": "seed-0101", "text": "remove the second voice", "ops": ["remove_speaker"], "targets": ["speaker_2"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0102", "text": "isolate the first speaker", "ops": ["remove_speaker"], "targets": ["speaker_2"], "amount": null, "unit": null, "span": null, "notes": "canonicalised: keep 1 == remove 2"}
+{"id": "seed-0103", "text": "drop speaker one", "ops": ["remove_speaker"], "targets": ["speaker_1"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0104", "text": "keep only speaker two", "ops": ["remove_speaker"], "targets": ["speaker_1"], "amount": null, "unit": null, "span": null, "notes": "canonicalised: keep 2 == remove 1"}
+{"id": "seed-0105", "text": "remove the guest from the audio", "ops": ["remove_speaker"], "targets": ["speaker_2"], "amount": null, "unit": null, "span": null, "notes": "guest is speaker 2 by convention"}
+{"id": "seed-0106", "text": "remove the background noise", "ops": ["denoise"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0107", "text": "clean up the hiss", "ops": ["denoise"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0108", "text": "denoise the vocals", "ops": ["denoise"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0109", "text": "get rid of the hum", "ops": ["denoise"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0110", "text": "remove the wind noise", "ops": ["denoise"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0111", "text": "clean the audio, there is a lot of static", "ops": ["denoise"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0112", "text": "reduce the room noise", "ops": ["denoise"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0113", "text": "remove the traffic noise from the interview", "ops": ["denoise"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0114", "text": "fix the noisy dialogue", "ops": ["denoise"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0115", "text": "take out the buzz", "ops": ["denoise"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0116", "text": "clean up the vocal track", "ops": ["denoise"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0117", "text": "remove the crackle from the recording", "ops": ["denoise"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0118", "text": "clean up the background hiss on the vocals", "ops": ["denoise"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0119", "text": "normalize the volume", "ops": ["normalize"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0120", "text": "make the loudness even", "ops": ["normalize"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0121", "text": "normalize all speakers to the same level", "ops": ["normalize"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "level matching, not speaker removal"}
+{"id": "seed-0122", "text": "even out the volume", "ops": ["normalize"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0123", "text": "match the loudness across the track", "ops": ["normalize"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0124", "text": "normalize the audio to minus 14 lufs", "ops": ["normalize"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "LUFS target is not regressed in v1"}
+{"id": "seed-0125", "text": "level out the vocals", "ops": ["normalize"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0126", "text": "make the whole mix the same volume", "ops": ["normalize"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0127", "text": "bring everything to the same loudness", "ops": ["normalize"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0128", "text": "normalize the bass", "ops": ["normalize"], "targets": ["bass"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0129", "text": "balance the volume of the speakers", "ops": ["normalize"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0130", "text": "speed it up", "ops": ["speed"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "direction only, no number"}
+{"id": "seed-0131", "text": "slow it down", "ops": ["speed"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "direction only, no number"}
+{"id": "seed-0132", "text": "make it twice as fast", "ops": ["speed"], "targets": ["full_mix"], "amount": 2.0, "unit": "factor", "span": null, "notes": ""}
+{"id": "seed-0133", "text": "2x faster please", "ops": ["speed"], "targets": ["full_mix"], "amount": 2.0, "unit": "factor", "span": null, "notes": ""}
+{"id": "seed-0134", "text": "set tempo to 128 bpm", "ops": ["speed"], "targets": ["full_mix"], "amount": 128.0, "unit": "bpm", "span": null, "notes": ""}
+{"id": "seed-0135", "text": "slow down to 90 bpm", "ops": ["speed"], "targets": ["full_mix"], "amount": 90.0, "unit": "bpm", "span": null, "notes": ""}
+{"id": "seed-0136", "text": "change the tempo, speed it up", "ops": ["speed"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "direction only, no number"}
+{"id": "seed-0137", "text": "make the track 10 percent faster", "ops": ["speed"], "targets": ["full_mix"], "amount": 1.1, "unit": "factor", "span": null, "notes": "10% faster == 1.1x"}
+{"id": "seed-0138", "text": "speed up the drums only", "ops": ["speed"], "targets": ["drums"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0139", "text": "slow the song to 100 bpm", "ops": ["speed"], "targets": ["full_mix"], "amount": 100.0, "unit": "bpm", "span": null, "notes": ""}
+{"id": "seed-0140", "text": "play it at 1.25x speed", "ops": ["speed"], "targets": ["full_mix"], "amount": 1.25, "unit": "factor", "span": null, "notes": ""}
+{"id": "seed-0141", "text": "halve the speed", "ops": ["speed"], "targets": ["full_mix"], "amount": 0.5, "unit": "factor", "span": null, "notes": ""}
+{"id": "seed-0142", "text": "speed up the intro", "ops": ["speed"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "region named, no timestamp"}
+{"id": "seed-0143", "text": "make it a bit faster", "ops": ["speed"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "direction only, no number"}
+{"id": "seed-0144", "text": "add reverb to the vocals", "ops": ["add_effect"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0145", "text": "make the vocals sound like a cathedral", "ops": ["add_effect"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": "cathedral implies reverb"}
+{"id": "seed-0146", "text": "add delay to the guitar", "ops": ["add_effect"], "targets": ["guitar"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0147", "text": "put some distortion on the bass", "ops": ["add_effect"], "targets": ["bass"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0148", "text": "make the chorus darker", "ops": ["add_effect"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "mood treatment"}
+{"id": "seed-0149", "text": "add a telephone effect to the vocals", "ops": ["add_effect"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0150", "text": "give the drums more punch", "ops": ["add_effect"], "targets": ["drums"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0151", "text": "add reverb to everything", "ops": ["add_effect"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0152", "text": "make the track sound more cinematic", "ops": ["add_effect"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0153", "text": "add chorus to the keys", "ops": ["add_effect"], "targets": ["keys"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0154", "text": "put a low pass filter on the drums", "ops": ["add_effect"], "targets": ["drums"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0155", "text": "make the bridge sound bigger", "ops": ["add_effect"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0156", "text": "add a warm tape saturation to the mix", "ops": ["add_effect"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0157", "text": "remove the silence", "ops": ["remove_silence"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0158", "text": "cut out the pauses longer than 0.5 seconds", "ops": ["remove_silence"], "targets": ["full_mix"], "amount": 0.5, "unit": "seconds", "span": null, "notes": "amount is the pause threshold"}
+{"id": "seed-0159", "text": "remove the dead air", "ops": ["remove_silence"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0160", "text": "delete the long pauses", "ops": ["remove_silence"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0161", "text": "trim the silence between sentences", "ops": ["remove_silence"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "trims gaps, keeps speech"}
+{"id": "seed-0162", "text": "cut gaps over 1 second", "ops": ["remove_silence"], "targets": ["full_mix"], "amount": 1.0, "unit": "seconds", "span": null, "notes": "amount is the pause threshold"}
+{"id": "seed-0163", "text": "remove the pauses from the podcast", "ops": ["remove_silence"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0164", "text": "strip out the quiet parts", "ops": ["remove_silence"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0165", "text": "remove silence at the start", "ops": ["remove_silence"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0166", "text": "cut the silence at the end", "ops": ["remove_silence"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0167", "text": "make the drums louder and remove the vocals", "ops": ["gain", "remove_stem"], "targets": ["drums", "vocals"], "amount": null, "unit": null, "span": null, "notes": "multi-operation: amount omitted"}
+{"id": "seed-0168", "text": "remove the vocals and add reverb to the guitar", "ops": ["remove_stem", "add_effect"], "targets": ["vocals", "guitar"], "amount": null, "unit": null, "span": null, "notes": "multi-operation"}
+{"id": "seed-0169", "text": "cut the intro and fade out the ending", "ops": ["cut_segment", "fade"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "multi-operation"}
+{"id": "seed-0170", "text": "normalize the volume then speed it up", "ops": ["normalize", "speed"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "multi-operation"}
+{"id": "seed-0171", "text": "denoise the vocals and boost them by 3 db", "ops": ["denoise", "gain"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": "multi-operation: amount omitted"}
+{"id": "seed-0172", "text": "remove speaker 2 and normalize the audio", "ops": ["remove_speaker", "normalize"], "targets": ["speaker_2", "full_mix"], "amount": null, "unit": null, "span": null, "notes": "multi-operation"}
+{"id": "seed-0173", "text": "keep only the vocals and add reverb", "ops": ["isolate_stem", "add_effect"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": "multi-operation"}
+{"id": "seed-0174", "text": "fade in the drums and cut the guitar solo", "ops": ["fade", "cut_segment"], "targets": ["drums", "guitar"], "amount": null, "unit": null, "span": null, "notes": "multi-operation"}
+{"id": "seed-0175", "text": "trim to 30 seconds and normalize", "ops": ["trim_segment", "normalize"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "multi-operation"}
+{"id": "seed-0176", "text": "remove the noise and keep only the vocals", "ops": ["denoise", "isolate_stem"], "targets": ["full_mix", "vocals"], "amount": null, "unit": null, "span": null, "notes": "multi-operation"}
+{"id": "seed-0177", "text": "slow it down and add reverb", "ops": ["speed", "add_effect"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "multi-operation"}
+{"id": "seed-0178", "text": "turn the bass up 5 db", "ops": ["gain"], "targets": ["bass"], "amount": 5.0, "unit": "dB", "span": null, "notes": ""}
+{"id": "seed-0179", "text": "bring the vocals down 4 db", "ops": ["gain"], "targets": ["vocals"], "amount": -4.0, "unit": "dB", "span": null, "notes": ""}
+{"id": "seed-0180", "text": "push the drums up by 2 db", "ops": ["gain"], "targets": ["drums"], "amount": 2.0, "unit": "dB", "span": null, "notes": ""}
+{"id": "seed-0181", "text": "soften the guitar by 3 db", "ops": ["gain"], "targets": ["guitar"], "amount": -3.0, "unit": "dB", "span": null, "notes": "soften means down"}
+{"id": "seed-0182", "text": "lift the keys 4 db", "ops": ["gain"], "targets": ["keys"], "amount": 4.0, "unit": "dB", "span": null, "notes": ""}
+{"id": "seed-0183", "text": "drop the mix by 1 db", "ops": ["gain"], "targets": ["full_mix"], "amount": -1.0, "unit": "dB", "span": null, "notes": ""}
+{"id": "seed-0184", "text": "make the snare louder by 2 db", "ops": ["gain"], "targets": ["drums"], "amount": 2.0, "unit": "dB", "span": null, "notes": "snare folds into drums"}
+{"id": "seed-0185", "text": "quiet the hi-hats 3 db", "ops": ["gain"], "targets": ["drums"], "amount": -3.0, "unit": "dB", "span": null, "notes": ""}
+{"id": "seed-0186", "text": "raise the backing vocals 2 db", "ops": ["gain"], "targets": ["vocals"], "amount": 2.0, "unit": "dB", "span": null, "notes": ""}
+{"id": "seed-0187", "text": "reduce the piano level by 4 db", "ops": ["gain"], "targets": ["keys"], "amount": -4.0, "unit": "dB", "span": null, "notes": "piano folds into keys"}
+{"id": "seed-0188", "text": "fade the intro in over 3 seconds", "ops": ["fade"], "targets": ["full_mix"], "amount": 3.0, "unit": "seconds", "span": null, "notes": ""}
+{"id": "seed-0189", "text": "fade the outro over 6 seconds", "ops": ["fade"], "targets": ["full_mix"], "amount": 6.0, "unit": "seconds", "span": null, "notes": ""}
+{"id": "seed-0190", "text": "apply a 2 second fade to the vocals", "ops": ["fade"], "targets": ["vocals"], "amount": 2.0, "unit": "seconds", "span": null, "notes": ""}
+{"id": "seed-0191", "text": "give the drums a 4 second fade out", "ops": ["fade"], "targets": ["drums"], "amount": 4.0, "unit": "seconds", "span": null, "notes": ""}
+{"id": "seed-0192", "text": "slow fade on the ending", "ops": ["fade"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "no duration stated"}
+{"id": "seed-0193", "text": "quick fade in for the guitar", "ops": ["fade"], "targets": ["guitar"], "amount": null, "unit": null, "span": null, "notes": "no duration stated"}
+{"id": "seed-0194", "text": "fade the keys from the start", "ops": ["fade"], "targets": ["keys"], "amount": null, "unit": null, "span": null, "notes": "no duration stated"}
+{"id": "seed-0195", "text": "3 second fade on the bass", "ops": ["fade"], "targets": ["bass"], "amount": 3.0, "unit": "seconds", "span": null, "notes": ""}
+{"id": "seed-0196", "text": "eliminate the vocals", "ops": ["remove_stem"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0197", "text": "ditch the drums", "ops": ["remove_stem"], "targets": ["drums"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0198", "text": "silence the bass", "ops": ["remove_stem"], "targets": ["bass"], "amount": null, "unit": null, "span": null, "notes": "mute the stem"}
+{"id": "seed-0199", "text": "take the guitar away", "ops": ["remove_stem"], "targets": ["guitar"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0200", "text": "lose the piano", "ops": ["remove_stem"], "targets": ["keys"], "amount": null, "unit": null, "span": null, "notes": "piano folds into keys"}
+{"id": "seed-0201", "text": "scrap the backing vocals", "ops": ["remove_stem"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0202", "text": "turn off the drums", "ops": ["remove_stem"], "targets": ["drums"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0203", "text": "delete the vocal track", "ops": ["remove_stem"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0204", "text": "strip the bass out", "ops": ["remove_stem"], "targets": ["bass"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0205", "text": "dump the keys", "ops": ["remove_stem"], "targets": ["keys"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0206", "text": "remove the singing", "ops": ["remove_stem"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0207", "text": "wipe out the guitar", "ops": ["remove_stem"], "targets": ["guitar"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0208", "text": "play only the vocals", "ops": ["isolate_stem"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0209", "text": "drums only please", "ops": ["isolate_stem"], "targets": ["drums"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0210", "text": "bass by itself", "ops": ["isolate_stem"], "targets": ["bass"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0211", "text": "guitar alone in the mix", "ops": ["isolate_stem"], "targets": ["guitar"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0212", "text": "keep the piano alone", "ops": ["isolate_stem"], "targets": ["keys"], "amount": null, "unit": null, "span": null, "notes": "piano folds into keys"}
+{"id": "seed-0213", "text": "hear only the singer", "ops": ["isolate_stem"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0214", "text": "show me just the drums", "ops": ["isolate_stem"], "targets": ["drums"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0215", "text": "leave only bass", "ops": ["isolate_stem"], "targets": ["bass"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0216", "text": "feature the guitar alone", "ops": ["isolate_stem"], "targets": ["guitar"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0217", "text": "solo the keys", "ops": ["isolate_stem"], "targets": ["keys"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0218", "text": "acapella version please", "ops": ["isolate_stem"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": "acapella means vocals only"}
+{"id": "seed-0219", "text": "keep only drums and bass", "ops": ["isolate_stem"], "targets": ["drums", "bass"], "amount": null, "unit": null, "span": null, "notes": "two targets, one operation"}
+{"id": "seed-0220", "text": "snip out the verse", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0221", "text": "excise the second verse", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0222", "text": "drop the middle section", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0223", "text": "erase the bridge section", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0224", "text": "remove the segment from 2:00 to 2:15", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [120.0, 135.0], "notes": ""}
+{"id": "seed-0225", "text": "slice out 0:20 to 0:30", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [20.0, 30.0], "notes": ""}
+{"id": "seed-0226", "text": "take out the ad-lib at 1:50", "ops": ["cut_segment"], "targets": ["vocals"], "amount": null, "unit": null, "span": [110.0, null], "notes": "ad-lib is a vocal region"}
+{"id": "seed-0227", "text": "delete the noise burst at 0:45", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [45.0, null], "notes": ""}
+{"id": "seed-0228", "text": "chop the outro", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0229", "text": "cut the long intro monologue", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0230", "text": "save only the first chorus", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0231", "text": "limit the track to 90 seconds", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0232", "text": "extract the 0:30 to 1:00 portion", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [30.0, 60.0], "notes": ""}
+{"id": "seed-0233", "text": "use only the 15 to 45 second window", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [15.0, 45.0], "notes": ""}
+{"id": "seed-0234", "text": "isolate the chorus section", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "chorus section is a region, not a stem"}
+{"id": "seed-0235", "text": "preserve just the opening 20 seconds", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [0.0, 20.0], "notes": ""}
+{"id": "seed-0236", "text": "keep the middle eight only", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0237", "text": "shorten to the final 60 seconds", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0238", "text": "grab the first 10 seconds", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [0.0, 10.0], "notes": ""}
+{"id": "seed-0239", "text": "hold only 1:00 to 1:30", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [60.0, 90.0], "notes": ""}
+{"id": "seed-0240", "text": "remove the co-host", "ops": ["remove_speaker"], "targets": ["speaker_2"], "amount": null, "unit": null, "span": null, "notes": "co-host is speaker 2 by convention"}
+{"id": "seed-0241", "text": "keep the guest only", "ops": ["remove_speaker"], "targets": ["speaker_1"], "amount": null, "unit": null, "span": null, "notes": "canonicalised: keep guest == remove host"}
+{"id": "seed-0242", "text": "delete the narrator", "ops": ["remove_speaker"], "targets": ["speaker_1"], "amount": null, "unit": null, "span": null, "notes": "narrator is speaker 1 by convention"}
+{"id": "seed-0243", "text": "mute the caller", "ops": ["remove_speaker"], "targets": ["speaker_2"], "amount": null, "unit": null, "span": null, "notes": "caller is speaker 2 by convention"}
+{"id": "seed-0244", "text": "take out voice 1", "ops": ["remove_speaker"], "targets": ["speaker_1"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0245", "text": "drop voice number two", "ops": ["remove_speaker"], "targets": ["speaker_2"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0246", "text": "keep the interviewee and drop the other voice", "ops": ["remove_speaker"], "targets": ["speaker_1"], "amount": null, "unit": null, "span": null, "notes": "keep interviewee == remove host"}
+{"id": "seed-0247", "text": "silence speaker one", "ops": ["remove_speaker"], "targets": ["speaker_1"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0248", "text": "erase the second speaker track", "ops": ["remove_speaker"], "targets": ["speaker_2"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0249", "text": "take the second participant out", "ops": ["remove_speaker"], "targets": ["speaker_2"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0250", "text": "kill the background buzz", "ops": ["denoise"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0251", "text": "wipe the tape hiss", "ops": ["denoise"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0252", "text": "suppress the fan noise", "ops": ["denoise"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0253", "text": "clean the dialogue track", "ops": ["denoise"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0254", "text": "dehum the recording", "ops": ["denoise"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "dehum means remove hum"}
+{"id": "seed-0255", "text": "remove the mic handling noise", "ops": ["denoise"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0256", "text": "cancel the street noise", "ops": ["denoise"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0257", "text": "take the static out of the mix", "ops": ["denoise"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0258", "text": "auto level the podcast", "ops": ["normalize"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0259", "text": "unify the volume levels", "ops": ["normalize"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0260", "text": "set all voices to equal loudness", "ops": ["normalize"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "level matching, not speaker removal"}
+{"id": "seed-0261", "text": "steady the vocal level", "ops": ["normalize"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0262", "text": "fix the uneven loudness", "ops": ["normalize"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0263", "text": "make dialogue levels consistent", "ops": ["normalize"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0264", "text": "loudness match the two mics", "ops": ["normalize"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0265", "text": "raise tempo to 120 bpm", "ops": ["speed"], "targets": ["full_mix"], "amount": 120.0, "unit": "bpm", "span": null, "notes": ""}
+{"id": "seed-0266", "text": "lower tempo to 95 bpm", "ops": ["speed"], "targets": ["full_mix"], "amount": 95.0, "unit": "bpm", "span": null, "notes": ""}
+{"id": "seed-0267", "text": "play at half tempo", "ops": ["speed"], "targets": ["full_mix"], "amount": 0.5, "unit": "factor", "span": null, "notes": ""}
+{"id": "seed-0268", "text": "play at 1.5x", "ops": ["speed"], "targets": ["full_mix"], "amount": 1.5, "unit": "factor", "span": null, "notes": ""}
+{"id": "seed-0269", "text": "increase playback 15 percent", "ops": ["speed"], "targets": ["full_mix"], "amount": 1.15, "unit": "factor", "span": null, "notes": "15 percent faster == 1.15x"}
+{"id": "seed-0270", "text": "decrease speed by 10 percent", "ops": ["speed"], "targets": ["full_mix"], "amount": 0.9, "unit": "factor", "span": null, "notes": "10 percent slower == 0.9x"}
+{"id": "seed-0271", "text": "stretch to 0.75x speed", "ops": ["speed"], "targets": ["full_mix"], "amount": 0.75, "unit": "factor", "span": null, "notes": ""}
+{"id": "seed-0272", "text": "rush the tempo a touch", "ops": ["speed"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "direction only, no number"}
+{"id": "seed-0273", "text": "drench the vocals in reverb", "ops": ["add_effect"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0274", "text": "slap echo on the guitar", "ops": ["add_effect"], "targets": ["guitar"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0275", "text": "fuzz the bass", "ops": ["add_effect"], "targets": ["bass"], "amount": null, "unit": null, "span": null, "notes": "fuzz means distortion"}
+{"id": "seed-0276", "text": "brighten the mix", "ops": ["add_effect"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0277", "text": "warm up the keys", "ops": ["add_effect"], "targets": ["keys"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0278", "text": "widen the drums", "ops": ["add_effect"], "targets": ["drums"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0279", "text": "add plate reverb to the snare", "ops": ["add_effect"], "targets": ["drums"], "amount": null, "unit": null, "span": null, "notes": "snare folds into drums"}
+{"id": "seed-0280", "text": "make the outro echo out", "ops": ["add_effect"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0281", "text": "saturate the vocal bus", "ops": ["add_effect"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0282", "text": "swell the background pads with reverb", "ops": ["add_effect"], "targets": ["other"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0283", "text": "snip the gaps", "ops": ["remove_silence"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0284", "text": "collapse long silences", "ops": ["remove_silence"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0285", "text": "drop pauses above 1 second", "ops": ["remove_silence"], "targets": ["full_mix"], "amount": 1.0, "unit": "seconds", "span": null, "notes": "amount is the pause threshold"}
+{"id": "seed-0286", "text": "remove quiet gaps over 0.6 seconds", "ops": ["remove_silence"], "targets": ["full_mix"], "amount": 0.6, "unit": "seconds", "span": null, "notes": "amount is the pause threshold"}
+{"id": "seed-0287", "text": "erase leading silence", "ops": ["remove_silence"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0288", "text": "erase trailing silence", "ops": ["remove_silence"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0289", "text": "squeeze out dead space", "ops": ["remove_silence"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": ""}
+{"id": "seed-0290", "text": "lift the vocals 2 db and cut the silence", "ops": ["gain", "remove_silence"], "targets": ["vocals", "full_mix"], "amount": null, "unit": null, "span": null, "notes": "multi-operation: amount omitted"}
+{"id": "seed-0291", "text": "denoise then fade the intro in", "ops": ["denoise", "fade"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "multi-operation"}
+{"id": "seed-0292", "text": "isolate the bass and slow it down", "ops": ["isolate_stem", "speed"], "targets": ["bass", "full_mix"], "amount": null, "unit": null, "span": null, "notes": "multi-operation"}
+{"id": "seed-0293", "text": "remove the drums and normalize", "ops": ["remove_stem", "normalize"], "targets": ["drums", "full_mix"], "amount": null, "unit": null, "span": null, "notes": "multi-operation"}
+{"id": "seed-0294", "text": "speed up and add echo to the vocals", "ops": ["speed", "add_effect"], "targets": ["full_mix", "vocals"], "amount": null, "unit": null, "span": null, "notes": "multi-operation"}
+{"id": "seed-0295", "text": "trim the start and boost the vocals", "ops": ["trim_segment", "gain"], "targets": ["full_mix", "vocals"], "amount": null, "unit": null, "span": null, "notes": "multi-operation"}
+{"id": "seed-0296", "text": "mute the guest and clean the noise", "ops": ["remove_speaker", "denoise"], "targets": ["speaker_2", "full_mix"], "amount": null, "unit": null, "span": null, "notes": "multi-operation"}
+{"id": "seed-0297", "text": "keep the drums only and make them louder", "ops": ["isolate_stem", "gain"], "targets": ["drums"], "amount": null, "unit": null, "span": null, "notes": "multi-operation"}

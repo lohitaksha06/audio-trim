@@ -1,0 +1,80 @@
+{"id": "held-0001", "text": "bump the drums up 5 db", "ops": ["gain"], "targets": ["drums"], "amount": 5.0, "unit": "dB", "span": null, "notes": "held-out phrasing"}
+{"id": "held-0002", "text": "take the vocals down 2 db", "ops": ["gain"], "targets": ["vocals"], "amount": -2.0, "unit": "dB", "span": null, "notes": "held-out phrasing"}
+{"id": "held-0003", "text": "more bass please, 3 db", "ops": ["gain"], "targets": ["bass"], "amount": 3.0, "unit": "dB", "span": null, "notes": "held-out phrasing"}
+{"id": "held-0004", "text": "the guitar is too loud, pull it back 4 db", "ops": ["gain"], "targets": ["guitar"], "amount": -4.0, "unit": "dB", "span": null, "notes": "held-out phrasing"}
+{"id": "held-0005", "text": "give the whole thing another 2 db", "ops": ["gain"], "targets": ["full_mix"], "amount": 2.0, "unit": "dB", "span": null, "notes": "held-out phrasing"}
+{"id": "held-0006", "text": "reduce levels by 3 db", "ops": ["gain"], "targets": ["full_mix"], "amount": -3.0, "unit": "dB", "span": null, "notes": "held-out phrasing"}
+{"id": "held-0007", "text": "crank the keys 6 db", "ops": ["gain"], "targets": ["keys"], "amount": 6.0, "unit": "dB", "span": null, "notes": "held-out phrasing"}
+{"id": "held-0008", "text": "vocals need to come up 1.5 db", "ops": ["gain"], "targets": ["vocals"], "amount": 1.5, "unit": "dB", "span": null, "notes": "held-out phrasing"}
+{"id": "held-0009", "text": "make the kick drum punchier by 3 db", "ops": ["gain"], "targets": ["drums"], "amount": 3.0, "unit": "dB", "span": null, "notes": "number makes this a gain, not an effect"}
+{"id": "held-0010", "text": "fade the song out over the final 5 seconds", "ops": ["fade"], "targets": ["full_mix"], "amount": 5.0, "unit": "seconds", "span": null, "notes": "held-out phrasing"}
+{"id": "held-0011", "text": "ease the vocals in over 2 seconds", "ops": ["fade"], "targets": ["vocals"], "amount": 2.0, "unit": "seconds", "span": null, "notes": "held-out phrasing"}
+{"id": "held-0012", "text": "smooth fade out on the drums, 3 seconds", "ops": ["fade"], "targets": ["drums"], "amount": 3.0, "unit": "seconds", "span": null, "notes": "held-out phrasing"}
+{"id": "held-0013", "text": "start the track with a slow fade in", "ops": ["fade"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0014", "text": "fade the guitar away at the end", "ops": ["fade"], "targets": ["guitar"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0015", "text": "fade out in 4 seconds", "ops": ["fade"], "targets": ["full_mix"], "amount": 4.0, "unit": "seconds", "span": null, "notes": "held-out phrasing"}
+{"id": "held-0016", "text": "nuke the vocals", "ops": ["remove_stem"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": "held-out slang"}
+{"id": "held-0017", "text": "chuck the drums out", "ops": ["remove_stem"], "targets": ["drums"], "amount": null, "unit": null, "span": null, "notes": "held-out slang"}
+{"id": "held-0018", "text": "i don't want the bass in this", "ops": ["remove_stem"], "targets": ["bass"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0019", "text": "get the piano out of there", "ops": ["remove_stem"], "targets": ["keys"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0020", "text": "erase the guitars", "ops": ["remove_stem"], "targets": ["guitar"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0021", "text": "no more vocals", "ops": ["remove_stem"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0022", "text": "lose the keys", "ops": ["remove_stem"], "targets": ["keys"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0023", "text": "i only want the singer", "ops": ["isolate_stem"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0024", "text": "drums alone, please", "ops": ["isolate_stem"], "targets": ["drums"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0025", "text": "strip everything except the bass", "ops": ["isolate_stem"], "targets": ["bass"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0026", "text": "leave the guitar by itself", "ops": ["isolate_stem"], "targets": ["guitar"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0027", "text": "can i hear just the piano", "ops": ["isolate_stem"], "targets": ["keys"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0028", "text": "bring the vocals forward and drop the rest", "ops": ["isolate_stem"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0029", "text": "lose the 10 to 20 second section", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [10.0, 20.0], "notes": "held-out phrasing"}
+{"id": "held-0030", "text": "rip out the second chorus", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0031", "text": "delete from 1:15 to 1:30", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [75.0, 90.0], "notes": "held-out phrasing"}
+{"id": "held-0032", "text": "take the spoken intro off", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0033", "text": "remove 0:30 to 0:45", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [30.0, 45.0], "notes": "held-out phrasing"}
+{"id": "held-0034", "text": "chop out the breakdown", "ops": ["cut_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0035", "text": "get rid of the drum break at 2:00", "ops": ["cut_segment"], "targets": ["drums"], "amount": null, "unit": null, "span": [120.0, null], "notes": "held-out phrasing"}
+{"id": "held-0036", "text": "i need just the first minute", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0037", "text": "keep 0:10 through 0:50 and drop the rest", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [10.0, 50.0], "notes": "held-out phrasing"}
+{"id": "held-0038", "text": "make it start at 5 seconds and end at 25", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [5.0, 25.0], "notes": "held-out phrasing"}
+{"id": "held-0039", "text": "only the chorus should stay", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0040", "text": "cut it down to 45 seconds", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0041", "text": "leave only 30 seconds starting at 1:00", "ops": ["trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": [60.0, 90.0], "notes": "held-out phrasing"}
+{"id": "held-0042", "text": "drop the guest", "ops": ["remove_speaker"], "targets": ["speaker_2"], "amount": null, "unit": null, "span": null, "notes": "guest is speaker 2"}
+{"id": "held-0043", "text": "i only need the host", "ops": ["remove_speaker"], "targets": ["speaker_2"], "amount": null, "unit": null, "span": null, "notes": "keep host == remove guest"}
+{"id": "held-0044", "text": "cut the interviewer out", "ops": ["remove_speaker"], "targets": ["speaker_1"], "amount": null, "unit": null, "span": null, "notes": "interviewer is speaker 1"}
+{"id": "held-0045", "text": "remove voice two", "ops": ["remove_speaker"], "targets": ["speaker_2"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0046", "text": "keep speaker one, delete the other", "ops": ["remove_speaker"], "targets": ["speaker_2"], "amount": null, "unit": null, "span": null, "notes": "keep 1 == remove 2"}
+{"id": "held-0047", "text": "mute the second person", "ops": ["remove_speaker"], "targets": ["speaker_2"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0048", "text": "kill the hiss", "ops": ["denoise"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0049", "text": "there's a hum, get it out", "ops": ["denoise"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0050", "text": "scrub the background noise", "ops": ["denoise"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0051", "text": "the vocals are noisy, clean them", "ops": ["denoise"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0052", "text": "remove the air conditioner drone", "ops": ["denoise"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0053", "text": "de-noise this recording", "ops": ["denoise"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0054", "text": "get everything to the same loudness", "ops": ["normalize"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0055", "text": "the speakers are at different volumes, match them", "ops": ["normalize"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "level matching, not speaker removal"}
+{"id": "held-0056", "text": "even the levels out", "ops": ["normalize"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0057", "text": "normalize it", "ops": ["normalize"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0058", "text": "make the vocals consistent in level", "ops": ["normalize"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0059", "text": "play it 20 percent faster", "ops": ["speed"], "targets": ["full_mix"], "amount": 1.2, "unit": "factor", "span": null, "notes": "held-out phrasing"}
+{"id": "held-0060", "text": "slow the whole thing to 80 bpm", "ops": ["speed"], "targets": ["full_mix"], "amount": 80.0, "unit": "bpm", "span": null, "notes": "held-out phrasing"}
+{"id": "held-0061", "text": "double time", "ops": ["speed"], "targets": ["full_mix"], "amount": 2.0, "unit": "factor", "span": null, "notes": "musical term for 2x"}
+{"id": "held-0062", "text": "knock it down to 0.8x", "ops": ["speed"], "targets": ["full_mix"], "amount": 0.8, "unit": "factor", "span": null, "notes": "held-out phrasing"}
+{"id": "held-0063", "text": "quicken the tempo a little", "ops": ["speed"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0064", "text": "set the bpm to 140", "ops": ["speed"], "targets": ["full_mix"], "amount": 140.0, "unit": "bpm", "span": null, "notes": "held-out phrasing"}
+{"id": "held-0065", "text": "throw some reverb on the vocals", "ops": ["add_effect"], "targets": ["vocals"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0066", "text": "make it sound like an old radio", "ops": ["add_effect"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0067", "text": "add a touch of delay to the guitar", "ops": ["add_effect"], "targets": ["guitar"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0068", "text": "dirty up the bass with some drive", "ops": ["add_effect"], "targets": ["bass"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0069", "text": "give the whole thing a dreamy vibe", "ops": ["add_effect"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0070", "text": "make the drums sound huge", "ops": ["add_effect"], "targets": ["drums"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0071", "text": "chop the dead air out", "ops": ["remove_silence"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0072", "text": "tighten up the pauses", "ops": ["remove_silence"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0073", "text": "remove gaps longer than 0.8 seconds", "ops": ["remove_silence"], "targets": ["full_mix"], "amount": 0.8, "unit": "seconds", "span": null, "notes": "held-out phrasing"}
+{"id": "held-0074", "text": "kill the silence between lines", "ops": ["remove_silence"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0075", "text": "get rid of all the quiet gaps", "ops": ["remove_silence"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "held-out phrasing"}
+{"id": "held-0076", "text": "pull the vocals down 3 db and add reverb to the drums", "ops": ["gain", "add_effect"], "targets": ["vocals", "drums"], "amount": null, "unit": null, "span": null, "notes": "multi-operation"}
+{"id": "held-0077", "text": "clean the hiss then normalize", "ops": ["denoise", "normalize"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "multi-operation"}
+{"id": "held-0078", "text": "remove the bass and fade the track out", "ops": ["remove_stem", "fade"], "targets": ["bass", "full_mix"], "amount": null, "unit": null, "span": null, "notes": "multi-operation"}
+{"id": "held-0079", "text": "cut the intro and keep only the chorus", "ops": ["cut_segment", "trim_segment"], "targets": ["full_mix"], "amount": null, "unit": null, "span": null, "notes": "multi-operation"}
+{"id": "held-0080", "text": "mute speaker 2 and speed it up", "ops": ["remove_speaker", "speed"], "targets": ["speaker_2", "full_mix"], "amount": null, "unit": null, "span": null, "notes": "multi-operation"}

@@ -1,0 +1,1140 @@
+{
+  "rules": {
+    "all": {
+      "name": "rules",
+      "n": 225,
+      "operations": {
+        "subset_accuracy": 0.8311,
+        "micro_precision": 0.9292,
+        "micro_recall": 0.8383,
+        "micro_f1": 0.8814,
+        "macro_f1": 0.8852,
+        "hamming_loss": 0.0196,
+        "per_class": {
+          "remove_stem": {
+            "precision": 0.6667,
+            "recall": 1.0,
+            "f1": 0.8,
+            "support": 20
+          },
+          "isolate_stem": {
+            "precision": 1.0,
+            "recall": 0.5,
+            "f1": 0.6667,
+            "support": 20
+          },
+          "gain": {
+            "precision": 0.7727,
+            "recall": 0.68,
+            "f1": 0.7234,
+            "support": 25
+          },
+          "fade": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 20
+          },
+          "cut_segment": {
+            "precision": 1.0,
+            "recall": 0.75,
+            "f1": 0.8571,
+            "support": 20
+          },
+          "trim_segment": {
+            "precision": 1.0,
+            "recall": 0.9,
+            "f1": 0.9474,
+            "support": 20
+          },
+          "remove_speaker": {
+            "precision": 1.0,
+            "recall": 0.75,
+            "f1": 0.8571,
+            "support": 20
+          },
+          "denoise": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 20
+          },
+          "normalize": {
+            "precision": 1.0,
+            "recall": 0.7,
+            "f1": 0.8235,
+            "support": 20
+          },
+          "speed": {
+            "precision": 1.0,
+            "recall": 0.9,
+            "f1": 0.9474,
+            "support": 20
+          },
+          "add_effect": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 15
+          },
+          "remove_silence": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 15
+          }
+        }
+      },
+      "targets": {
+        "subset_accuracy": 0.8889,
+        "micro_precision": 0.913,
+        "micro_recall": 0.913,
+        "micro_f1": 0.913,
+        "macro_f1": 0.7176,
+        "hamming_loss": 0.0198,
+        "per_class": {
+          "full_mix": {
+            "precision": 0.9583,
+            "recall": 0.9583,
+            "f1": 0.9583,
+            "support": 120
+          },
+          "vocals": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 25
+          },
+          "drums": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 20
+          },
+          "bass": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 15
+          },
+          "guitar": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 10
+          },
+          "keys": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 20
+          },
+          "other": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "speaker_1": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 10
+          },
+          "speaker_2": {
+            "precision": 0.5,
+            "recall": 0.5,
+            "f1": 0.5,
+            "support": 10
+          }
+        }
+      },
+      "action_exact_match": 0.7422,
+      "amount": {
+        "overall": {
+          "n": 37,
+          "mae": 0.811,
+          "median_ae": 0.0
+        },
+        "by_operation_unit": {
+          "fade|seconds": {
+            "n": 5,
+            "mae": 0.0,
+            "median_ae": 0.0
+          },
+          "gain|dB": {
+            "n": 17,
+            "mae": 1.765,
+            "median_ae": 0.0
+          },
+          "remove_silence|seconds": {
+            "n": 5,
+            "mae": 0.0,
+            "median_ae": 0.0
+          },
+          "speed|factor": {
+            "n": 10,
+            "mae": 0.0,
+            "median_ae": 0.0
+          }
+        }
+      },
+      "confusion": {
+        "labels": [
+          "gain",
+          "none",
+          "remove_stem",
+          "fade",
+          "isolate_stem",
+          "cut_segment",
+          "trim_segment",
+          "remove_speaker",
+          "denoise",
+          "normalize",
+          "speed",
+          "add_effect",
+          "remove_silence"
+        ],
+        "matrix": {
+          "gain": {
+            "gain": 17,
+            "none": 3,
+            "remove_stem": 5
+          },
+          "fade": {
+            "fade": 15
+          },
+          "remove_stem": {
+            "remove_stem": 20
+          },
+          "isolate_stem": {
+            "isolate_stem": 10,
+            "none": 10
+          },
+          "cut_segment": {
+            "remove_stem": 5,
+            "cut_segment": 10
+          },
+          "trim_segment": {
+            "trim_segment": 18,
+            "none": 2
+          },
+          "remove_speaker": {
+            "remove_speaker": 10,
+            "none": 5
+          },
+          "denoise": {
+            "denoise": 20
+          },
+          "normalize": {
+            "normalize": 9,
+            "none": 1,
+            "gain": 5
+          },
+          "speed": {
+            "none": 2,
+            "speed": 18
+          },
+          "add_effect": {
+            "add_effect": 15
+          },
+          "remove_silence": {
+            "remove_silence": 15
+          }
+        },
+        "top_confusions": [
+          {
+            "actual": "gain",
+            "predicted": "none",
+            "count": 3
+          },
+          {
+            "actual": "gain",
+            "predicted": "remove_stem",
+            "count": 5
+          },
+          {
+            "actual": "isolate_stem",
+            "predicted": "none",
+            "count": 10
+          },
+          {
+            "actual": "cut_segment",
+            "predicted": "remove_stem",
+            "count": 5
+          },
+          {
+            "actual": "trim_segment",
+            "predicted": "none",
+            "count": 2
+          },
+          {
+            "actual": "remove_speaker",
+            "predicted": "none",
+            "count": 5
+          },
+          {
+            "actual": "normalize",
+            "predicted": "none",
+            "count": 1
+          },
+          {
+            "actual": "normalize",
+            "predicted": "gain",
+            "count": 5
+          },
+          {
+            "actual": "speed",
+            "predicted": "none",
+            "count": 2
+          }
+        ]
+      }
+    },
+    "handwritten": {
+      "name": "rules-handwritten",
+      "n": 45,
+      "operations": {
+        "subset_accuracy": 0.8444,
+        "micro_precision": 0.9302,
+        "micro_recall": 0.8511,
+        "micro_f1": 0.8889,
+        "macro_f1": 0.8913,
+        "hamming_loss": 0.0185,
+        "per_class": {
+          "remove_stem": {
+            "precision": 0.6667,
+            "recall": 1.0,
+            "f1": 0.8,
+            "support": 4
+          },
+          "isolate_stem": {
+            "precision": 1.0,
+            "recall": 0.5,
+            "f1": 0.6667,
+            "support": 4
+          },
+          "gain": {
+            "precision": 0.8,
+            "recall": 0.8,
+            "f1": 0.8,
+            "support": 5
+          },
+          "fade": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 4
+          },
+          "cut_segment": {
+            "precision": 1.0,
+            "recall": 0.75,
+            "f1": 0.8571,
+            "support": 4
+          },
+          "trim_segment": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 4
+          },
+          "remove_speaker": {
+            "precision": 1.0,
+            "recall": 0.75,
+            "f1": 0.8571,
+            "support": 4
+          },
+          "denoise": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 4
+          },
+          "normalize": {
+            "precision": 1.0,
+            "recall": 0.75,
+            "f1": 0.8571,
+            "support": 4
+          },
+          "speed": {
+            "precision": 1.0,
+            "recall": 0.75,
+            "f1": 0.8571,
+            "support": 4
+          },
+          "add_effect": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 3
+          },
+          "remove_silence": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 3
+          }
+        }
+      },
+      "targets": {
+        "subset_accuracy": 0.8889,
+        "micro_precision": 0.913,
+        "micro_recall": 0.913,
+        "micro_f1": 0.913,
+        "macro_f1": 0.7176,
+        "hamming_loss": 0.0198,
+        "per_class": {
+          "full_mix": {
+            "precision": 0.9583,
+            "recall": 0.9583,
+            "f1": 0.9583,
+            "support": 24
+          },
+          "vocals": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 5
+          },
+          "drums": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 4
+          },
+          "bass": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 3
+          },
+          "guitar": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 2
+          },
+          "keys": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 4
+          },
+          "other": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "speaker_1": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 2
+          },
+          "speaker_2": {
+            "precision": 0.5,
+            "recall": 0.5,
+            "f1": 0.5,
+            "support": 2
+          }
+        }
+      },
+      "action_exact_match": 0.7556,
+      "amount": {
+        "overall": {
+          "n": 8,
+          "mae": 0.75,
+          "median_ae": 0.0
+        },
+        "by_operation_unit": {
+          "fade|seconds": {
+            "n": 1,
+            "mae": 0.0,
+            "median_ae": 0.0
+          },
+          "gain|dB": {
+            "n": 4,
+            "mae": 1.5,
+            "median_ae": 0.0
+          },
+          "remove_silence|seconds": {
+            "n": 1,
+            "mae": 0.0,
+            "median_ae": 0.0
+          },
+          "speed|factor": {
+            "n": 2,
+            "mae": 0.0,
+            "median_ae": 0.0
+          }
+        }
+      },
+      "confusion": {
+        "labels": [
+          "gain",
+          "remove_stem",
+          "fade",
+          "isolate_stem",
+          "cut_segment",
+          "trim_segment",
+          "remove_speaker",
+          "denoise",
+          "normalize",
+          "speed",
+          "none",
+          "add_effect",
+          "remove_silence"
+        ],
+        "matrix": {
+          "gain": {
+            "gain": 4,
+            "remove_stem": 1
+          },
+          "fade": {
+            "fade": 3
+          },
+          "remove_stem": {
+            "remove_stem": 4
+          },
+          "isolate_stem": {
+            "isolate_stem": 2,
+            "none": 2
+          },
+          "cut_segment": {
+            "remove_stem": 1,
+            "cut_segment": 2
+          },
+          "trim_segment": {
+            "trim_segment": 4
+          },
+          "remove_speaker": {
+            "remove_speaker": 2,
+            "none": 1
+          },
+          "denoise": {
+            "denoise": 4
+          },
+          "normalize": {
+            "normalize": 2,
+            "gain": 1
+          },
+          "speed": {
+            "none": 1,
+            "speed": 3
+          },
+          "add_effect": {
+            "add_effect": 3
+          },
+          "remove_silence": {
+            "remove_silence": 3
+          }
+        },
+        "top_confusions": [
+          {
+            "actual": "gain",
+            "predicted": "remove_stem",
+            "count": 1
+          },
+          {
+            "actual": "isolate_stem",
+            "predicted": "none",
+            "count": 2
+          },
+          {
+            "actual": "cut_segment",
+            "predicted": "remove_stem",
+            "count": 1
+          },
+          {
+            "actual": "remove_speaker",
+            "predicted": "none",
+            "count": 1
+          },
+          {
+            "actual": "normalize",
+            "predicted": "gain",
+            "count": 1
+          },
+          {
+            "actual": "speed",
+            "predicted": "none",
+            "count": 1
+          }
+        ]
+      }
+    }
+  },
+  "tfidf-logreg": {
+    "all": {
+      "name": "tfidf-logreg",
+      "n": 225,
+      "operations": {
+        "subset_accuracy": 0.7822,
+        "micro_precision": 0.8052,
+        "micro_recall": 0.7915,
+        "micro_f1": 0.7983,
+        "macro_f1": 0.786,
+        "hamming_loss": 0.0348,
+        "per_class": {
+          "remove_stem": {
+            "precision": 0.6154,
+            "recall": 0.8,
+            "f1": 0.6957,
+            "support": 20
+          },
+          "isolate_stem": {
+            "precision": 0.8,
+            "recall": 1.0,
+            "f1": 0.8889,
+            "support": 20
+          },
+          "gain": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 25
+          },
+          "fade": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 20
+          },
+          "cut_segment": {
+            "precision": 0.3636,
+            "recall": 0.6,
+            "f1": 0.4528,
+            "support": 20
+          },
+          "trim_segment": {
+            "precision": 0.1667,
+            "recall": 0.05,
+            "f1": 0.0769,
+            "support": 20
+          },
+          "remove_speaker": {
+            "precision": 1.0,
+            "recall": 0.6,
+            "f1": 0.75,
+            "support": 20
+          },
+          "denoise": {
+            "precision": 0.8261,
+            "recall": 0.95,
+            "f1": 0.8837,
+            "support": 20
+          },
+          "normalize": {
+            "precision": 1.0,
+            "recall": 0.85,
+            "f1": 0.9189,
+            "support": 20
+          },
+          "speed": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 20
+          },
+          "add_effect": {
+            "precision": 1.0,
+            "recall": 0.9333,
+            "f1": 0.9655,
+            "support": 15
+          },
+          "remove_silence": {
+            "precision": 1.0,
+            "recall": 0.6667,
+            "f1": 0.8,
+            "support": 15
+          }
+        }
+      },
+      "targets": {
+        "subset_accuracy": 0.8756,
+        "micro_precision": 0.8978,
+        "micro_recall": 0.8783,
+        "micro_f1": 0.8879,
+        "macro_f1": 0.7239,
+        "hamming_loss": 0.0252,
+        "per_class": {
+          "full_mix": {
+            "precision": 0.8582,
+            "recall": 0.9583,
+            "f1": 0.9055,
+            "support": 120
+          },
+          "vocals": {
+            "precision": 1.0,
+            "recall": 0.8,
+            "f1": 0.8889,
+            "support": 25
+          },
+          "drums": {
+            "precision": 1.0,
+            "recall": 0.75,
+            "f1": 0.8571,
+            "support": 20
+          },
+          "bass": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 15
+          },
+          "guitar": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 10
+          },
+          "keys": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 20
+          },
+          "other": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "speaker_1": {
+            "precision": 0.6667,
+            "recall": 0.2,
+            "f1": 0.3077,
+            "support": 10
+          },
+          "speaker_2": {
+            "precision": 0.625,
+            "recall": 0.5,
+            "f1": 0.5556,
+            "support": 10
+          }
+        }
+      },
+      "action_exact_match": 0.6978,
+      "amount": {
+        "overall": {
+          "n": 33,
+          "mae": 4.575,
+          "median_ae": 4.69
+        },
+        "by_operation_unit": {
+          "fade|seconds": {
+            "n": 5,
+            "mae": 4.978,
+            "median_ae": 5.02
+          },
+          "gain|dB": {
+            "n": 23,
+            "mae": 5.456,
+            "median_ae": 4.69
+          },
+          "remove_silence|seconds": {
+            "n": 5,
+            "mae": 0.122,
+            "median_ae": 0.12
+          }
+        }
+      },
+      "confusion": {
+        "labels": [
+          "gain",
+          "fade",
+          "remove_stem",
+          "denoise",
+          "isolate_stem",
+          "cut_segment",
+          "none",
+          "trim_segment",
+          "remove_speaker",
+          "normalize",
+          "speed",
+          "add_effect",
+          "remove_silence"
+        ],
+        "matrix": {
+          "gain": {
+            "gain": 25
+          },
+          "fade": {
+            "fade": 15
+          },
+          "remove_stem": {
+            "remove_stem": 16,
+            "denoise": 4
+          },
+          "isolate_stem": {
+            "isolate_stem": 20
+          },
+          "cut_segment": {
+            "cut_segment": 9,
+            "none": 1,
+            "trim_segment": 4,
+            "remove_stem": 1
+          },
+          "trim_segment": {
+            "cut_segment": 14,
+            "trim_segment": 1,
+            "isolate_stem": 5
+          },
+          "remove_speaker": {
+            "remove_speaker": 7,
+            "remove_stem": 7,
+            "cut_segment": 1
+          },
+          "denoise": {
+            "denoise": 19,
+            "cut_segment": 1
+          },
+          "normalize": {
+            "normalize": 13,
+            "remove_stem": 2
+          },
+          "speed": {
+            "speed": 20
+          },
+          "add_effect": {
+            "add_effect": 14,
+            "trim_segment": 1
+          },
+          "remove_silence": {
+            "remove_silence": 10,
+            "cut_segment": 5
+          }
+        },
+        "top_confusions": [
+          {
+            "actual": "remove_stem",
+            "predicted": "denoise",
+            "count": 4
+          },
+          {
+            "actual": "cut_segment",
+            "predicted": "none",
+            "count": 1
+          },
+          {
+            "actual": "cut_segment",
+            "predicted": "trim_segment",
+            "count": 4
+          },
+          {
+            "actual": "cut_segment",
+            "predicted": "remove_stem",
+            "count": 1
+          },
+          {
+            "actual": "trim_segment",
+            "predicted": "cut_segment",
+            "count": 14
+          },
+          {
+            "actual": "trim_segment",
+            "predicted": "isolate_stem",
+            "count": 5
+          },
+          {
+            "actual": "remove_speaker",
+            "predicted": "remove_stem",
+            "count": 7
+          },
+          {
+            "actual": "remove_speaker",
+            "predicted": "cut_segment",
+            "count": 1
+          },
+          {
+            "actual": "denoise",
+            "predicted": "cut_segment",
+            "count": 1
+          },
+          {
+            "actual": "normalize",
+            "predicted": "remove_stem",
+            "count": 2
+          },
+          {
+            "actual": "add_effect",
+            "predicted": "trim_segment",
+            "count": 1
+          },
+          {
+            "actual": "remove_silence",
+            "predicted": "cut_segment",
+            "count": 5
+          }
+        ]
+      }
+    },
+    "handwritten": {
+      "name": "tfidf-logreg-handwritten",
+      "n": 45,
+      "operations": {
+        "subset_accuracy": 0.8222,
+        "micro_precision": 0.8298,
+        "micro_recall": 0.8298,
+        "micro_f1": 0.8298,
+        "macro_f1": 0.816,
+        "hamming_loss": 0.0296,
+        "per_class": {
+          "remove_stem": {
+            "precision": 1.0,
+            "recall": 0.75,
+            "f1": 0.8571,
+            "support": 4
+          },
+          "isolate_stem": {
+            "precision": 0.8,
+            "recall": 1.0,
+            "f1": 0.8889,
+            "support": 4
+          },
+          "gain": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 5
+          },
+          "fade": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 4
+          },
+          "cut_segment": {
+            "precision": 0.375,
+            "recall": 0.75,
+            "f1": 0.5,
+            "support": 4
+          },
+          "trim_segment": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 4
+          },
+          "remove_speaker": {
+            "precision": 1.0,
+            "recall": 0.75,
+            "f1": 0.8571,
+            "support": 4
+          },
+          "denoise": {
+            "precision": 0.8,
+            "recall": 1.0,
+            "f1": 0.8889,
+            "support": 4
+          },
+          "normalize": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 4
+          },
+          "speed": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 4
+          },
+          "add_effect": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 3
+          },
+          "remove_silence": {
+            "precision": 1.0,
+            "recall": 0.6667,
+            "f1": 0.8,
+            "support": 3
+          }
+        }
+      },
+      "targets": {
+        "subset_accuracy": 0.8667,
+        "micro_precision": 0.8889,
+        "micro_recall": 0.8696,
+        "micro_f1": 0.8791,
+        "macro_f1": 0.6851,
+        "hamming_loss": 0.0272,
+        "per_class": {
+          "full_mix": {
+            "precision": 0.8846,
+            "recall": 0.9583,
+            "f1": 0.92,
+            "support": 24
+          },
+          "vocals": {
+            "precision": 1.0,
+            "recall": 0.8,
+            "f1": 0.8889,
+            "support": 5
+          },
+          "drums": {
+            "precision": 1.0,
+            "recall": 0.75,
+            "f1": 0.8571,
+            "support": 4
+          },
+          "bass": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 3
+          },
+          "guitar": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 2
+          },
+          "keys": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 4
+          },
+          "other": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "speaker_1": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 2
+          },
+          "speaker_2": {
+            "precision": 0.5,
+            "recall": 0.5,
+            "f1": 0.5,
+            "support": 2
+          }
+        }
+      },
+      "action_exact_match": 0.7111,
+      "amount": {
+        "overall": {
+          "n": 7,
+          "mae": 4.52,
+          "median_ae": 4.52
+        },
+        "by_operation_unit": {
+          "fade|seconds": {
+            "n": 1,
+            "mae": 5.02,
+            "median_ae": 5.02
+          },
+          "gain|dB": {
+            "n": 5,
+            "mae": 5.302,
+            "median_ae": 4.52
+          },
+          "remove_silence|seconds": {
+            "n": 1,
+            "mae": 0.11,
+            "median_ae": 0.11
+          }
+        }
+      },
+      "confusion": {
+        "labels": [
+          "gain",
+          "fade",
+          "remove_stem",
+          "denoise",
+          "isolate_stem",
+          "cut_segment",
+          "trim_segment",
+          "remove_speaker",
+          "normalize",
+          "speed",
+          "add_effect",
+          "remove_silence"
+        ],
+        "matrix": {
+          "gain": {
+            "gain": 5
+          },
+          "fade": {
+            "fade": 3
+          },
+          "remove_stem": {
+            "remove_stem": 3,
+            "denoise": 1
+          },
+          "isolate_stem": {
+            "isolate_stem": 4
+          },
+          "cut_segment": {
+            "cut_segment": 2,
+            "trim_segment": 1
+          },
+          "trim_segment": {
+            "cut_segment": 3,
+            "isolate_stem": 1
+          },
+          "remove_speaker": {
+            "remove_speaker": 2,
+            "cut_segment": 1
+          },
+          "denoise": {
+            "denoise": 4
+          },
+          "normalize": {
+            "normalize": 3
+          },
+          "speed": {
+            "speed": 4
+          },
+          "add_effect": {
+            "add_effect": 3
+          },
+          "remove_silence": {
+            "remove_silence": 2,
+            "cut_segment": 1
+          }
+        },
+        "top_confusions": [
+          {
+            "actual": "remove_stem",
+            "predicted": "denoise",
+            "count": 1
+          },
+          {
+            "actual": "cut_segment",
+            "predicted": "trim_segment",
+            "count": 1
+          },
+          {
+            "actual": "trim_segment",
+            "predicted": "cut_segment",
+            "count": 3
+          },
+          {
+            "actual": "trim_segment",
+            "predicted": "isolate_stem",
+            "count": 1
+          },
+          {
+            "actual": "remove_speaker",
+            "predicted": "cut_segment",
+            "count": 1
+          },
+          {
+            "actual": "remove_silence",
+            "predicted": "cut_segment",
+            "count": 1
+          }
+        ]
+      }
+    }
+  }
+}

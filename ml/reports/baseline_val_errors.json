@@ -1,0 +1,495 @@
+[
+  {
+    "id": "seed-0002",
+    "text": "turn the vocals down by 3 db",
+    "source": "seed",
+    "gold_ops": [
+      "gain"
+    ],
+    "pred_ops": [
+      "gain"
+    ],
+    "gold_targets": [
+      "vocals"
+    ],
+    "pred_targets": [
+      "vocals",
+      "drums"
+    ],
+    "gold_amount": -3.0,
+    "pred_amount": 0.2,
+    "top_scores": {
+      "gain": 1.0,
+      "remove_stem": 0.078,
+      "isolate_stem": 0.035
+    }
+  },
+  {
+    "id": "seed-0002-v1",
+    "text": "go ahead and turn the vocals down by 3 db",
+    "source": "template",
+    "gold_ops": [
+      "gain"
+    ],
+    "pred_ops": [
+      "gain"
+    ],
+    "gold_targets": [
+      "vocals"
+    ],
+    "pred_targets": [
+      "vocals",
+      "drums"
+    ],
+    "gold_amount": -3.0,
+    "pred_amount": 0.12,
+    "top_scores": {
+      "gain": 0.996,
+      "remove_stem": 0.169,
+      "isolate_stem": 0.067
+    }
+  },
+  {
+    "id": "seed-0002-v2",
+    "text": "please turn the vocals down by 3 db",
+    "source": "template",
+    "gold_ops": [
+      "gain"
+    ],
+    "pred_ops": [
+      "gain"
+    ],
+    "gold_targets": [
+      "vocals"
+    ],
+    "pred_targets": [
+      "vocals",
+      "drums"
+    ],
+    "gold_amount": -3.0,
+    "pred_amount": 0.37,
+    "top_scores": {
+      "gain": 0.999,
+      "remove_stem": 0.081,
+      "isolate_stem": 0.048
+    }
+  },
+  {
+    "id": "seed-0002-v4",
+    "text": "turn the vocals down by 3 db when you can",
+    "source": "template",
+    "gold_ops": [
+      "gain"
+    ],
+    "pred_ops": [
+      "gain"
+    ],
+    "gold_targets": [
+      "vocals"
+    ],
+    "pred_targets": [
+      "vocals",
+      "drums"
+    ],
+    "gold_amount": -3.0,
+    "pred_amount": 0.27,
+    "top_scores": {
+      "gain": 0.998,
+      "remove_stem": 0.098,
+      "isolate_stem": 0.061
+    }
+  },
+  {
+    "id": "seed-0016-v2",
+    "text": "i want to set the guitar gain to plus 3db",
+    "source": "template",
+    "gold_ops": [
+      "gain"
+    ],
+    "pred_ops": [
+      "remove_stem"
+    ],
+    "gold_targets": [
+      "guitar"
+    ],
+    "pred_targets": [
+      "guitar"
+    ],
+    "gold_amount": 3.0,
+    "pred_amount": null,
+    "top_scores": {
+      "remove_stem": 0.338,
+      "gain": 0.217,
+      "add_effect": 0.074
+    }
+  },
+  {
+    "id": "seed-0016-v3",
+    "text": "i'd like to set the guitar gain to plus 3db on this track",
+    "source": "template",
+    "gold_ops": [
+      "gain"
+    ],
+    "pred_ops": [
+      "remove_stem"
+    ],
+    "gold_targets": [
+      "guitar"
+    ],
+    "pred_targets": [
+      "guitar"
+    ],
+    "gold_amount": 3.0,
+    "pred_amount": null,
+    "top_scores": {
+      "remove_stem": 0.474,
+      "gain": 0.192,
+      "add_effect": 0.105
+    }
+  },
+  {
+    "id": "seed-0048",
+    "text": "remove the vocals and the drums",
+    "source": "seed",
+    "gold_ops": [
+      "remove_stem"
+    ],
+    "pred_ops": [
+      "remove_stem",
+      "isolate_stem"
+    ],
+    "gold_targets": [
+      "vocals",
+      "drums"
+    ],
+    "pred_targets": [
+      "vocals",
+      "drums"
+    ],
+    "gold_amount": null,
+    "pred_amount": null,
+    "top_scores": {
+      "remove_stem": 0.998,
+      "isolate_stem": 0.509,
+      "gain": 0.362
+    }
+  },
+  {
+    "id": "seed-0048-v1",
+    "text": "delete the vocals and the drums please",
+    "source": "template",
+    "gold_ops": [
+      "remove_stem"
+    ],
+    "pred_ops": [
+      "remove_stem",
+      "isolate_stem"
+    ],
+    "gold_targets": [
+      "vocals",
+      "drums"
+    ],
+    "pred_targets": [
+      "vocals",
+      "drums"
+    ],
+    "gold_amount": null,
+    "pred_amount": null,
+    "top_scores": {
+      "remove_stem": 0.982,
+      "isolate_stem": 0.504,
+      "add_effect": 0.25
+    }
+  },
+  {
+    "id": "seed-0048-v3",
+    "text": "please remove the vocals and the drums for me",
+    "source": "template",
+    "gold_ops": [
+      "remove_stem"
+    ],
+    "pred_ops": [
+      "remove_stem",
+      "isolate_stem"
+    ],
+    "gold_targets": [
+      "vocals",
+      "drums"
+    ],
+    "pred_targets": [
+      "vocals",
+      "drums"
+    ],
+    "gold_amount": null,
+    "pred_amount": null,
+    "top_scores": {
+      "remove_stem": 0.989,
+      "isolate_stem": 0.524,
+      "gain": 0.165
+    }
+  },
+  {
+    "id": "seed-0055",
+    "text": "keep the guitar and remove everything else",
+    "source": "seed",
+    "gold_ops": [
+      "isolate_stem"
+    ],
+    "pred_ops": [
+      "remove_stem"
+    ],
+    "gold_targets": [
+      "guitar"
+    ],
+    "pred_targets": [
+      "guitar"
+    ],
+    "gold_amount": null,
+    "pred_amount": null,
+    "top_scores": {
+      "remove_stem": 0.688,
+      "isolate_stem": 0.11,
+      "gain": 0.107
+    }
+  },
+  {
+    "id": "seed-0055-v1",
+    "text": "can you keep the guitar and remove everything else",
+    "source": "template",
+    "gold_ops": [
+      "isolate_stem"
+    ],
+    "pred_ops": [
+      "remove_stem"
+    ],
+    "gold_targets": [
+      "guitar"
+    ],
+    "pred_targets": [
+      "guitar"
+    ],
+    "gold_amount": null,
+    "pred_amount": null,
+    "top_scores": {
+      "remove_stem": 0.561,
+      "isolate_stem": 0.142,
+      "remove_speaker": 0.13
+    }
+  },
+  {
+    "id": "seed-0055-v2",
+    "text": "i'd like to keep the guitar and remove everything else",
+    "source": "template",
+    "gold_ops": [
+      "isolate_stem"
+    ],
+    "pred_ops": [
+      "remove_stem"
+    ],
+    "gold_targets": [
+      "guitar"
+    ],
+    "pred_targets": [
+      "guitar"
+    ],
+    "gold_amount": null,
+    "pred_amount": null,
+    "top_scores": {
+      "remove_stem": 0.641,
+      "gain": 0.101,
+      "isolate_stem": 0.094
+    }
+  },
+  {
+    "id": "seed-0055-v3",
+    "text": "i'd like to keep the guitar and remove everything else on this track",
+    "source": "template",
+    "gold_ops": [
+      "isolate_stem"
+    ],
+    "pred_ops": [
+      "remove_stem"
+    ],
+    "gold_targets": [
+      "guitar"
+    ],
+    "pred_targets": [
+      "guitar"
+    ],
+    "gold_amount": null,
+    "pred_amount": null,
+    "top_scores": {
+      "remove_stem": 0.686,
+      "isolate_stem": 0.117,
+      "gain": 0.087
+    }
+  },
+  {
+    "id": "seed-0055-v4",
+    "text": "i want to keep the guitar and remove everything else",
+    "source": "template",
+    "gold_ops": [
+      "isolate_stem"
+    ],
+    "pred_ops": [
+      "remove_stem"
+    ],
+    "gold_targets": [
+      "guitar"
+    ],
+    "pred_targets": [
+      "guitar"
+    ],
+    "gold_amount": null,
+    "pred_amount": null,
+    "top_scores": {
+      "remove_stem": 0.581,
+      "isolate_stem": 0.101,
+      "remove_speaker": 0.099
+    }
+  },
+  {
+    "id": "seed-0069",
+    "text": "remove the guitar solo",
+    "source": "seed",
+    "gold_ops": [
+      "cut_segment"
+    ],
+    "pred_ops": [
+      "remove_stem"
+    ],
+    "gold_targets": [
+      "guitar"
+    ],
+    "pred_targets": [
+      "guitar"
+    ],
+    "gold_amount": null,
+    "pred_amount": null,
+    "top_scores": {
+      "remove_stem": 0.885,
+      "isolate_stem": 0.496,
+      "add_effect": 0.028
+    }
+  },
+  {
+    "id": "seed-0069-v1",
+    "text": "go ahead and get rid of the guitar solo for me",
+    "source": "template",
+    "gold_ops": [
+      "cut_segment"
+    ],
+    "pred_ops": [
+      "remove_stem"
+    ],
+    "gold_targets": [
+      "guitar"
+    ],
+    "pred_targets": [
+      "guitar"
+    ],
+    "gold_amount": null,
+    "pred_amount": null,
+    "top_scores": {
+      "remove_stem": 0.67,
+      "isolate_stem": 0.471,
+      "denoise": 0.118
+    }
+  },
+  {
+    "id": "seed-0069-v2",
+    "text": "get rid of the guitar solo",
+    "source": "template",
+    "gold_ops": [
+      "cut_segment"
+    ],
+    "pred_ops": [
+      "remove_stem"
+    ],
+    "gold_targets": [
+      "guitar"
+    ],
+    "pred_targets": [
+      "guitar"
+    ],
+    "gold_amount": null,
+    "pred_amount": null,
+    "top_scores": {
+      "remove_stem": 0.562,
+      "isolate_stem": 0.376,
+      "denoise": 0.083
+    }
+  },
+  {
+    "id": "seed-0069-v3",
+    "text": "delete the guitar solo",
+    "source": "template",
+    "gold_ops": [
+      "cut_segment"
+    ],
+    "pred_ops": [
+      "remove_stem"
+    ],
+    "gold_targets": [
+      "guitar"
+    ],
+    "pred_targets": [
+      "guitar"
+    ],
+    "gold_amount": null,
+    "pred_amount": null,
+    "top_scores": {
+      "remove_stem": 0.71,
+      "isolate_stem": 0.504,
+      "cut_segment": 0.051
+    }
+  },
+  {
+    "id": "seed-0069-v4",
+    "text": "remove the guitar solo on this track",
+    "source": "template",
+    "gold_ops": [
+      "cut_segment"
+    ],
+    "pred_ops": [
+      "remove_stem"
+    ],
+    "gold_targets": [
+      "guitar"
+    ],
+    "pred_targets": [
+      "guitar"
+    ],
+    "gold_amount": null,
+    "pred_amount": null,
+    "top_scores": {
+      "remove_stem": 0.865,
+      "isolate_stem": 0.495,
+      "add_effect": 0.04
+    }
+  },
+  {
+    "id": "seed-0072",
+    "text": "cut from 10 to 15 seconds",
+    "source": "seed",
+    "gold_ops": [
+      "cut_segment"
+    ],
+    "pred_ops": [
+      "trim_segment"
+    ],
+    "gold_targets": [
+      "full_mix"
+    ],
+    "pred_targets": [
+      "full_mix"
+    ],
+    "gold_amount": null,
+    "pred_amount": null,
+    "top_scores": {
+      "trim_segment": 0.775,
+      "cut_segment": 0.766,
+      "fade": 0.033
+    }
+  }
+]
