@@ -35,3 +35,4 @@ Thumbs.db
 #   python -m scripts.build_drum_bank --per-label 120
 .vercel
 .env*
+!server/.env.example

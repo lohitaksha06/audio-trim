@@ -69,6 +69,11 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done and measured · `[-
       needed” and the per-page browser badges. Server-only actions are still
       marked **Server**; no capability was added to the UI by removing the
       labels.
+- [x] **Backend deployment package** — added a CPU-only `Dockerfile`,
+      `.dockerignore`, `server/.env.example`, `scripts/warm_models.py` and
+      `docs/DEPLOY_BACKEND.md`. CORS now reads
+      `AUDIDELLE_CORS_ORIGINS`. The backend is **not deployed yet**; the
+      guide requires a host account and persistent volume.
 
 ## Queue
 

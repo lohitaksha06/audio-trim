@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -16,10 +18,17 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# Set AUDIDELLE_CORS_ORIGINS to a comma-separated allowlist in production.
+# The fallback is permissive so local tools and previews still work; browsers
+# reject a wildcard together with credentials, so credentials are only enabled
+# when an explicit allowlist is configured.
+_origins_env = os.environ.get("AUDIDELLE_CORS_ORIGINS", "").strip()
+_allowed_origins = [origin.strip() for origin in _origins_env.split(",") if origin.strip()] or ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_allowed_origins,
+    allow_credentials=bool(_origins_env),
     allow_methods=["*"],
     allow_headers=["*"],
 )
