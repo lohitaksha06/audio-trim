@@ -6,6 +6,7 @@ import { FEATURE_LINKS } from "./featureNav";
 
 const LINKS = [
   { name: "Editor", href: "/prompt" },
+  { name: "Studio", href: "/studio" },
   { name: "Lab", href: "/lab" },
   { name: "Guide", href: "/guide" },
 ];

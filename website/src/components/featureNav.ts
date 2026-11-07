@@ -7,6 +7,7 @@ export interface FeatureLink {
 
 export const FEATURE_LINKS: FeatureLink[] = [
   { name: "Home", href: "/prompt" },
+  { name: "Studio", href: "/studio" },
   { name: "Source Separation", href: "/features/separation" },
   { name: "Smart Editing", href: "/features/editing" },
   { name: "Manual Editor", href: "/features/manual" },

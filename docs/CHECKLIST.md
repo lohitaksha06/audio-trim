@@ -247,6 +247,32 @@ speed with WebAudio, and renders the export in the worker. The server path is
 unchanged when `NEXT_PUBLIC_API_URL` is set. The "AI" label was removed because
 the preset is a rule set over measured features, not a model.
 
+## Multitrack Studio (browser)
+
+The Studio page (`/studio`) is a separate browser workspace: multiple tracks,
+clips, a channel strip per track, a master bus, project bundles and DAW
+interchange. It does not pretend to be a DAW.
+
+| Operation | Method | Measured |
+|---|---|---|
+| timeline | clips, drag, split, duplicate, delete, fades, 50 ms crossfade | 2 tracks imported; split → 3 clips; undo → 2; redo → 3 |
+| clip drag | pointer drag, 50 ms snap | 2.00 s start moved by 2.0 s |
+| mixer | per-track gain/pan/EQ/compressor, master ceiling | rendered 20.0 s mix |
+| loudness | K-weighted, gated 400 ms blocks; 4× true peak | **−14.5 LUFS integrated, −1.0 dBTP** on a 20 s mix |
+| automation | volume points, linear dB interpolation | fade-in automation raises late RMS >10× over early RMS |
+| sidechain | source-track envelope ducking | ducked mix RMS is lower than the same mix without sidechain |
+| project bundle | ZIP with `project.json` + WAV assets | 2 tracks / 3 clips restored from the ZIP |
+| stems | one WAV per track, ZIP | 2 stems downloaded |
+| DAW interchange | EDL (Reaper/Premiere/Resolve), FCPXML (Final Cut) | EDL starts `TITLE: Untitled session`; FCPXML has `asset-clip` entries |
+| video import | browser decodes the audio track from MP4 | 5 s MP4 → 1 track / **4.99 s** audio |
+
+Known limits: no MIDI import/export, no VST/AU hosting, no visual automation
+curves, no lookahead limiter, no perceptual listening validation. The channel
+compressor is a simple feed-forward detector; the master “ceiling limiter” is a
+peak ceiling, not a true lookahead limiter. Stems ignore mute/solo by design;
+sidechain processing is applied only in the full mix. These are stated here
+rather than hidden behind a button.
+
 Cost on mono 44.1 kHz, measured on this machine:
 
 | Job | Bun/JSC | Chromium worker |

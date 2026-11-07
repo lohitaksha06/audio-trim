@@ -39,10 +39,17 @@ export default function Home() {
                 <span aria-hidden>→</span>
               </Link>
               <Link
-                href="/lab"
+                href="/studio"
                 className="inline-flex items-center justify-between gap-8 rounded-none border border-white/25 px-6 py-4 text-sm font-medium text-white/75 transition-colors hover:border-white/60 hover:text-white"
               >
-                Open Lab
+                Open Studio
+                <span aria-hidden>↗</span>
+              </Link>
+              <Link
+                href="/lab"
+                className="inline-flex items-center justify-between gap-8 rounded-none border border-white/15 px-6 py-4 text-sm font-medium text-white/55 transition-colors hover:border-white/40 hover:text-white"
+              >
+                Lab
                 <span aria-hidden>↗</span>
               </Link>
             </div>
