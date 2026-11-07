@@ -216,7 +216,7 @@ export default function FeatureLayout({
   const handleAnalyze = async () => {
     if (localMode) {
       setNotice(
-        "Instrument, genre and structure analysis needs the backend. Every edit below still runs on this device.",
+        "Instrument, genre and structure analysis needs the server. The edit actions below are available now.",
       );
       return;
     }
@@ -305,7 +305,7 @@ export default function FeatureLayout({
       setHistory((prev) => [...prev, { role: "user", text: raw }]);
       setPrompt("");
       if (plan.unsupported || plan.intent === "unknown") {
-        setNotice(plan.unsupported ?? "That edit is not available in browser mode.");
+        setNotice(plan.unsupported ?? "That edit is not available yet.");
         return;
       }
       setProcessing(true);
@@ -498,9 +498,6 @@ export default function FeatureLayout({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="border border-white/15 px-2.5 py-1 font-mono text-[0.6rem] uppercase tracking-[0.14em] text-white/50">
-                    {localMode ? "on this device" : "server + local preview"}
-                  </span>
                   {project.file && (
                     <>
                       <button
@@ -551,15 +548,6 @@ export default function FeatureLayout({
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-              {localMode && (
-                <p className="mb-4 border border-white/12 bg-white/[0.025] px-3 py-2 text-xs leading-relaxed text-white/55">
-                  <strong className="font-medium text-white/75">On-device mode.</strong>{" "}
-                  Your file, edits and last render stay in this browser, including after a refresh.
-                  Analysis and true AI stem separation need a backend; every edit that can run here is
-                  labelled. Downloads are real WAV files.
-                </p>
-              )}
-
               {!project.file ? (
                 <div className="mx-auto w-full max-w-3xl">
                   <FileUpload onFileSelected={(picked) => void handleFileSelected(picked)} onInvalid={setErrorMsg} />
@@ -569,7 +557,7 @@ export default function FeatureLayout({
                         project.error || errorMsg ? "text-red-400" : "text-white/50"
                       }`}
                     >
-                      {project.error || errorMsg || "Decoding and measuring on this device…"}
+                      {project.error || errorMsg || "Decoding and measuring…"}
                     </p>
                   )}
 
@@ -694,7 +682,7 @@ export default function FeatureLayout({
                         <div>
                           <p className="eyebrow">Latest output</p>
                           <p className="text-xs text-white/50">
-                            {lastResult?.summary || "Rendered on this device."}
+                            {lastResult?.summary || "Rendered."}
                           </p>
                         </div>
                         <span className="font-mono text-[0.6rem] uppercase tracking-[0.14em] text-white/40">

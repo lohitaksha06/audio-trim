@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import Nav from "@/components/Nav";
 import Sidebar from "@/components/Sidebar";
 import { decodeFile, encodeWav } from "@/lib/audio";
 import { buildEdl, buildFcpxml } from "@/lib/studio/exchange";
 import { formatDbtp, formatLufs } from "@/lib/studio/loudness";
+import { buildMidiFile, parseMidi } from "@/lib/studio/midi";
 import { renderProject, renderStems } from "@/lib/studio/render";
 import { loadStudioAsset, loadStudioProject, saveStudioAsset, saveStudioProject } from "@/lib/studio/storage";
 import {
@@ -92,6 +93,7 @@ export default function StudioPage() {
   const [future, setFuture] = useState<StudioProject[]>([]);
   const [selected, setSelected] = useState<{ trackId: string; clipId: string } | null>(null);
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
+  const [automationOpenId, setAutomationOpenId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [playhead, setPlayhead] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -105,6 +107,7 @@ export default function StudioPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const projectInputRef = useRef<HTMLInputElement>(null);
   const dragRef = useRef<{ project: StudioProject; trackId: string; clipId: string; startX: number; originalStart: number } | null>(null);
+  const automationDragRef = useRef<{ project: StudioProject; trackId: string; pointId: string; rect: DOMRect } | null>(null);
   const movedRef = useRef(false);
 
   const contentDuration = projectDuration(project);
@@ -176,7 +179,7 @@ export default function StudioPage() {
         }
         if (cancelled) return;
         setAssets(loadedAssets);
-        setProject(stored);
+        setProject({ ...stored, tempo: stored.tempo || 120 });
         setSelectedTrackId(stored.tracks[0]?.id ?? null);
       }
       setLoaded(true);
@@ -225,8 +228,32 @@ export default function StudioPage() {
     setStatus(`Decoding ${list.length} file${list.length === 1 ? "" : "s"}…`);
     const nextAssets = { ...assets };
     const nextTracks = [...project.tracks];
+    let nextTempo = project.tempo || 120;
     for (const file of list) {
       try {
+        if (/\.(mid|midi)$/i.test(file.name)) {
+          const parsed = parseMidi(new Uint8Array(await file.arrayBuffer()));
+          nextTempo = parsed.tempo || nextTempo;
+          for (const midiTrack of parsed.tracks) {
+            const track = createTrack(midiTrack.name || file.name.replace(/\.[^.]+$/, ""));
+            track.clips = [
+              {
+                id: createId("clip"),
+                kind: "midi",
+                name: midiTrack.name || file.name.replace(/\.[^.]+$/, ""),
+                start: 0,
+                offset: 0,
+                duration: Math.max(0.1, midiTrack.end),
+                gainDb: 0,
+                fadeIn: 0,
+                fadeOut: 0,
+                notes: midiTrack.notes,
+              },
+            ];
+            nextTracks.push(track);
+          }
+          continue;
+        }
         const audio = await decodeFile(file);
         const id = createId("asset");
         const asset: StudioAsset = {
@@ -259,7 +286,7 @@ export default function StudioPage() {
       }
     }
     setAssets(nextAssets);
-    const next = { ...project, tracks: nextTracks };
+    const next = { ...project, tempo: nextTempo, tracks: nextTracks };
     setPast((items) => [...items.slice(-49), project]);
     setFuture([]);
     setProject(next);
@@ -292,18 +319,36 @@ export default function StudioPage() {
     }
     const left = split - selectedClip.start;
     const right = selectedClip.duration - left;
+    const isMidi = selectedClip.kind === "midi";
+    const notes = selectedClip.notes ?? [];
+    const leftNotes = isMidi
+      ? notes
+          .filter((note) => note.start < left)
+          .map((note) => ({ ...note, duration: Math.min(note.duration, left - note.start) }))
+      : selectedClip.notes;
+    const rightNotes = isMidi
+      ? notes
+          .filter((note) => note.start + note.duration > left)
+          .map((note) => {
+            const start = Math.max(0, note.start - left);
+            const end = note.start + note.duration - Math.max(note.start, left);
+            return { ...note, start, duration: Math.max(0.01, end) };
+          })
+      : selectedClip.notes;
     const leftClip: StudioClip = {
       ...selectedClip,
       id: createId("clip"),
       duration: left,
+      notes: leftNotes,
       fadeOut: Math.max(selectedClip.fadeOut, 0.01),
     };
     const rightClip: StudioClip = {
       ...selectedClip,
       id: createId("clip"),
       start: split,
-      offset: selectedClip.offset + left,
+      offset: isMidi ? 0 : selectedClip.offset + left,
       duration: right,
+      notes: rightNotes,
       fadeIn: Math.max(selectedClip.fadeIn, 0.01),
     };
     const track = project.tracks.find((item) => item.id === selected.trackId);
@@ -422,6 +467,67 @@ export default function StudioPage() {
         setPast((items) => [...items.slice(-49), drag.project]);
         setFuture([]);
       }
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
+  const automationY = (gainDb: number): number => 6 + (1 - (clamp(gainDb, -60, 12) + 60) / 72) * 40;
+  const automationGain = (y: number): number => clamp(12 - ((y - 6) / 40) * 72, -60, 12);
+
+  const addAutomationPoint = (event: ReactMouseEvent<HTMLDivElement>, track: StudioTrack) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const time = clamp((event.clientX - rect.left) / pps, 0, duration);
+    const gainDb = automationGain(event.clientY - rect.top);
+    updateTrack(track.id, (item) => ({
+      ...item,
+      automation: [
+        ...(item.automation ?? []).filter((point) => Math.abs(point.time - time) > 0.04),
+        { id: createId("auto"), time: Number(time.toFixed(3)), gainDb: Number(gainDb.toFixed(1)) },
+      ].sort((a, b) => a.time - b.time),
+    }));
+  };
+
+  const startAutomationDrag = (event: ReactPointerEvent<SVGCircleElement>, trackId: string, pointId: string) => {
+    event.stopPropagation();
+    const svg = event.currentTarget.ownerSVGElement;
+    if (!svg) return;
+    automationDragRef.current = {
+      project,
+      trackId,
+      pointId,
+      rect: svg.getBoundingClientRect(),
+    };
+    let moved = false;
+    const move = (moveEvent: PointerEvent) => {
+      const drag = automationDragRef.current;
+      if (!drag) return;
+      const time = clamp((moveEvent.clientX - drag.rect.left) / pps, 0, duration);
+      const gainDb = automationGain(moveEvent.clientY - drag.rect.top);
+      if (Math.abs(time - (drag.project.tracks.find((track) => track.id === drag.trackId)?.automation?.find((point) => point.id === drag.pointId)?.time ?? time)) > 0.01) moved = true;
+      setProject((current) => ({
+        ...current,
+        tracks: current.tracks.map((track) =>
+          track.id === drag.trackId
+            ? {
+                ...track,
+                automation: (track.automation ?? []).map((point) =>
+                  point.id === drag.pointId ? { ...point, time: Number(time.toFixed(3)), gainDb: Number(gainDb.toFixed(1)) } : point,
+                ),
+              }
+            : track,
+        ),
+      }));
+      setPreviewDirty(true);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      if (automationDragRef.current && moved) {
+        setPast((items) => [...items.slice(-49), automationDragRef.current!.project]);
+        setFuture([]);
+      }
+      automationDragRef.current = null;
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -561,7 +667,7 @@ export default function StudioPage() {
         };
         await saveStudioAsset(id, assetFile);
       }
-      setProject(nextProject);
+      setProject({ ...nextProject, tempo: nextProject.tempo || 120 });
       setAssets(nextAssets);
       setPast([]);
       setFuture([]);
@@ -610,12 +716,12 @@ export default function StudioPage() {
                   aria-label="Project name"
                 />
                 <p className="mt-1 text-sm text-white/50">
-                  {project.tracks.length} track{project.tracks.length === 1 ? "" : "s"} · {formatTime(contentDuration)} · rendered preview
+                  {project.tracks.length} track{project.tracks.length === 1 ? "" : "s"} · {formatTime(contentDuration)} · preview
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => fileInputRef.current?.click()} className="rounded-none bg-[#f2f1ec] px-4 py-2 text-xs font-semibold text-black hover:bg-white">
-                  Import audio/video
+                  Import audio / video / MIDI
                 </button>
                 <button onClick={() => projectInputRef.current?.click()} className="rounded-none border border-white/20 px-3 py-2 text-xs text-white/70 hover:border-white/50 hover:text-white">
                   Open project
@@ -698,10 +804,10 @@ export default function StudioPage() {
                 <div className="flex min-h-[420px] flex-col items-center justify-center p-8 text-center">
                   <p className="font-display text-3xl font-bold text-[#f2f1ec]">build a session.</p>
                   <p className="mt-2 max-w-md text-sm leading-relaxed text-white/50">
-                    Import one or more audio or video files. Each becomes a track with a clip on the timeline. Video is decoded to its audio track; everything stays in this browser.
+                    Import audio, video or MIDI files. Each becomes a track with a clip on the timeline. Video is decoded to its audio track; MIDI becomes a playable note track.
                   </p>
                   <button onClick={() => fileInputRef.current?.click()} className="mt-6 rounded-none border border-white/25 px-5 py-3 text-sm text-white/75 hover:border-white/60 hover:text-white">
-                    Import audio or video
+                    Import audio, video or MIDI
                   </button>
                 </div>
               ) : (
@@ -725,7 +831,11 @@ export default function StudioPage() {
                       </div>
                     </div>
                     {project.tracks.map((track, trackIndex) => (
-                      <div key={track.id} className="flex border-b border-white/8" style={{ height: TRACK_HEIGHT }}>
+                      <div
+                        key={track.id}
+                        className="flex border-b border-white/8"
+                        style={{ height: TRACK_HEIGHT + (automationOpenId === track.id ? 54 : 0) }}
+                      >
                         <div className="sticky left-0 z-10 w-44 shrink-0 border-r border-white/10 bg-black px-3 py-2">
                           <div className="flex items-center gap-1.5">
                             <span className="h-2 w-2" style={{ backgroundColor: TRACK_COLORS[trackIndex % TRACK_COLORS.length] }} />
@@ -749,6 +859,13 @@ export default function StudioPage() {
                             >
                               S
                             </button>
+                            <button
+                              onClick={() => setAutomationOpenId((current) => (current === track.id ? null : track.id))}
+                              className={`rounded-none border px-1.5 py-0.5 text-[0.6rem] ${automationOpenId === track.id ? "border-white/50 bg-white/15 text-white" : "border-white/15 text-white/45"}`}
+                              title="Volume automation lane"
+                            >
+                              A
+                            </button>
                             <button onClick={() => removeTrack(track.id)} className="ml-auto text-[0.6rem] text-white/30 hover:text-red-300">×</button>
                           </div>
                         </div>
@@ -761,7 +878,7 @@ export default function StudioPage() {
                           }}
                         >
                           {track.clips.map((clip) => {
-                            const asset = assets[clip.assetId];
+                            const asset = clip.assetId ? assets[clip.assetId] : undefined;
                             const active = selected?.clipId === clip.id;
                             return (
                               <div
@@ -776,6 +893,22 @@ export default function StudioPage() {
                                 }}
                               >
                                 {asset && <ClipWave asset={asset} />}
+                                {clip.kind === "midi" && (
+                                  <div className="pointer-events-none absolute inset-x-0 bottom-1 h-6 overflow-hidden">
+                                    {(clip.notes ?? []).map((note, noteIndex) => (
+                                      <span
+                                        key={noteIndex}
+                                        className="absolute rounded-[1px] bg-white/40"
+                                        style={{
+                                          left: `${(note.start / Math.max(0.01, clip.duration)) * 100}%`,
+                                          width: `${Math.max(0.6, (note.duration / Math.max(0.01, clip.duration)) * 100)}%`,
+                                          top: `${((84 - Math.max(36, Math.min(84, note.midi))) / 48) * 100}%`,
+                                          height: "12%",
+                                        }}
+                                      />
+                                    ))}
+                                  </div>
+                                )}
                                 <div className="relative z-10 px-2 pt-1">
                                   <p className="truncate text-[0.7rem] font-medium text-white/85">{clip.name}</p>
                                   <p className="font-mono text-[0.6rem] text-white/45">{clip.duration.toFixed(2)}s</p>
@@ -786,6 +919,48 @@ export default function StudioPage() {
                             );
                           })}
                           <div className="pointer-events-none absolute bottom-0 top-0 z-10 w-px bg-[#f2f1ec]/80" style={{ left: playhead * pps }} />
+                          {automationOpenId === track.id && (
+                            <div
+                              className="absolute inset-x-0 bottom-0 z-20 h-[54px] cursor-crosshair border-t border-white/12 bg-black/70"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                addAutomationPoint(event, track);
+                              }}
+                              title="Click to add a volume point; drag a point to move it"
+                            >
+                              <svg width={timelineWidth} height={52} className="block">
+                                {(() => {
+                                  const points = [...(track.automation ?? [])].sort((a, b) => a.time - b.time);
+                                  const path = points.length
+                                    ? points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.time * pps} ${automationY(point.gainDb)}`).join(" ")
+                                    : `M 0 ${automationY(track.gainDb)} L ${timelineWidth} ${automationY(track.gainDb)}`;
+                                  return (
+                                    <>
+                                      <path d={path} fill="none" stroke="rgba(242,241,236,0.65)" strokeWidth={1.25} />
+                                      <line x1={playhead * pps} y1={0} x2={playhead * pps} y2={52} stroke="rgba(242,241,236,0.25)" />
+                                      {points.map((point) => (
+                                        <circle
+                                          key={point.id}
+                                          cx={point.time * pps}
+                                          cy={automationY(point.gainDb)}
+                                          r={4}
+                                          fill="#f2f1ec"
+                                          stroke="#000"
+                                          strokeWidth={1}
+                                          className="cursor-grab"
+                                          onPointerDown={(event) => startAutomationDrag(event, track.id, point.id)}
+                                          onClick={(event) => event.stopPropagation()}
+                                        />
+                                      ))}
+                                    </>
+                                  );
+                                })()}
+                              </svg>
+                              <span className="pointer-events-none absolute left-2 top-1 font-mono text-[0.55rem] uppercase tracking-[0.14em] text-white/35">
+                                Volume automation
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -979,24 +1154,67 @@ export default function StudioPage() {
                 </label>
                 <label className="mt-2 flex items-center gap-2 text-[0.7rem] text-white/55">
                   <input type="checkbox" checked={project.master.limiter} onChange={(event) => commit({ ...project, master: { ...project.master, limiter: event.target.checked } })} className="accent-white" />
-                  Ceiling limiter
+                  Lookahead limiter
                 </label>
                 {report && (
-                  <div className="mt-3 grid grid-cols-2 gap-2 border-t border-white/10 pt-3 font-mono text-[0.7rem]">
-                    <span className="text-white/45">Integrated</span><span className="text-right text-white/80">{formatLufs(report.integratedLufs)}</span>
-                    <span className="text-white/45">Short-term</span><span className="text-right text-white/80">{formatLufs(report.shortTermLufs)}</span>
-                    <span className="text-white/45">True peak</span><span className="text-right text-white/80">{formatDbtp(report.truePeakDbtp)}</span>
+                  <div className="mt-3 border-t border-white/10 pt-3">
+                    <div className="grid grid-cols-2 gap-2 font-mono text-[0.7rem]">
+                      <span className="text-white/45">Integrated</span><span className="text-right text-white/80">{formatLufs(report.integratedLufs)}</span>
+                      <span className="text-white/45">Short-term</span><span className="text-right text-white/80">{formatLufs(report.shortTermLufs)}</span>
+                      <span className="text-white/45">True peak</span><span className="text-right text-white/80">{formatDbtp(report.truePeakDbtp)}</span>
+                      <span className="text-white/45">Crest</span><span className="text-right text-white/80">{Number.isFinite(report.crestDb) ? `${report.crestDb.toFixed(1)} dB` : "—"}</span>
+                      <span className="text-white/45">DC offset</span><span className="text-right text-white/80">{report.dcOffset.toFixed(4)}</span>
+                      <span className="text-white/45">Stereo</span><span className="text-right text-white/80">{report.stereoCorrelation.toFixed(2)}</span>
+                    </div>
+                    <div className="mt-2 space-y-0.5 border-t border-white/8 pt-2 text-[0.65rem]">
+                      {[
+                        ["Headroom", report.truePeakDbtp <= -1],
+                        ["Not silent", report.integratedLufs > -40],
+                        ["DC safe", report.dcOffset < 0.01],
+                        ["Mono safe", report.stereoCorrelation > -0.2],
+                      ].map(([label, pass]) => (
+                        <p key={String(label)} className="flex justify-between">
+                          <span className="text-white/40">{label}</span>
+                          <span className={pass ? "text-white/75" : "text-red-300"}>{pass ? "pass" : "check"}</span>
+                        </p>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
 
               <div className="border border-white/10 bg-white/[0.02] p-3">
                 <p className="eyebrow mb-2">Export & interchange</p>
+                <label className="mb-2 flex items-center justify-between gap-2 text-[0.65rem] text-white/45">
+                  MIDI tempo
+                  <span className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min={20}
+                      max={300}
+                      value={project.tempo || 120}
+                      onChange={(event) => commit({ ...project, tempo: clamp(Number(event.target.value) || 120, 20, 300) })}
+                      className="w-16 rounded-none border border-white/15 bg-white/[0.03] px-1.5 py-0.5 text-right font-mono text-xs text-white/75"
+                      aria-label="MIDI tempo"
+                    />
+                    <span>BPM</span>
+                  </span>
+                </label>
                 <div className="flex flex-wrap gap-1.5">
                   <button onClick={() => void renderQueue("loop")} disabled={!project.loop.enabled} className="rounded-none border border-white/20 px-2 py-1 text-[0.65rem] text-white/65 hover:border-white/50 hover:text-white disabled:opacity-30">Render loop</button>
                   <button onClick={() => void renderQueue("stems")} className="rounded-none border border-white/20 px-2 py-1 text-[0.65rem] text-white/65 hover:border-white/50 hover:text-white">Stems ZIP</button>
                   <button onClick={() => downloadText(buildEdl(project, assets), `${safeName(project.name)}.edl`)} className="rounded-none border border-white/20 px-2 py-1 text-[0.65rem] text-white/65 hover:border-white/50 hover:text-white">EDL</button>
                   <button onClick={() => downloadText(buildFcpxml(project, assets), `${safeName(project.name)}.fcpxml`, "application/xml")} className="rounded-none border border-white/20 px-2 py-1 text-[0.65rem] text-white/65 hover:border-white/50 hover:text-white">FCPXML</button>
+                  <button
+                    onClick={() => {
+                      const midi = buildMidiFile(project);
+                      const bytes = new Uint8Array(midi);
+                      downloadBlob(new Blob([bytes.buffer as ArrayBuffer], { type: "audio/midi" }), `${safeName(project.name)}.mid`);
+                    }}
+                    className="rounded-none border border-white/20 px-2 py-1 text-[0.65rem] text-white/65 hover:border-white/50 hover:text-white"
+                  >
+                    MIDI
+                  </button>
                 </div>
                 <p className="mt-2 text-[0.65rem] leading-relaxed text-white/35">
                   EDL opens in Reaper, Premiere and Resolve. FCPXML opens in Final Cut. Project bundles include the WAV assets.
@@ -1049,7 +1267,7 @@ export default function StudioPage() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".mp3,.wav,.flac,.aac,.m4a,.ogg,.mp4,.mov,.mkv,.avi,audio/*,video/mp4,video/quicktime,video/x-matroska,video/x-msvideo"
+        accept=".mp3,.wav,.flac,.aac,.m4a,.ogg,.mp4,.mov,.mkv,.avi,.mid,.midi,audio/*,video/mp4,video/quicktime,video/x-matroska,video/x-msvideo"
         multiple
         className="hidden"
         onChange={(event) => {

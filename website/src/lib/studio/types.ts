@@ -10,10 +10,21 @@ export interface StudioAsset {
   channels: number;
 }
 
+export interface StudioMidiNote {
+  midi: number;
+  /** Seconds from the start of the clip. */
+  start: number;
+  duration: number;
+  velocity: number;
+}
+
 /** A region of an asset placed on a track. All times are seconds. */
 export interface StudioClip {
   id: string;
-  assetId: string;
+  /** Audio clips reference an asset; MIDI clips carry notes instead. */
+  assetId?: string;
+  kind?: "audio" | "midi";
+  notes?: StudioMidiNote[];
   name: string;
   /** Timeline position of the clip's first sample. */
   start: number;
@@ -82,6 +93,8 @@ export interface StudioProject {
   version: 1;
   name: string;
   sampleRate: number;
+  /** Used for MIDI export and imported MIDI tempo metadata. */
+  tempo: number;
   tracks: StudioTrack[];
   master: StudioMaster;
   loop: StudioLoop;
@@ -92,6 +105,12 @@ export interface LoudnessReport {
   shortTermLufs: number;
   truePeakDbtp: number;
   samplePeakDbfs: number;
+  /** Peak-to-RMS ratio in dB. */
+  crestDb: number;
+  /** Absolute mean sample value. */
+  dcOffset: number;
+  /** Normalised L/R correlation; 1 for mono. */
+  stereoCorrelation: number;
 }
 
 export const TRACK_COLORS = [
@@ -117,6 +136,7 @@ export function emptyProject(name = "Untitled session"): StudioProject {
     version: 1,
     name,
     sampleRate: 44100,
+    tempo: 120,
     tracks: [],
     master: { gainDb: 0, limiter: true, ceilingDb: -1 },
     loop: { enabled: false, start: 0, end: 0 },
@@ -153,7 +173,7 @@ export function projectDuration(project: StudioProject): number {
 export function discoverAssets(project: StudioProject): Set<string> {
   const ids = new Set<string>();
   for (const track of project.tracks) {
-    for (const clip of track.clips) ids.add(clip.assetId);
+    for (const clip of track.clips) if (clip.assetId) ids.add(clip.assetId);
   }
   return ids;
 }

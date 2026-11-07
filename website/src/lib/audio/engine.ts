@@ -337,7 +337,7 @@ export function applyPlan(source: LocalAudio, plan: LocalPlan, onProgress?: Loca
       break;
     }
     default: {
-      throw new Error("That edit is not available in browser mode.");
+      throw new Error("That edit is not available yet.");
     }
   }
 

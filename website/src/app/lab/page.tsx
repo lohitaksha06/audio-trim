@@ -489,7 +489,7 @@ export default function LabPage() {
             <h1 className="text-xl sm:text-2xl font-bold text-white">Lab — Direct Controls</h1>
             <p className="text-xs sm:text-sm text-white/68">
               {localMode
-                ? "Measured analysis, hands-on tweaking, and local rendering. Nothing leaves this device."
+                ? "Measured analysis, hands-on tweaking, and rendering."
                 : "Measured analysis, hands-on tweaking, and server rendering. Preview is always local."}
             </p>
           </div>
@@ -504,7 +504,7 @@ export default function LabPage() {
               <FileUpload onFileSelected={handleFileSelected} onInvalid={setErrorMsg} />
               <p className="mt-3 text-center text-xs text-white/48">
                 {localMode
-                  ? "Upload audio. Decoding, analysis and export all run in your browser; video import needs the server."
+                  ? "Upload audio. Decoding, analysis and export are ready here; video import needs the server."
                   : "Upload any audio/video. Lab preview is local; export is rendered by the backend."}
               </p>
               {uploading && <p className="mt-2 text-center text-xs text-neon-blue animate-pulse">Reading the file…</p>}
@@ -598,7 +598,7 @@ export default function LabPage() {
                 {exportSummary && <p className="text-xs text-white/58">{exportSummary}</p>}
                 <p className="text-xs text-white/58">
                   {localMode
-                    ? "Rendered in your browser with the local DSP — no upload, no server render."
+                    ? "Rendered with the DSP engine — no server render."
                     : "Exported via POST /api/lab/tweak — lightweight STFT, no model load."}
                 </p>
                 {errorMsg && <p className="text-xs text-red-400">{errorMsg}</p>}
@@ -641,13 +641,13 @@ export default function LabPage() {
                     {localMode ? (
                       <>
                         <li>Preview runs in <b className="text-white/84">WebAudio BiquadFilterNode</b> — no server load while you drag.</li>
-                        <li>Export runs the same DSP in a <b className="text-white/84">Web Worker</b> on this device.</li>
-                        <li>Nothing is uploaded. No model is loaded in browser mode.</li>
+                        <li>Export runs the same DSP in a <b className="text-white/84">Web Worker</b>.</li>
+                        <li>No model is loaded for this page.</li>
                         <li>Pitch and reverb are applied on export; the live preview covers EQ, filters, gain and speed.</li>
                       </>
                     ) : (
                       <>
-                        <li>Preview runs in <b className="text-white/84">WebAudio BiquadFilterNode</b> in your browser — 0 server CPU while you drag.</li>
+                        <li>Preview runs in <b className="text-white/84">WebAudio BiquadFilterNode</b> — 0 server CPU while you drag.</li>
                         <li>Only <b className="text-white/84">Export</b> hits the server: one <code className="text-white/78">librosa.stft → gain → istft</code> pass.</li>
                         <li>Auto preset reuses the existing <code className="text-white/78">/api/ml/understand</code> mood/genre — no extra model.</li>
                         <li>Heavy stem separation stays lazy — Lab never loads Demucs unless you ask.</li>

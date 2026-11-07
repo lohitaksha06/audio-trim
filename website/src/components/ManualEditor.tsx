@@ -276,7 +276,7 @@ export default function ManualEditor({
         if (!localAudio) throw new Error("Load a file first.");
         const plan = exact ?? parseLocalPrompt(prompt, durationOf(localAudio));
         if (plan.unsupported || plan.intent === "unknown") {
-          throw new Error(plan.unsupported ?? "That edit is not available in browser mode.");
+          throw new Error(plan.unsupported ?? "That edit is not available yet.");
         }
         const result = await runLocalPlanAsync(localAudio, plan, (fraction, step) => {
           setProgress({ fraction, label: step });

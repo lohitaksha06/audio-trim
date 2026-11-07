@@ -215,6 +215,71 @@ function applyVolumeAutomation(
   };
 }
 
+function slidingMax(values: Float32Array, window: number): Float32Array {
+  const length = values.length;
+  const out = new Float32Array(length);
+  if (!length || window <= 0) return out;
+  const left = new Float32Array(length);
+  const right = new Float32Array(length);
+  for (let i = 0; i < length; i++) {
+    left[i] = i % window === 0 ? values[i] : Math.max(left[i - 1], values[i]);
+  }
+  for (let i = length - 1; i >= 0; i--) {
+    right[i] = i === length - 1 || (i + 1) % window === 0 ? values[i] : Math.max(right[i + 1], values[i]);
+  }
+  for (let i = 0; i < length; i++) {
+    const end = Math.min(length - 1, i + window - 1);
+    out[i] = Math.max(right[i], left[end]);
+  }
+  return out;
+}
+
+function lookaheadLimit(audio: LocalAudio, ceilingDb: number, lookaheadMs = 5, releaseMs = 90): LocalAudio {
+  const ceiling = dbToGain(ceilingDb);
+  const length = audio.channels[0]?.length ?? 0;
+  if (!length) return audio;
+  const sampleRate = audio.sampleRate;
+  const look = Math.max(1, Math.round((lookaheadMs / 1000) * sampleRate));
+  const linked = new Float32Array(length);
+  for (let i = 0; i < length; i++) {
+    let peak = 0;
+    for (const channel of audio.channels) peak = Math.max(peak, Math.abs(channel[i] ?? 0));
+    linked[i] = peak;
+  }
+  const futurePeak = slidingMax(linked, look + 1);
+  const release = Math.exp(-1 / Math.max(1, (releaseMs / 1000) * sampleRate));
+  const gains = new Float32Array(length);
+  let gain = 1;
+  for (let i = 0; i < length; i++) {
+    const target = futurePeak[i] > ceiling ? ceiling / futurePeak[i] : 1;
+    gain = target < gain ? target : release * gain + (1 - release) * target;
+    gains[i] = gain;
+  }
+  const limited: LocalAudio = {
+    sampleRate,
+    channels: audio.channels.map((channel) => {
+      const out = new Float32Array(channel.length);
+      for (let i = 0; i < channel.length; i++) out[i] = channel[i] * gains[i];
+      return out;
+    }),
+  };
+  // The lookahead handles sample peaks. A final micro-scale catches the rare
+  // intersample peak without changing the limiting decision.
+  let truePeak = 0;
+  for (const channel of limited.channels) {
+    for (let i = 0; i < channel.length - 1; i++) {
+      truePeak = Math.max(truePeak, Math.abs(channel[i]), Math.abs((channel[i] + channel[i + 1]) / 2));
+    }
+  }
+  if (truePeak > ceiling) {
+    const scale = ceiling / truePeak;
+    for (const channel of limited.channels) {
+      for (let i = 0; i < channel.length; i++) channel[i] *= scale;
+    }
+  }
+  return limited;
+}
+
 function applySidechain(target: LocalAudio, source: LocalAudio, amountDb: number): LocalAudio {
   const depth = 1 - dbToGain(-Math.max(0, Math.min(24, amountDb)));
   if (depth <= 0) return target;
@@ -247,6 +312,49 @@ function applySidechain(target: LocalAudio, source: LocalAudio, amountDb: number
 
 function emptyStereo(length: number, sr: number): LocalAudio {
   return { sampleRate: sr, channels: [new Float32Array(length), new Float32Array(length)] };
+}
+
+function midiFrequency(note: number): number {
+  return 440 * Math.pow(2, (note - 69) / 12);
+}
+
+function mixMidiClip(
+  target: LocalAudio,
+  clip: StudioClip,
+  rangeStart: number,
+  rangeEnd: number,
+): void {
+  const sr = target.sampleRate;
+  const sourceStart = Math.max(clip.start, rangeStart);
+  const sourceEnd = Math.min(clip.start + clip.duration, rangeEnd);
+  if (sourceEnd <= sourceStart) return;
+  const clipGain = dbToGain(clip.gainDb);
+  for (const note of clip.notes ?? []) {
+    const noteStart = clip.start + note.start;
+    const noteEnd = Math.min(clip.start + clip.duration, noteStart + note.duration);
+    if (noteEnd <= rangeStart || noteStart >= rangeEnd) continue;
+    const start = Math.max(rangeStart, noteStart);
+    const end = Math.min(rangeEnd, noteEnd);
+    const frequency = midiFrequency(note.midi);
+    const velocity = Math.max(1, Math.min(127, note.velocity)) / 127;
+    const attack = Math.min(0.01, note.duration * 0.2);
+    const release = Math.min(0.08, note.duration * 0.3);
+    const first = Math.round((start - rangeStart) * sr);
+    const last = Math.min(target.channels[0].length, Math.round((end - rangeStart) * sr));
+    for (let i = first; i < last; i++) {
+      const timeline = rangeStart + i / sr;
+      const local = timeline - noteStart;
+      const fadeIn = attack > 0 ? Math.min(1, local / attack) : 1;
+      const fadeOut = release > 0 ? Math.min(1, (noteEnd - timeline) / release) : 1;
+      const clipFadeIn = clip.fadeIn > 0 ? Math.min(1, (timeline - clip.start) / clip.fadeIn) : 1;
+      const clipFadeOut = clip.fadeOut > 0 ? Math.min(1, (clip.start + clip.duration - timeline) / clip.fadeOut) : 1;
+      const envelope = velocity * Math.max(0, Math.min(1, fadeIn, fadeOut, clipFadeIn, clipFadeOut));
+      const phase = 2 * Math.PI * frequency * local;
+      const value = (Math.sin(phase) + 0.22 * Math.sin(phase * 2) + 0.08 * Math.sin(phase * 3)) * envelope * 0.18 * clipGain;
+      target.channels[0][i] += value;
+      target.channels[1][i] += value;
+    }
+  }
 }
 
 function mixClip(
@@ -317,7 +425,11 @@ export function renderProject(
   for (const track of activeTracks) {
     const trackBuffer = emptyStereo(length, sr);
     for (const clip of track.clips) {
-      const asset = assets[clip.assetId];
+      if (clip.kind === "midi") {
+        mixMidiClip(trackBuffer, clip, rangeStart, naturalEnd);
+        continue;
+      }
+      const asset = clip.assetId ? assets[clip.assetId] : undefined;
       if (!asset) continue;
       mixClip(trackBuffer, asset, clip, rangeStart, naturalEnd, 0);
     }
@@ -340,28 +452,19 @@ export function renderProject(
     }
   }
 
+  let output = master;
   if (options.master !== false) {
     const gain = dbToGain(project.master.gainDb);
-    for (const channel of master.channels) {
+    for (const channel of output.channels) {
       for (let i = 0; i < channel.length; i++) channel[i] *= gain;
     }
     if (project.master.limiter) {
-      const ceiling = dbToGain(project.master.ceilingDb);
-      let peak = 0;
-      for (const channel of master.channels) {
-        for (let i = 0; i < channel.length; i++) peak = Math.max(peak, Math.abs(channel[i]));
-      }
-      if (peak > ceiling) {
-        const scale = ceiling / peak;
-        for (const channel of master.channels) {
-          for (let i = 0; i < channel.length; i++) channel[i] *= scale;
-        }
-      }
+      output = lookaheadLimit(output, project.master.ceilingDb);
     }
   }
 
-  const report = measureLoudness(master);
-  return { audio: master, report, duration };
+  const report = measureLoudness(output);
+  return { audio: output, report, duration };
 }
 
 export function renderStems(project: StudioProject, assets: Record<string, StudioAsset>): StemResult[] {

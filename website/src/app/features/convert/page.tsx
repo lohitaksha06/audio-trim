@@ -49,7 +49,7 @@ export default function ConvertPage() {
           <p className="rounded-xl border border-white/12 bg-white/[0.02] p-4 text-sm text-white/58">
             {isBackendConfigured
               ? "The converter uses each codec's default settings — there is no bitrate or sample-rate control yet."
-              : "Browser mode exports WAV. FLAC, MP3, AAC and OGG need the backend; use the WAV download above in the meantime."}
+              : "This build exports WAV. FLAC, MP3, AAC and OGG need the backend; use the WAV download above in the meantime."}
           </p>
         </Panel>
       </div>

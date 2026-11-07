@@ -85,7 +85,7 @@ export default function PromptPage() {
 
   const handleAnalyze = useCallback(async (audioPath?: string) => {
     if (!isBackendConfigured) {
-      setNotice("Track analysis (instruments, genre, structure) needs the server. Every edit below still runs in your browser.");
+      setNotice("Track analysis (instruments, genre, structure) needs the server. The edit actions below are available now.");
       return;
     }
     const target = audioPath ?? uploadResult?.audio_path;
@@ -137,7 +137,7 @@ export default function PromptPage() {
         });
         setState("analyzed");
       } catch {
-        setErrorMsg("This browser could not decode that file. WAV, MP3, M4A, OGG and FLAC all work in Chrome, Edge and Safari. Video import needs the server.");
+        setErrorMsg("This file could not be decoded. WAV, MP3, M4A, OGG and FLAC are supported. Video import needs the server.");
         setState("error");
       }
       return;
@@ -311,7 +311,7 @@ export default function PromptPage() {
 
   const handleStemSelected = async (f: File) => {
     if (!isBackendConfigured) {
-      setHistory((prev) => [...prev, { role: "ai", text: "Mixing an imported stem needs the server — that panel is hidden in browser mode." }]);
+      setHistory((prev) => [...prev, { role: "ai", text: "Mixing an imported stem needs the server." }]);
       return;
     }
     setStemFile(f);
@@ -549,16 +549,14 @@ export default function PromptPage() {
                   <div className="w-full max-w-4xl">
                   <div className="mb-8">
                     <p className="font-mono text-[0.65rem] uppercase tracking-[0.22em] text-white/40">
-                      Editor / {localMode ? "browser edition" : "server edition"}
+                      Editor
                     </p>
                     <h1 className="mt-4 font-display text-5xl font-black lowercase leading-[0.9] tracking-[-0.04em] text-[#f2f1ec] sm:text-6xl lg:text-7xl">
                       edit with words.
                     </h1>
                     <p className="mt-4 max-w-xl text-base leading-relaxed text-white/55 sm:text-lg">
-          {localMode
-            ? "Upload audio and describe what you want to do. Video import and export need the server."
-            : "Upload audio or video and describe what you want to do."}
-        </p>
+                      Upload audio and describe the edit.
+                    </p>
                   </div>
                   <FileUpload onFileSelected={handleFileSelected} onInvalid={(m) => { setErrorMsg(m); }} />
 
@@ -636,15 +634,6 @@ export default function PromptPage() {
                     New file
                   </button>
                 </div>
-
-                {localMode && (
-                  <div className="shrink-0 border-b border-white/10 bg-white/[0.03] px-4 sm:px-6 py-2 text-xs text-white/50">
-                    <span className="font-medium text-white/75">Browser mode.</span>{" "}
-                    Edits run on your device — the audio never leaves it. Trim, fades, gain, normalise,
-                    reverse, speed, denoise and band boosts work here; stem separation, generated
-                    instruments and track analysis need the server.
-                  </div>
-                )}
 
                 {edits > 0 && (lastResult?.download_key || lastResult?.local_url) && (
                   <div className="shrink-0 flex items-center gap-2 border-b border-white/10 bg-white/[0.03] px-4 sm:px-6 py-1.5 text-xs text-white/60">

@@ -28,13 +28,13 @@ export default function FileUpload({ onFileSelected, onInvalid }: FileUploadProp
       const validExt = localMode ? audioExt : [...audioExt, ...videoExt];
 
       if (localMode && (validVideo.includes(file.type) || videoExt.includes(ext || ""))) {
-        onInvalid?.("Video import needs the server. In browser mode, upload MP3, WAV, FLAC, M4A, AAC or OGG.");
+        onInvalid?.("Video import needs the server. Upload MP3, WAV, FLAC, M4A, AAC or OGG.");
         return;
       }
       if (!validAudio.includes(file.type) && !validVideo.includes(file.type) && !validExt.includes(ext || "")) {
         onInvalid?.(
           localMode
-            ? `Unsupported file type: ${file.name}. Use MP3, WAV, FLAC, M4A, AAC or OGG in browser mode.`
+            ? `Unsupported file type: ${file.name}. Use MP3, WAV, FLAC, M4A, AAC or OGG.`
             : `Unsupported file type: ${file.name}. Use MP3, WAV, FLAC, M4A, MP4, MOV, AVI or MKV.`,
         );
         return;

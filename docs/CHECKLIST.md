@@ -65,6 +65,10 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done and measured · `[-
       hidden, and the home/guide/prompt copy states which operations run
       locally. A real Chromium pass clicked **88 buttons** across nine feature
       pages: 88 OK, zero console errors.
+- [x] **Public labels** — removed “Browser edition”, “on-device”, “No account
+      needed” and the per-page browser badges. Server-only actions are still
+      marked **Server**; no capability was added to the UI by removing the
+      labels.
 
 ## Queue
 
@@ -247,11 +251,11 @@ speed with WebAudio, and renders the export in the worker. The server path is
 unchanged when `NEXT_PUBLIC_API_URL` is set. The "AI" label was removed because
 the preset is a rule set over measured features, not a model.
 
-## Multitrack Studio (browser)
+## Multitrack Studio
 
-The Studio page (`/studio`) is a separate browser workspace: multiple tracks,
-clips, a channel strip per track, a master bus, project bundles and DAW
-interchange. It does not pretend to be a DAW.
+The Studio page (`/studio`) is a separate workspace: multiple tracks, clips, a
+channel strip per track, a master bus, project bundles and DAW interchange. It
+does not pretend to be a DAW.
 
 | Operation | Method | Measured |
 |---|---|---|
@@ -259,19 +263,21 @@ interchange. It does not pretend to be a DAW.
 | clip drag | pointer drag, 50 ms snap | 2.00 s start moved by 2.0 s |
 | mixer | per-track gain/pan/EQ/compressor, master ceiling | rendered 20.0 s mix |
 | loudness | K-weighted, gated 400 ms blocks; 4× true peak | **−14.5 LUFS integrated, −1.0 dBTP** on a 20 s mix |
-| automation | volume points, linear dB interpolation | fade-in automation raises late RMS >10× over early RMS |
+| automation | volume points, linear dB interpolation, draggable lane | fade-in automation raises late RMS >10× over early RMS |
 | sidechain | source-track envelope ducking | ducked mix RMS is lower than the same mix without sidechain |
 | project bundle | ZIP with `project.json` + WAV assets | 2 tracks / 3 clips restored from the ZIP |
 | stems | one WAV per track, ZIP | 2 stems downloaded |
-| DAW interchange | EDL (Reaper/Premiere/Resolve), FCPXML (Final Cut) | EDL starts `TITLE: Untitled session`; FCPXML has `asset-clip` entries |
-| video import | browser decodes the audio track from MP4 | 5 s MP4 → 1 track / **4.99 s** audio |
+| MIDI | Standard MIDI import/export, simple note synth | 120 BPM MIDI with C4/E4 notes → 1.0 s render, exported file starts `MThd` |
+| lookahead limiter | 5 ms lookahead, 90 ms release, −1 dB ceiling | 20 s mix measured **−1.4 dBTP** |
+| DAW interchange | EDL (Reaper/Premiere/Resolve), FCPXML (Final Cut), MIDI | EDL starts `TITLE: Untitled session`; FCPXML has `asset-clip` entries |
+| video import | audio track decoded from MP4 | 5 s MP4 → 1 track / **4.99 s** audio |
+| validation panel | LUFS, true peak, crest, DC, stereo correlation | 20 s mix: **−13.7 LUFS**, **−1.4 dBTP**, all four checks pass |
 
-Known limits: no MIDI import/export, no VST/AU hosting, no visual automation
-curves, no lookahead limiter, no perceptual listening validation. The channel
-compressor is a simple feed-forward detector; the master “ceiling limiter” is a
-peak ceiling, not a true lookahead limiter. Stems ignore mute/solo by design;
-sidechain processing is applied only in the full mix. These are stated here
-rather than hidden behind a button.
+Known limits: no piano-roll MIDI editing, no VST/AU hosting, no ARA or spectral
+editing, no perceptual listening validation. The channel compressor is a simple
+feed-forward detector; stems ignore mute/solo by design and do not include
+sidechain ducking. The validation checks are technical, not a claim of audible
+quality. `docs/VALIDATION.md` defines the listening protocol.
 
 Cost on mono 44.1 kHz, measured on this machine:
 

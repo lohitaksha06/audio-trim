@@ -214,7 +214,7 @@ const SECTIONS: { title: string; hint: string; prompts: string[] }[] = [
   },
   {
     title: "Tempo & genre",
-    hint: "Time-stretch to the BPM you name - or ask what the track is. Without a BPM, the server asks for one; browser mode applies a 1.25x/0.8x default.",
+    hint: "Time-stretch to the BPM you name - or ask what the track is. Without a BPM, a vague faster/slower applies a default speed change.",
     prompts: [
       "What genre is this?",
       "What EDM style is this?",
@@ -298,15 +298,6 @@ export default function GuidePage() {
             Click any prompt to copy it, then paste it in the <Link href="/prompt" className="text-neon-blue hover:underline">Editor</Link> — or open
             the <Link href="/features/mix" className="text-neon-purple hover:underline">Mix Lab</Link> for hands-on faders and mix tips.
           </p>
-
-          {!isBackendConfigured && (
-            <p className="measure mt-4 rounded-xl border border-amber-300/20 bg-amber-300/[0.06] px-4 py-3 text-sm leading-relaxed text-amber-100/80">
-              Browser edition: trim, tone, EQ, pitch, speed, pause removal, denoise and WAV export
-              run on this device. Separation, generated instruments, transcription, speaker tools
-              and compressed exports need the server; those prompts will explain the local
-              alternative instead of pretending to run.
-            </p>
-          )}
 
           <div className="measure mt-8 grid gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">
             <h2 className="eyebrow">How layering works</h2>

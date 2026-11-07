@@ -244,7 +244,7 @@ export default function Sidebar({}: SidebarProps) {
               </>
             ) : (
               <p className="text-xs leading-relaxed text-white/58">
-                Browser mode exports WAV only. FLAC, MP3, AAC and OGG need the server.
+                Exports are WAV. FLAC, MP3, AAC and OGG need the server.
               </p>
             )}
           </div>

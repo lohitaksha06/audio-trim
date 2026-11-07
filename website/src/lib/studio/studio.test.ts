@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { LocalAudio } from "../audio";
 import { buildEdl, buildFcpxml } from "./exchange";
 import { measureLoudness } from "./loudness";
+import { buildMidiFile, parseMidi } from "./midi";
 import { renderProject, renderStems } from "./render";
 import { createTrack, emptyProject, type StudioAsset, type StudioProject } from "./types";
 
@@ -50,6 +51,20 @@ describe("studio render", () => {
     }
     expect(peak).toBeLessThanOrEqual(10 ** (-1 / 20) + 0.001);
     expect(Number.isFinite(result.report.integratedLufs)).toBe(true);
+    expect(result.report.truePeakDbtp).toBeLessThanOrEqual(-0.9);
+  });
+
+  test("the lookahead limiter holds the master ceiling", () => {
+    const { project, assets } = projectWithClips();
+    project.master.gainDb = 12;
+    project.master.limiter = true;
+    project.master.ceilingDb = -1;
+    const result = renderProject(project, assets);
+    let samplePeak = 0;
+    for (const channel of result.audio.channels) {
+      for (let i = 0; i < channel.length; i++) samplePeak = Math.max(samplePeak, Math.abs(channel[i]));
+    }
+    expect(samplePeak).toBeLessThanOrEqual(10 ** (-1 / 20) + 0.001);
     expect(result.report.truePeakDbtp).toBeLessThanOrEqual(-0.9);
   });
 
@@ -124,6 +139,44 @@ describe("studio loudness", () => {
     expect(report.integratedLufs).toBeGreaterThan(-24.5);
     expect(report.integratedLufs).toBeLessThan(-21.5);
     expect(report.truePeakDbtp).toBeGreaterThanOrEqual(-20.1);
+  });
+});
+
+describe("studio MIDI", () => {
+  test("renders a MIDI note track and round-trips its notes", () => {
+    const project = emptyProject("MIDI test");
+    project.tempo = 120;
+    const track = createTrack("Synth");
+    track.clips = [
+      {
+        id: "m1",
+        kind: "midi",
+        name: "Synth",
+        start: 0,
+        offset: 0,
+        duration: 2,
+        gainDb: 0,
+        fadeIn: 0,
+        fadeOut: 0,
+        notes: [
+          { midi: 60, start: 0.1, duration: 0.5, velocity: 100 },
+          { midi: 64, start: 0.8, duration: 0.5, velocity: 100 },
+        ],
+      },
+    ];
+    project.tracks = [track];
+    const rendered = renderProject(project, {});
+    let peak = 0;
+    for (const channel of rendered.audio.channels) {
+      for (let i = 0; i < channel.length; i++) peak = Math.max(peak, Math.abs(channel[i]));
+    }
+    expect(peak).toBeGreaterThan(0.001);
+    const bytes = buildMidiFile(project);
+    const parsed = parseMidi(bytes);
+    expect(parsed.tempo).toBe(120);
+    expect(parsed.tracks).toHaveLength(1);
+    expect(parsed.tracks[0].notes.map((note) => note.midi)).toEqual([60, 64]);
+    expect(parsed.tracks[0].notes[0].start).toBeCloseTo(0.1, 1);
   });
 });
 

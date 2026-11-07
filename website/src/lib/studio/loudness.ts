@@ -103,7 +103,15 @@ export function measureLoudness(audio: { sampleRate: number; channels: Float32Ar
   const sr = audio.sampleRate;
   const channels = audio.channels;
   if (!channels.length || !channels[0]?.length) {
-    return { integratedLufs: -Infinity, shortTermLufs: -Infinity, truePeakDbtp: -Infinity, samplePeakDbfs: -Infinity };
+    return {
+      integratedLufs: -Infinity,
+      shortTermLufs: -Infinity,
+      truePeakDbtp: -Infinity,
+      samplePeakDbfs: -Infinity,
+      crestDb: -Infinity,
+      dcOffset: 0,
+      stereoCorrelation: 1,
+    };
   }
 
   const weightedChannels = weighted(channels, sr);
@@ -153,11 +161,42 @@ export function measureLoudness(audio: { sampleRate: number; channels: Float32Ar
     }
   }
 
+  let sumSquares = 0;
+  let sum = 0;
+  let count = 0;
+  for (const channel of channels) {
+    for (let i = 0; i < channel.length; i++) {
+      sum += channel[i];
+      sumSquares += channel[i] * channel[i];
+      count++;
+    }
+  }
+  const rms = count ? Math.sqrt(sumSquares / count) : 0;
+  const dcOffset = count ? Math.abs(sum / count) : 0;
+  let correlation = 1;
+  if (channels.length > 1) {
+    const left = channels[0];
+    const right = channels[1];
+    let dot = 0;
+    let leftEnergy = 0;
+    let rightEnergy = 0;
+    for (let i = 0; i < Math.min(left.length, right.length); i++) {
+      dot += left[i] * right[i];
+      leftEnergy += left[i] * left[i];
+      rightEnergy += right[i] * right[i];
+    }
+    const denominator = Math.sqrt(leftEnergy * rightEnergy);
+    correlation = denominator > 1e-12 ? dot / denominator : 1;
+  }
+
   return {
     integratedLufs: integrated,
     shortTermLufs: shortTerm,
     truePeakDbtp: truePeak > 1e-12 ? 20 * Math.log10(truePeak) : -Infinity,
     samplePeakDbfs: samplePeak > 1e-12 ? 20 * Math.log10(samplePeak) : -Infinity,
+    crestDb: samplePeak > 1e-12 && rms > 1e-12 ? 20 * Math.log10(samplePeak / rms) : -Infinity,
+    dcOffset,
+    stereoCorrelation: Math.max(-1, Math.min(1, correlation)),
   };
 }
 

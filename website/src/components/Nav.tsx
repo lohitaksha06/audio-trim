@@ -42,9 +42,6 @@ export default function Nav() {
               </Link>
             );
           })}
-          <span className="ml-2 hidden border-l border-white/15 pl-4 text-sm text-white/58 xl:inline">
-            No account needed
-          </span>
         </nav>
       </div>
 

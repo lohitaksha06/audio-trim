@@ -221,7 +221,7 @@ export default function ManualPage() {
               />
               {(project.loading || project.error || errorMsg) && (
                 <p className={`mt-3 text-center text-sm ${project.error || errorMsg ? "text-red-400" : "text-white/50"}`}>
-                  {project.error || errorMsg || "Decoding the waveform on this device…"}
+                  {project.error || errorMsg || "Decoding the waveform…"}
                 </p>
               )}
               <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -280,7 +280,7 @@ export default function ManualPage() {
             {editorBusy && (
               <div className="mt-2 flex items-center gap-2 border border-white/10 bg-white/[0.025] px-2.5 py-1.5 text-[0.72rem] text-white/55">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/70" />
-                Rendering on this device — the sidebar still works.
+                Rendering - the sidebar still works.
               </div>
             )}
           </div>
@@ -365,10 +365,9 @@ export default function ManualPage() {
                 </div>
 
                 <div className="border border-white/8 bg-white/[0.02] p-3">
-                  <p className="eyebrow mb-2">On this device</p>
+                  <p className="eyebrow mb-2">Saved project</p>
                   <p className="text-xs leading-relaxed text-white/55">
-                    The source file and the latest render are stored in this browser. Refreshing this
-                    page restores both.
+                    The source and latest render save with the project. Reopening this page restores both.
                   </p>
                 </div>
               </aside>

@@ -19,7 +19,7 @@ function LocalNote() {
   const ctx = useFeaturePrompt();
   if (!ctx?.localMode) return null;
   return (
-    <Panel title="Browser mode: 4-band isolation">
+    <Panel title="4-band isolation">
       <p className="rounded-xl border border-[#7fd1a8]/20 bg-[#7fd1a8]/[0.04] p-4 text-sm leading-relaxed text-white/65">
         Keep/remove vocals, drums or bass through a four-band mix with a real WAV output. This is
         not Demucs stem separation; piano and guitar isolation, and the four-stem export, need the

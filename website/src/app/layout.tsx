@@ -20,7 +20,7 @@ const playfair = Playfair_Display({
 export const metadata: Metadata = {
   title: "Audelle — Audio Editor",
   description:
-    "Upload audio and describe the edit. Browser mode runs trim, tone, EQ, pitch, speed, pause removal and WAV export on your device; server-only tools are labelled.",
+    "Upload audio or video, describe the edit, and render a finished mix. Multitrack studio, tone, timing, loudness, stems and DAW interchange.",
 };
 
 export default function RootLayout({

@@ -24,6 +24,7 @@ export function buildEdl(project: StudioProject, assets: Record<string, StudioAs
   let number = 1;
   project.tracks.forEach((track, trackIndex) => {
     track.clips.forEach((clip) => {
+      if (!clip.assetId) return;
       const asset = assets[clip.assetId];
       const reel = safe(asset?.name.replace(/\.[^.]+$/, "") ?? "AX").slice(0, 8).toUpperCase() || "AX";
       const channel = trackIndex % 2 === 0 ? "A" : "A2";
@@ -55,6 +56,7 @@ export function buildFcpxml(project: StudioProject, assets: Record<string, Studi
   let assetIndex = 1;
   for (const track of project.tracks) {
     for (const clip of track.clips) {
+      if (!clip.assetId) continue;
       if (!assetIds.has(clip.assetId)) assetIds.set(clip.assetId, `a${assetIndex++}`);
     }
   }
@@ -71,9 +73,10 @@ export function buildFcpxml(project: StudioProject, assets: Record<string, Studi
   const clips = project.tracks
     .map((track, trackIndex) =>
       track.clips
+        .filter((clip) => Boolean(clip.assetId))
         .map(
           (clip) =>
-            `          <asset-clip ref="${assetIds.get(clip.assetId)}" lane="${trackIndex + 1}" offset="${clip.start.toFixed(3)}s" start="${clip.offset.toFixed(3)}s" duration="${clip.duration.toFixed(3)}s" name="${xml(clip.name)}"/>`,
+            `          <asset-clip ref="${assetIds.get(clip.assetId!)}" lane="${trackIndex + 1}" offset="${clip.start.toFixed(3)}s" start="${clip.offset.toFixed(3)}s" duration="${clip.duration.toFixed(3)}s" name="${xml(clip.name)}"/>`,
         )
         .join("\n"),
     )

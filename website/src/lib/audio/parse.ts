@@ -353,7 +353,7 @@ export function parseLocalPrompt(prompt: string, duration: number): LocalPlan {
       params: {},
       summary: "",
       unsupported:
-        "Style conversion needs the server: it re-renders the audio with a drum and instrument generator. In the browser I can trim, remove a section, loop, change pitch or speed, shape tone/EQ, add reverb, remove pauses, and change level or noise.",
+        "Style conversion needs the server: it re-renders the audio with a drum and instrument generator. I can trim, remove a section, loop, change pitch or speed, shape tone/EQ, add reverb, remove pauses, and change level or noise.",
     };
   }
 
@@ -365,13 +365,13 @@ export function parseLocalPrompt(prompt: string, duration: number): LocalPlan {
         intent: "convert",
         params: { format: target },
         summary: "",
-        unsupported: `Browsers can only encode WAV. Download the WAV here, or use the server for ${target.toUpperCase()}.`,
+        unsupported: `This build can only encode WAV. Download the WAV here, or use the server for ${target.toUpperCase()}.`,
       };
     }
     return {
       intent: "convert",
       params: { format: "wav" },
-      summary: "Exported as WAV (already the browser format)",
+      summary: "Exported as WAV",
     };
   }
 
@@ -622,7 +622,7 @@ export function parseLocalPrompt(prompt: string, duration: number): LocalPlan {
     params: {},
     summary: "",
     unsupported:
-      "That one needs the server. In the browser I can trim, remove a section, loop, fade, change pitch or speed, normalise, reverse, denoise, shape tone/EQ, remove pauses, and boost vocals/drums/bass.",
+      "That one needs the server. I can trim, remove a section, loop, fade, change pitch or speed, normalise, reverse, denoise, shape tone/EQ, remove pauses, and boost vocals/drums/bass.",
   };
 }
 

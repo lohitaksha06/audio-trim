@@ -226,7 +226,7 @@ export default function MixPage() {
     }
     const plan = parseLocalPrompt(raw, durationOf(base));
     if (plan.unsupported || plan.intent === "unknown") {
-      setNotice(plan.unsupported ?? "That edit is not available in browser mode.");
+      setNotice(plan.unsupported ?? "That edit is not available yet.");
       return;
     }
     busyRef.current = true;
@@ -331,7 +331,7 @@ export default function MixPage() {
                 </h1>
                 <p className="mt-1 max-w-2xl text-[0.9375rem] text-white/55">
                   A hands-on mixer: edit the waveform, move four band faders, import your own vocal,
-                  and render a WAV. No upload leaves this device.
+                  and render a WAV.
                 </p>
               </div>
               <FileUpload
@@ -343,7 +343,7 @@ export default function MixPage() {
               />
               {(project.loading || project.error || errorMsg) && (
                 <p className={`mt-3 text-center text-sm ${project.error || errorMsg ? "text-red-400" : "text-white/50"}`}>
-                  {project.error || errorMsg || "Decoding and measuring on this device…"}
+                  {project.error || errorMsg || "Decoding and measuring…"}
                 </p>
               )}
               <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -409,7 +409,7 @@ export default function MixPage() {
             {(busy || editorBusy) && (
               <div className="mt-2 flex items-center gap-2 border border-white/10 bg-white/[0.025] px-2.5 py-1.5 text-[0.72rem] text-white/55">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/70" />
-                Rendering on this device — the sidebar still works.
+                Rendering - the sidebar still works.
               </div>
             )}
           </div>

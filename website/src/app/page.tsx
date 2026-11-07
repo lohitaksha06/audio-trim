@@ -2,10 +2,8 @@ import Link from "next/link";
 import Nav from "@/components/Nav";
 import AudioWave from "@/components/AudioWave";
 import FeatureCard from "@/components/FeatureCard";
-import { isBackendConfigured } from "@/services/api";
 
 export default function Home() {
-  const localMode = !isBackendConfigured;
   return (
     <>
       <Nav />
@@ -14,7 +12,7 @@ export default function Home() {
         <div className="mx-auto w-full max-w-[1500px]">
           <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-white/12 pb-4 font-mono text-[0.65rem] uppercase tracking-[0.22em] text-white/45">
             <span>Audelle — audio editor</span>
-            <span>{localMode ? "Browser edition · on-device DSP" : "Server edition · full feature set"}</span>
+            <span>Multitrack · mix · master</span>
           </div>
 
           <div className="pt-14 sm:pt-20 lg:pt-24">
@@ -26,9 +24,8 @@ export default function Home() {
 
           <div className="mt-10 flex flex-col gap-8 border-b border-white/10 pb-10 sm:mt-14 sm:flex-row sm:items-end sm:justify-between">
             <p className="max-w-xl text-base leading-relaxed text-white/62 sm:text-lg">
-              {localMode
-                ? "Every edit runs on this device. Measure tempo, shape tone, cut pauses, change pitch and export a WAV — no account, no upload."
-                : "Upload audio or video, describe the edit in plain language, and Audelle measures, routes and renders it. Separation, cleanup and stems under one roof."}
+              Upload audio or video, describe the edit in plain language, and Audelle renders the
+              mix. Clips, channels, tone, timing and loudness in one workspace.
             </p>
             <div className="flex shrink-0 flex-col gap-2.5 sm:flex-row">
               <Link
@@ -58,7 +55,7 @@ export default function Home() {
           <div className="animate-fade-in-up animate-delay-2 mt-10">
             <div className="mb-3 flex items-center justify-between font-mono text-[0.65rem] uppercase tracking-[0.22em] text-white/40">
               <span>Live signal</span>
-              <span>canvas / browser</span>
+              <span>signal / canvas</span>
             </div>
             <div className="relative h-[clamp(150px,22vh,260px)] w-full overflow-hidden border-y border-white/10">
               <AudioWave />
@@ -85,9 +82,7 @@ export default function Home() {
               {
                 step: "01",
                 title: "Upload",
-                desc: localMode
-                  ? "Drop an audio file. It is decoded and measured on this device, not uploaded."
-                  : "Drop any audio or video file. The analysis measures instruments, structure, speakers and mood in seconds.",
+                desc: "Drop audio or video. The session opens with a measured clip on the timeline.",
               },
               {
                 step: "02",
@@ -97,9 +92,7 @@ export default function Home() {
               {
                 step: "03",
                 title: "Export",
-                desc: localMode
-                  ? "Download your edit as WAV. Stems, compressed formats and XML export need the server."
-                  : "Download your edit as MP3, WAV, FLAC, or stems. Or export XML for Premiere, DaVinci or Final Cut.",
+                desc: "Download a WAV mix, stems, EDL or FCPXML. Compressed formats and source separation need the server.",
               },
             ].map((item) => (
               <div key={item.step} className="border-t border-white/15 pt-6">
@@ -126,14 +119,6 @@ export default function Home() {
           <p className="mt-5 max-w-xl text-base leading-relaxed text-white/58">
             Everything is possible through natural language.
           </p>
-          {localMode && (
-            <p className="mt-6 max-w-2xl border-l border-white/25 pl-4 text-sm leading-relaxed text-white/50">
-              Browser edition: trim, tone, EQ, pitch, speed, pause removal and WAV export run on
-              this device. Source separation, video, transcription, stems and compressed formats
-              need the server.
-            </p>
-          )}
-
           <div className="mt-12 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
             <FeatureCard
               icon={<svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" /></svg>}
@@ -191,7 +176,7 @@ export default function Home() {
             </Link>
           </div>
           <p className="mt-6 max-w-xl text-sm leading-relaxed text-white/50">
-            No accounts. No sign-up. Upload a file and start editing.
+            Upload a file and start editing.
           </p>
         </div>
       </section>
