@@ -85,6 +85,12 @@ body {
   border-radius: 0.5rem;
 }
 
+/* Native range inputs default to a blue accent. The product is monochrome, so
+   every fader uses the same paper-white accent. */
+input[type="range"] {
+  accent-color: #f2f1ec;
+}
+
 /* Scrollbars — one treatment for every scrollable surface in the app.
    Chrome/Edge use the WebKit pseudo-elements; Firefox uses scrollbar-width. */
 * {

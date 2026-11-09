@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Nav from "@/components/Nav";
 import Sidebar from "@/components/Sidebar";
@@ -362,6 +363,20 @@ export default function ManualPage() {
                     Each edit starts from the latest render. Use <strong className="text-white/75">Reset edits</strong>{" "}
                     to go back to the original without uploading again.
                   </p>
+                </div>
+
+                <div className="border border-white/8 bg-white/[0.02] p-3">
+                  <p className="eyebrow mb-2">Combine takes</p>
+                  <p className="text-xs leading-relaxed text-white/55">
+                    Singing and piano recorded separately? Put 2–5 files on one timeline, auto-align
+                    them, and time them by hand.
+                  </p>
+                  <Link
+                    href="/features/combine"
+                    className="mt-2 block text-center text-xs text-white/65 underline hover:text-white/85"
+                  >
+                    Open Combine →
+                  </Link>
                 </div>
 
                 <div className="border border-white/8 bg-white/[0.02] p-3">

@@ -27,7 +27,7 @@ export default function Home() {
               Upload audio or video, describe the edit in plain language, and Audelle renders the
               mix. Clips, channels, tone, timing and loudness in one workspace.
             </p>
-            <div className="flex shrink-0 flex-col gap-2.5 sm:flex-row">
+            <div className="flex shrink-0 flex-col gap-2.5 sm:flex-row sm:flex-wrap">
               <Link
                 href="/prompt"
                 className="inline-flex items-center justify-between gap-8 rounded-none bg-[#f2f1ec] px-6 py-4 text-sm font-medium text-black transition-colors hover:bg-white"
@@ -40,6 +40,13 @@ export default function Home() {
                 className="inline-flex items-center justify-between gap-8 rounded-none border border-white/25 px-6 py-4 text-sm font-medium text-white/75 transition-colors hover:border-white/60 hover:text-white"
               >
                 Open Studio
+                <span aria-hidden>↗</span>
+              </Link>
+              <Link
+                href="/features/combine"
+                className="inline-flex items-center justify-between gap-8 rounded-none border border-white/15 px-6 py-4 text-sm font-medium text-white/55 transition-colors hover:border-white/40 hover:text-white"
+              >
+                Combine takes
                 <span aria-hidden>↗</span>
               </Link>
               <Link
@@ -120,6 +127,12 @@ export default function Home() {
             Everything is possible through natural language.
           </p>
           <div className="mt-12 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+            <FeatureCard
+              icon={<svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 3.75h7.5M8.25 20.25h7.5M6 6.75h12v10.5H6z" /><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 12h4.5m-2.25-2.25v4.5" /></svg>}
+              title="Combine Takes"
+              description="Put 2–5 recordings on one timeline. Auto-align the timing, nudge it by hand, and balance the parts with faders or a sentence."
+              note="local"
+            />
             <FeatureCard
               icon={<svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" /></svg>}
               title="Source Separation"

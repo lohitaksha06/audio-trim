@@ -284,6 +284,27 @@ feed-forward detector; stems ignore mute/solo by design and do not include
 sidechain ducking. The validation checks are technical, not a claim of audible
 quality. `docs/VALIDATION.md` defines the listening protocol.
 
+## Combine takes
+
+The Combine page (`/features/combine`) puts 2–5 audio files on one timeline. It
+is local: decoding, alignment, mixing and WAV export all run in the browser.
+
+| Operation | Method | Measured |
+|---|---|---|
+| multi-file import | 2–5 audio files, role guessed from filename | 2 files → 2 tracks; `piano.wav`/`vocals.wav` roles inferred correctly |
+| auto-align | onset-envelope correlation (25 Hz coarse, 200 Hz fine), 25–120 s search | a vocal recorded **1.150 s late** was moved exactly **−1.150 s** |
+| manual timing | offset in seconds, ±0.5/0.1/0.01 s nudges, drag a lane | −1.150 s dragged +0.5 s → **−0.650 s** |
+| level match | RMS to a −18 dBFS target | both test files land at the target before faders |
+| prompt balance | role + dB parser | “highlight the vocals over the piano by 3 dB” → vocals **+1.5 dB**, piano **−1.5 dB** |
+| mix/export | stereo WAV, −1 dBFS safety ceiling | 2 files → **7.15 s WAV, 44.1 kHz, stereo**, clean console |
+
+Known limits: alignment compares onset timing, not pitch or tempo, so files
+recorded at different tempos are not stretched. A low-confidence match is
+reported and the offset is left alone rather than guessed. Roles are inferred
+from filenames and can be changed by hand; the page does not claim to identify a
+voice from its sound. There is no source separation here — the files must already
+be separate parts.
+
 Cost on mono 44.1 kHz, measured on this machine:
 
 | Job | Bun/JSC | Chromium worker |

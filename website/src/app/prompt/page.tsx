@@ -690,6 +690,14 @@ export default function PromptPage() {
                       ))}
                     </div>
 
+                    <Link
+                      href="/features/combine"
+                      className="block rounded-none border border-white/10 bg-white/[0.02] px-3 py-2.5 text-xs leading-relaxed text-white/55 transition-colors hover:border-white/30 hover:text-white/80"
+                    >
+                      <span className="font-medium text-white/75">Combining takes?</span> Put 2–5 files
+                      on one timeline, auto-align the timing, and set the balance in words →
+                    </Link>
+
                     {!localMode && (
                       <>
                     <div className="rounded-none border border-white/15 bg-white/[0.03] p-3">
@@ -710,6 +718,14 @@ export default function PromptPage() {
                       <button onClick={handleMixStem} disabled={!stemUpload || state === "processing"} className="mt-2 w-full rounded-none bg-white/[0.08] px-3 py-2 text-xs font-medium text-white/70 hover:bg-white/15 transition-colors disabled:opacity-40">
                         Mix stem in
                       </button>
+                      <p className="mt-2 text-[0.65rem] leading-relaxed text-white/35">
+                        This panel mixes one extra file. For 2–5 takes with manual timing, auto-align and a
+                        spoken balance instruction,{" "}
+                        <Link href="/features/combine" className="underline hover:text-white/70">
+                          open Combine
+                        </Link>
+                        .
+                      </p>
                     </div>
 
                     <div className="rounded-none border border-white/10 bg-white/[0.02] p-3">

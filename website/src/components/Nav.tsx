@@ -7,6 +7,7 @@ import { FEATURE_LINKS } from "./featureNav";
 const LINKS = [
   { name: "Editor", href: "/prompt" },
   { name: "Studio", href: "/studio" },
+  { name: "Combine", href: "/features/combine" },
   { name: "Lab", href: "/lab" },
   { name: "Guide", href: "/guide" },
 ];
@@ -24,7 +25,7 @@ export default function Nav() {
           <span className="text-lg font-semibold tracking-tight text-white">Audelle</span>
         </Link>
 
-        <nav className="flex items-center gap-1.5" aria-label="Main">
+        <nav className="sidebar-scroll flex min-w-0 items-center gap-1.5 overflow-x-auto" aria-label="Main">
           {LINKS.map((link) => {
             const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
             return (
@@ -32,7 +33,7 @@ export default function Nav() {
                 key={link.name}
                 href={link.href}
                 aria-current={active ? "page" : undefined}
-                className={`rounded-lg px-3.5 py-2 text-[15px] transition-colors ${
+                className={`shrink-0 whitespace-nowrap rounded-lg px-2.5 py-2 text-[14px] transition-colors sm:px-3.5 sm:text-[15px] ${
                   active
                     ? "bg-white/[0.08] font-medium text-white"
                     : "text-white/72 hover:bg-white/[0.05] hover:text-white"
