@@ -24,6 +24,7 @@ import {
   type ToneKind,
 } from "./ops";
 import { estimateBrightness, estimateTempo } from "./tempo";
+import { polishAudio } from "./polish";
 import { durationOf, encodeWav, peakOf } from "./wav";
 import type { LocalAudio, LocalPlan, LocalResult } from "./types";
 
@@ -221,6 +222,26 @@ export function applyPlan(source: LocalAudio, plan: LocalPlan, onProgress?: Loca
       audio = denoiseAudio(source, Number(plan.params.strength ?? 2), spectral("Denoising"));
       metadata.enhanced = "voice";
       metadata.method = "spectral_denoise";
+      break;
+    }
+    case "polish": {
+      const result = polishAudio(
+        source,
+        {
+          denoise: Boolean(plan.params.denoise ?? true),
+          denoiseStrength: Number(plan.params.denoise_strength ?? 2),
+          reverbMix: Number(plan.params.reverb_mix ?? 0),
+          reverbSeconds: Number(plan.params.reverb_seconds ?? 0),
+          normalize: Boolean(plan.params.normalize ?? true),
+          targetPeakDb: Number(plan.params.target_peak_db ?? -1),
+        },
+        spectral("Polishing"),
+      );
+      audio = result.audio;
+      metadata.polish_report = result.report;
+      metadata.gain_db = result.gainDb;
+      metadata.method = "deterministic_polish";
+      summary = result.report.length ? `Polished. ${result.report.join(" · ")}` : "Nothing to polish.";
       break;
     }
     case "boost": {

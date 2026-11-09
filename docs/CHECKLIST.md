@@ -296,6 +296,8 @@ is local: decoding, alignment, mixing and WAV export all run in the browser.
 | manual timing | offset in seconds, ±0.5/0.1/0.01 s nudges, drag a lane | −1.150 s dragged +0.5 s → **−0.650 s** |
 | level match | RMS to a −18 dBFS target | both test files land at the target before faders |
 | prompt balance | role + dB parser | “highlight the vocals over the piano by 3 dB” → vocals **+1.5 dB**, piano **−1.5 dB** |
+| ordinal balance | “first…over…second”, “track 1 over track 2 by 4 dB” | first **+1.5 dB**, second **−1.5 dB** |
+| polish chain | denoise → reverb → peak normalize, run in the DSP worker | “clean up… add a little reverb… reduce noise” → **−1.0 dBFS peak**, report lists all three steps |
 | mix/export | stereo WAV, −1 dBFS safety ceiling | 2 files → **7.15 s WAV, 44.1 kHz, stereo**, clean console |
 
 Known limits: alignment compares onset timing, not pitch or tempo, so files
@@ -303,7 +305,9 @@ recorded at different tempos are not stretched. A low-confidence match is
 reported and the offset is left alone rather than guessed. Roles are inferred
 from filenames and can be changed by hand; the page does not claim to identify a
 voice from its sound. There is no source separation here — the files must already
-be separate parts.
+be separate parts. **Polish is a fixed chain** (noise reduction, reverb, peak
+normalization), not a mastering model; “make my music perfect” applies that chain
+and reports each step rather than promising a perfect master.
 
 Cost on mono 44.1 kHz, measured on this machine:
 

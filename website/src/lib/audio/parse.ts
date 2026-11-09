@@ -10,6 +10,7 @@
 
 import type { LocalPlan } from "./types";
 import { stemGainsToEq, type StemBand } from "./mix";
+import { describePolish, parsePolishPrompt, polishParams } from "./polish";
 
 /** Time token: `1:02`, `1:02.5`, `1:02:03`, `90`, `90s`, `2 min`, `1.5 minutes`. */
 const T = String.raw`\d+(?::\d{1,2}){0,2}(?:\.\d+)?(?:\s*(?:h|hr|hrs|hour|hours|m|min|mins|minute|minutes|s|sec|secs|second|seconds))?`;
@@ -423,6 +424,20 @@ export function parseLocalPrompt(prompt: string, duration: number): LocalPlan {
     };
   }
 
+  // --- multi-effect polish ------------------------------------------------
+  // "clean up the recording, add a little reverb, adjust the volume and
+  // reduce background noise" is four requests, not one. It must run before
+  // the single-purpose noise branch, which would otherwise keep only the
+  // denoise step.
+  const polish = parsePolishPrompt(lower);
+  if (polish) {
+    return {
+      intent: "polish",
+      params: polishParams(polish),
+      summary: describePolish(polish),
+    };
+  }
+
   // --- noise --------------------------------------------------------------
   if (
     /\b(noise|noisy|hiss|hum|static|denoise|de-noise)\b/.test(lower) ||
@@ -498,7 +513,7 @@ export function parseLocalPrompt(prompt: string, duration: number): LocalPlan {
   }
 
   // --- normalize ----------------------------------------------------------
-  if (/\bnormaliz|\bnormalis|\bloudness\b/.test(lower)) {
+  if (/\bnormaliz|\bnormalis|\bloudness\b|\badjust\s+(the\s+)?(volume|level)\b/.test(lower)) {
     return { intent: "normalize", params: {}, summary: "" };
   }
 
@@ -622,7 +637,7 @@ export function parseLocalPrompt(prompt: string, duration: number): LocalPlan {
     params: {},
     summary: "",
     unsupported:
-      "That one needs the server. I can trim, remove a section, loop, fade, change pitch or speed, normalise, reverse, denoise, shape tone/EQ, remove pauses, and boost vocals/drums/bass.",
+      "That one needs the server. I can trim, remove a section, loop, fade, change pitch or speed, normalise, reverse, denoise, polish a mix, shape tone/EQ, remove pauses, and boost vocals/drums/bass.",
   };
 }
 
@@ -633,6 +648,8 @@ export const LOCAL_PROMPTS = [
   "More energetic",
   "Calm it down",
   "Add reverb",
+  "Clean up the recording, add a little reverb, adjust the volume and reduce background noise",
+  "Make my music perfect",
   "Trim from 0:30 to 1:15",
   "Cut the first 5 seconds",
   "Fade in over 2 seconds",

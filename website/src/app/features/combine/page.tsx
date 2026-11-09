@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent } from "react";
 import Nav from "@/components/Nav";
 import Sidebar from "@/components/Sidebar";
-import { decodeFile, encodeWav } from "@/lib/audio";
+import { decodeFile, durationOf, encodeWav, runLocalPlanAsync } from "@/lib/audio";
 import {
   MAX_COMBINE_TRACKS,
   ROLE_OPTIONS,
@@ -18,6 +18,8 @@ import {
   type CombineTrack,
   type MixResult,
 } from "@/lib/audio/combine";
+import { describePolish, parsePolishPrompt, polishParams } from "@/lib/audio/polish";
+import type { LocalAudio, LocalPlan } from "@/lib/audio/types";
 
 const ACCEPT = ".mp3,.wav,.flac,.aac,.m4a,.ogg,.opus,audio/*";
 
@@ -56,6 +58,11 @@ export default function CombinePage() {
   const [instruction, setInstruction] = useState("");
   const [instructionNote, setInstructionNote] = useState("");
   const [mixed, setMixed] = useState<MixResult | null>(null);
+  const [polished, setPolished] = useState<LocalAudio | null>(null);
+  const [polishReport, setPolishReport] = useState<string[]>([]);
+  const [polishText, setPolishText] = useState(
+    "clean up the recording, add a little reverb, adjust the volume and reduce background noise",
+  );
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [playhead, setPlayhead] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -79,6 +86,20 @@ export default function CombinePage() {
     );
     return { start, end, duration: Math.max(0, end - start) };
   }, [tracks]);
+
+  const invalidateMix = useCallback(() => {
+    setMixed(null);
+    setPolished(null);
+    setPolishReport([]);
+  }, []);
+
+  const replacePreview = useCallback((audio: LocalAudio) => {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    const url = URL.createObjectURL(encodeWav(audio));
+    previewUrlRef.current = url;
+    setPreviewUrl(url);
+    setPlayhead(0);
+  }, []);
 
   const addFiles = useCallback(
     async (picked: FileList | File[]) => {
@@ -116,7 +137,7 @@ export default function CombinePage() {
         if (decoded.length) {
           setTracks((current) => [...current, ...decoded]);
           setStatus(`${decoded.length} file${decoded.length === 1 ? "" : "s"} added. Align them, set an offset, or adjust the faders.`);
-          setMixed(null);
+          invalidateMix();
         }
         if (list.length > room) {
           setError(`Only the first ${room} file${room === 1 ? "" : "s"} were added. The limit is ${MAX_COMBINE_TRACKS}.`);
@@ -125,7 +146,7 @@ export default function CombinePage() {
         setBusy(null);
       }
     },
-    [tracks.length],
+    [tracks.length, invalidateMix],
   );
 
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
@@ -136,12 +157,12 @@ export default function CombinePage() {
 
   const updateTrack = (id: string, patch: Partial<CombineTrack>) => {
     setTracks((current) => current.map((track) => (track.id === id ? { ...track, ...patch } : track)));
-    setMixed(null);
+    invalidateMix();
   };
 
   const removeTrack = (id: string) => {
     setTracks((current) => current.filter((track) => track.id !== id));
-    setMixed(null);
+    invalidateMix();
     setStatus("File removed.");
   };
 
@@ -153,7 +174,7 @@ export default function CombinePage() {
     setError("");
     const outcome = autoAlign(tracks);
     setTracks(outcome.tracks);
-    setMixed(null);
+    invalidateMix();
     setStatus(outcome.notes.join(" "));
   };
 
@@ -169,21 +190,21 @@ export default function CombinePage() {
       return;
     }
     setTracks((current) => applyInstruction(current, result));
-    setMixed(null);
+    invalidateMix();
     setInstructionNote(result.summary);
     setStatus("Balance updated from your instruction.");
   };
 
   const resetGains = () => {
     setTracks((current) => current.map((track) => ({ ...track, gainDb: 0 })));
-    setMixed(null);
+    invalidateMix();
     setInstructionNote("");
     setStatus("All faders reset to 0 dB.");
   };
 
   const handleMatchLevels = () => {
     setTracks((current) => matchLevels(current));
-    setMixed(null);
+    invalidateMix();
     setStatus("Faders set so every file sits near the same RMS. Fine-tune by ear.");
   };
 
@@ -237,11 +258,9 @@ export default function CombinePage() {
     try {
       const result = mixTracks(tracks);
       setMixed(result);
-      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
-      const url = URL.createObjectURL(encodeWav(result.audio));
-      previewUrlRef.current = url;
-      setPreviewUrl(url);
-      setPlayhead(0);
+      setPolished(null);
+      setPolishReport([]);
+      replacePreview(result.audio);
       if (!forExport) {
         setStatus(
           `Mixed ${tracks.length} files · ${formatTime(result.duration)} · peak ${(20 * Math.log10(Math.max(result.peak, 1e-9))).toFixed(1)} dBFS${result.scaledBy < 1 ? " · safety gain applied" : ""}.`,
@@ -254,14 +273,61 @@ export default function CombinePage() {
     } finally {
       setBusy(null);
     }
-  }, [tracks]);
+  }, [tracks, replacePreview]);
 
   const handleExport = async () => {
-    const result = mixed ?? (await renderMix(true));
-    if (!result) return;
+    const audio = polished ?? mixed?.audio ?? (await renderMix(true))?.audio ?? null;
+    if (!audio) return;
     const target = tracks[0]?.name.replace(/\.[^.]+$/, "") ?? "audelle";
-    downloadBlob(encodeWav(result.audio), `${safeName(`${target}-combined`)}.wav`);
-    setStatus(`WAV downloaded · ${formatTime(result.duration)}.`);
+    const suffix = polished ? "-polished" : "-combined";
+    downloadBlob(encodeWav(audio), `${safeName(`${target}${suffix}`)}.wav`);
+    setStatus(`WAV downloaded · ${formatTime(durationOf(audio))}.`);
+  };
+
+  const handlePolish = async () => {
+    if (!tracks.length) {
+      setError("Add and mix some files first.");
+      return;
+    }
+    const options = parsePolishPrompt(polishText);
+    if (!options) {
+      setError(
+        "I could not find a cleanup step there. Name the job, e.g. “reduce noise and add a little reverb”, or “make my music perfect”.",
+      );
+      return;
+    }
+    const raw = mixed ?? (await renderMix(true));
+    if (!raw) return;
+    setError("");
+    setBusy("Polishing…");
+    try {
+      const plan: LocalPlan = {
+        intent: "polish",
+        params: polishParams(options),
+        summary: describePolish(options),
+      };
+      const result = await runLocalPlanAsync(raw.audio, plan, (fraction, label) => {
+        setBusy(`${label} ${Math.round(fraction * 100)}%`);
+      });
+      setPolished(result.audio);
+      setPolishReport(
+        Array.isArray(result.metadata.polish_report) ? (result.metadata.polish_report as string[]) : [],
+      );
+      replacePreview(result.audio);
+      setStatus(`Polished mix · ${formatTime(durationOf(result.audio))}.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Polish failed.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleUseRaw = () => {
+    if (!mixed) return;
+    setPolished(null);
+    setPolishReport([]);
+    replacePreview(mixed.audio);
+    setStatus("Raw mix restored.");
   };
 
   // Static waveform overview. The playhead is a separate DOM element so this
@@ -644,12 +710,69 @@ export default function CombinePage() {
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {[
                     "highlight the vocals over the piano by 3 dB",
+                    "make the first file louder than the second",
                     "duck the backing under the vocals by 6 dB",
                     "make the vocals louder and the piano quieter",
                   ].map((example) => (
                     <button
                       key={example}
                       onClick={() => setInstruction(example)}
+                      className="rounded-none border border-white/10 px-2 py-1 text-left text-[0.65rem] leading-snug text-white/50 hover:border-white/30 hover:text-white/80"
+                    >
+                      {example}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border border-white/10 bg-white/[0.02] p-3">
+                <p className="text-[0.65rem] uppercase tracking-[0.16em] text-white/40">
+                  Polish the mix
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-white/50">
+                  A fixed cleanup chain: noise reduction, reverb and peak normalization. It reports
+                  every step instead of claiming a perfect master.
+                </p>
+                <textarea
+                  value={polishText}
+                  onChange={(event) => setPolishText(event.target.value)}
+                  rows={4}
+                  className="mt-2 w-full resize-none rounded-none border border-white/15 bg-black/40 px-2.5 py-2 text-sm text-white/80 outline-none focus:border-white/35"
+                />
+                <button
+                  onClick={() => void handlePolish()}
+                  disabled={!tracks.length || Boolean(busy)}
+                  className="mt-2 w-full rounded-none border border-white/25 px-3 py-2 text-xs text-white/75 hover:border-white/60 hover:text-white disabled:opacity-30"
+                >
+                  Apply polish
+                </button>
+                {polishReport.length > 0 && (
+                  <ul className="mt-2 space-y-1 border-t border-white/10 pt-2 text-[0.7rem] leading-relaxed text-white/55">
+                    {polishReport.map((line) => (
+                      <li key={line} className="flex gap-1.5">
+                        <span className="text-white/30">·</span>
+                        <span>{line}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {polished && (
+                  <button
+                    onClick={handleUseRaw}
+                    className="mt-2 w-full rounded-none border border-white/12 px-2 py-1 text-[0.65rem] text-white/50 hover:border-white/35 hover:text-white"
+                  >
+                    Use raw mix
+                  </button>
+                )}
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {[
+                    "make my music perfect",
+                    "clean up the recording, add a little reverb, adjust the volume and reduce background noise",
+                    "reduce noise and add a little reverb",
+                  ].map((example) => (
+                    <button
+                      key={example}
+                      onClick={() => setPolishText(example)}
                       className="rounded-none border border-white/10 px-2 py-1 text-left text-[0.65rem] leading-snug text-white/50 hover:border-white/30 hover:text-white/80"
                     >
                       {example}
@@ -680,6 +803,7 @@ export default function CombinePage() {
                 <ul className="mt-1 space-y-1 text-xs leading-relaxed text-white/45">
                   <li>· No tempo stretch or key change; files play at their recorded speed.</li>
                   <li>· No source separation; these are already separate parts.</li>
+                  <li>· Polish is a fixed chain, not a mastering model; “perfect” is not a guarantee.</li>
                   <li>· Exports WAV only. Open the WAV in Studio for EQ, compression or stems.</li>
                   <li>· Auto-align is a timing aid, not a guarantee. Check the result.</li>
                 </ul>

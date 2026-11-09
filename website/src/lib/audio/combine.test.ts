@@ -123,6 +123,34 @@ describe("combine engine", () => {
     expect(result.gainsDb.p).toBeCloseTo(-4, 3);
   });
 
+  test("handles 'make the first audio file highlighted over the second'", () => {
+    const tracks = [track("a", "vocals"), track("b", "piano")];
+    const result = parseCombineInstruction("make the first audio file highlighted over the second", tracks);
+    expect(result.gainsDb.a).toBeCloseTo(1.5, 3);
+    expect(result.gainsDb.b).toBeCloseTo(-1.5, 3);
+  });
+
+  test("handles numbered tracks: 'track 1 over track 2 by 4 dB'", () => {
+    const tracks = [track("a", "vocals"), track("b", "piano")];
+    const result = parseCombineInstruction("track 1 over track 2 by 4 dB", tracks);
+    expect(result.gainsDb.a).toBeCloseTo(2, 3);
+    expect(result.gainsDb.b).toBeCloseTo(-2, 3);
+  });
+
+  test("handles 'the second file quieter than the first'", () => {
+    const tracks = [track("a", "vocals"), track("b", "piano")];
+    const result = parseCombineInstruction("the second file quieter than the first", tracks);
+    expect(result.gainsDb.a).toBeCloseTo(1.5, 3);
+    expect(result.gainsDb.b).toBeCloseTo(-1.5, 3);
+  });
+
+  test("handles 'duck the second file under the first by 4 dB'", () => {
+    const tracks = [track("a", "vocals"), track("b", "piano")];
+    const result = parseCombineInstruction("duck the second file under the first by 4 dB", tracks);
+    expect(result.gainsDb.b).toBeCloseTo(-4, 3);
+    expect(result.gainsDb.a).toBeUndefined();
+  });
+
   test("applies a parsed instruction as a delta", () => {
     const tracks = [track("v", "vocals", 2), track("p", "piano", -1)];
     const result = parseCombineInstruction("highlight the vocals over the piano by 4 dB", tracks);

@@ -6,3 +6,4 @@ export * from "./parse";
 export * from "./decode";
 export * from "./wav";
 export * from "./combine";
+export * from "./polish";

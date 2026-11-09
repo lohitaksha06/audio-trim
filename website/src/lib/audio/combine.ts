@@ -376,13 +376,29 @@ function firstDb(text: string): number | null {
   return Number(match[1]);
 }
 
-function ordinalIndex(text: string): number | null {
-  const words: [string, number][] = [
-    ["first", 0], ["second", 1], ["third", 2], ["fourth", 3], ["fifth", 4],
-    ["1st", 0], ["2nd", 1], ["3rd", 2], ["4th", 3], ["5th", 4],
+function ordinalRefs(text: string): { index: number; position: number }[] {
+  const found = new Map<number, number>();
+  const note = (index: number, position: number) => {
+    const current = found.get(index);
+    if (current === undefined || position < current) found.set(index, position);
+  };
+  const words: [RegExp, number][] = [
+    [/\bfirst\b|\b1st\b/, 0],
+    [/\bsecond\b|\b2nd\b/, 1],
+    [/\bthird\b|\b3rd\b/, 2],
+    [/\bfourth\b|\b4th\b/, 3],
+    [/\bfifth\b|\b5th\b/, 4],
   ];
-  for (const [word, index] of words) if (text.includes(word)) return index;
-  return null;
+  for (const [pattern, index] of words) {
+    const match = pattern.exec(text);
+    if (match) note(index, match.index);
+  }
+  const numeric = /\b(?:track|file|audio|take|clip)\s*#?\s*([1-5])\b/g;
+  let match: RegExpExecArray | null;
+  while ((match = numeric.exec(text))) note(Number(match[1]) - 1, match.index);
+  return [...found.entries()]
+    .map(([index, position]) => ({ index, position }))
+    .sort((a, b) => a.position - b.position);
 }
 
 /**
@@ -413,9 +429,65 @@ export function parseCombineInstruction(text: string, tracks: CombineTrack[]): C
     return true;
   };
 
+  const applyTrackAt = (index: number, db: number) => {
+    const track = tracks[index];
+    if (!track) return false;
+    deltas[track.id] = clampGain((deltas[track.id] ?? 0) + db);
+    return true;
+  };
+
+  const refs = ordinalRefs(lower);
+
+  // 0. "make the first file highlighted over the second" / "track 1 over
+  //    track 2 by 4 dB". New users point at positions, not roles.
+  const boundary = /\b(over|above|against|on top of|in front of|than)\b/.exec(lower);
+  if (refs.length >= 2 && boundary) {
+    const before = refs.filter((ref) => ref.position < boundary.index);
+    const after = refs.filter((ref) => ref.position >= boundary.index + boundary[0].length);
+    if (before.length && after.length) {
+      const a = before[before.length - 1].index;
+      const b = after[0].index;
+      if (a !== b && tracks[a] && tracks[b]) {
+        const amount = Math.abs(firstDb(lower) ?? 3);
+        const left = lower.slice(0, boundary.index);
+        const quieter = /(quieter|softer|lower|reduce|duck|behind|under|turn down)/.test(left);
+        const impliesFirst =
+          boundary[0] === "over" ||
+          boundary[0] === "above" ||
+          boundary[0] === "in front of" ||
+          boundary[0] === "on top of";
+        const louder =
+          /(highlight|feature|louder|bring|raise|boost|prioriti[sz]e|forward|more)/.test(left) ||
+          (!quieter && impliesFirst);
+        if (quieter || louder) {
+          const direction = quieter && !louder ? -1 : 1;
+          applyTrackAt(a, (direction * amount) / 2);
+          applyTrackAt(b, (-direction * amount) / 2);
+          notes.push(
+            `${tracks[a].name} ${direction > 0 ? "+" : "-"}${(amount / 2).toFixed(1)} dB, ${tracks[b].name} ${direction > 0 ? "-" : "+"}${(amount / 2).toFixed(1)} dB (${amount} dB apart).`,
+          );
+          return finish(deltas, matched, notes);
+        }
+      }
+    }
+  }
+
+  // 0b. "duck the second file under the first by 4 dB".
+  if (refs.length >= 2) {
+    const under = /\b(?:under|below|behind)\b/.exec(lower);
+    const duckWord = /(duck|lower|reduce|quiet|softer|turn down|push back)/.test(lower);
+    if (under && duckWord) {
+      const before = refs.filter((ref) => ref.position < under.index);
+      const subject = (before.length ? before[before.length - 1] : refs[0]).index;
+      const amount = Math.abs(firstDb(lower) ?? 3);
+      applyTrackAt(subject, -amount);
+      if (tracks[subject]) notes.push(`${tracks[subject].name} -${amount.toFixed(1)} dB.`);
+      return finish(deltas, matched, notes);
+    }
+  }
+
   // 1. "highlight X over Y by N dB" — split the difference so X ends up N dB
   //    above Y without turning the whole mix up.
-  const boundary = /\b(over|above|against|on top of|in front of|than)\b/.exec(lower);
   if (boundary) {
     const left = lower.slice(0, boundary.index);
     const right = lower.slice(boundary.index + boundary[0].length);
@@ -479,13 +551,15 @@ export function parseCombineInstruction(text: string, tracks: CombineTrack[]): C
   }
 
   // 4. "feature the second file" / "highlight the first one"
-  if (!Object.keys(deltas).length) {
-    const index = ordinalIndex(lower);
-    const focus = /(highlight|feature|louder|bring up|raise|boost|prioriti[sz]e)/.test(lower);
-    if (index !== null && tracks[index] && focus) {
-      const amount = firstDb(lower) ?? 3;
-      deltas[tracks[index].id] = clampGain(amount);
-      notes.push(`${tracks[index].name} +${amount.toFixed(1)} dB.`);
+  if (!Object.keys(deltas).length && refs.length) {
+    const index = refs[0].index;
+    const focus = /(highlight|feature|louder|bring up|raise|boost|prioriti[sz]e|forward)/.test(lower);
+    const quiet = /(quieter|softer|lower|reduce|duck|turn down|push back)/.test(lower);
+    if (tracks[index] && (focus || quiet)) {
+      const amount = Math.abs(firstDb(lower) ?? 3);
+      const db = quiet && !focus ? -amount : amount;
+      deltas[tracks[index].id] = clampGain(db);
+      notes.push(`${tracks[index].name} ${db >= 0 ? "+" : ""}${db.toFixed(1)} dB.`);
     }
   }
 
