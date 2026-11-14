@@ -201,6 +201,29 @@ input[type="range"] {
   animation: fade-in-up 0.8s ease-out forwards;
 }
 
+/* The hero capability line. Each phrase fades and lifts slightly into place,
+   then holds for ten seconds before the next one. */
+@keyframes tagline-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.tagline-cycle {
+  animation: tagline-in 650ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tagline-cycle {
+    animation: none;
+  }
+}
+
 .animate-pulse-glow {
   animation: pulse-glow 3s ease-in-out infinite;
 }

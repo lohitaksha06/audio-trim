@@ -2,6 +2,7 @@ import Link from "next/link";
 import Nav from "@/components/Nav";
 import AudioWave from "@/components/AudioWave";
 import FeatureCard from "@/components/FeatureCard";
+import RotatingTagline from "@/components/RotatingTagline";
 
 export default function Home() {
   return (
@@ -12,7 +13,7 @@ export default function Home() {
         <div className="mx-auto w-full max-w-[1500px]">
           <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-white/12 pb-4 font-mono text-[0.65rem] uppercase tracking-[0.22em] text-white/45">
             <span>Audelle — audio editor</span>
-            <span>Multitrack · mix · master</span>
+            <RotatingTagline />
           </div>
 
           <div className="pt-14 sm:pt-20 lg:pt-24">
