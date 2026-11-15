@@ -40,3 +40,6 @@ Thumbs.db
 # Personal / generated test audio — not tracked
 test-audio-files/*.wav
 test-audio-files/*.mp3
+test-audio-files/*.mp4
+test-audio-files/*.jpg
+test-audio-files/*.jpeg
