@@ -36,3 +36,7 @@ Thumbs.db
 .vercel
 .env*
 !server/.env.example
+
+# Personal / generated test audio — not tracked
+test-audio-files/*.wav
+test-audio-files/*.mp3
