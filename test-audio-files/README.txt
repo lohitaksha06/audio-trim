@@ -25,6 +25,10 @@ idfc_clean.wav / .mp3 / .mp4
     ~3.5 dB against the backing. The video is 1080x1920, 30 fps, with the
     supplied rose image on a blurred fill of itself, 66.28 s.
 
+idfc_original.mp4
+    The original idfc_karaoke audio, untouched (stream copy, no re-encode),
+    with the same rose image. 1080x1920, 30 fps, 66.28 s.
+
 These are personal recordings and are intentionally NOT tracked in git
 (see the repo .gitignore). The prompts behind these edits are recorded in
 ../docs/REAL_PROMPTS.md.
