@@ -19,6 +19,12 @@ karaoke_final.mp4 / karaoke_final_with_drums.mp4
     Both mixes as 1080x1920 (9:16) videos using the supplied image as the
     still frame, H.264 + AAC 192 kbps, 30 fps, 90.44 s.
 
+idfc_clean.wav / .mp3 / .mp4
+    idfc_karaoke (her voice + karaoke backing, 66 s). Vocal high-pass +
+    gentle spectral denoise + a slight presence lift, and the voice lifted
+    ~3.5 dB against the backing. The video is 1080x1920, 30 fps, with the
+    supplied rose image on a blurred fill of itself, 66.28 s.
+
 These are personal recordings and are intentionally NOT tracked in git
 (see the repo .gitignore). The prompts behind these edits are recorded in
 ../docs/REAL_PROMPTS.md.
