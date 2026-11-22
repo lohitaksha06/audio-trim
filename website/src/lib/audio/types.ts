@@ -18,6 +18,7 @@ export type LocalIntent =
   | "speed"
   | "denoise"
   | "boost"
+  | "vocal_clarity"
   | "stem_mix"
   | "polish"
   | "tone"

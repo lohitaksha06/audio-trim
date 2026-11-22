@@ -4,6 +4,17 @@ A 10/10 here means **the best audio editing product for people who think in
 words, not waveforms** — not a Reaper/Logic replacement. The DAW features exist
 to serve that user, not to win a spec sheet.
 
+## Decision (current)
+
+Backend hosting is **deferred**. The live product stays **local-only** until a
+host is chosen: separation, named-chord synthesis and the polish chain stay
+server-side and are not reachable on `audelle.vercel.app` yet. The deploy is
+ready (`render.yaml`) for when that changes.
+
+Near-term work therefore prioritises the local editor: clearer prompt handling,
+Studio performance, storage safety and listening checks that do not need a
+server.
+
 ## Principles (the "don't break it" rules)
 
 1. **The local editor never regresses.** Every server feature has a labelled

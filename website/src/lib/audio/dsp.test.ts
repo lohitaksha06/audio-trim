@@ -530,6 +530,15 @@ describe("wav", () => {
 });
 
 describe("prompt parsing", () => {
+  test("voice clarity chains denoise, presence and level", () => {
+    const plan = parseLocalPrompt("make her voice clearer and louder", 2);
+    expect(plan.intent).toBe("vocal_clarity");
+    const input: LocalAudio = { channels: [sine(220, 2), sine(440, 2)], sampleRate: SR };
+    const output = applyPlan(input, plan);
+    expect(output.audio.channels[0].length).toBe(input.channels[0].length);
+    expect(output.summary.toLowerCase()).toContain("voice clarity");
+  });
+
   test("named chords say they need the server", () => {
     const plan = parseLocalPrompt("add guitar chords: Am F C G", 10);
     expect(plan.intent).toBe("unknown");

@@ -244,6 +244,13 @@ export function applyPlan(source: LocalAudio, plan: LocalPlan, onProgress?: Loca
       summary = result.report.length ? `Polished. ${result.report.join(" · ")}` : "Nothing to polish.";
       break;
     }
+    case "vocal_clarity": {
+      const denoised = denoiseAudio(source, 1.5, spectral("Denoising"));
+      const lifted = boostTarget(denoised, "vocals", "up", spectral("Lifting presence"));
+      audio = normalize(lifted, -1).audio;
+      metadata.method = "local_vocal_clarity";
+      break;
+    }
     case "boost": {
       const target = String(plan.params.target ?? "vocals") as "vocals" | "drums" | "bass" | "other";
       const direction = plan.params.direction === "down" ? "down" : "up";

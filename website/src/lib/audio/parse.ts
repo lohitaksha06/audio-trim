@@ -577,6 +577,19 @@ export function parseLocalPrompt(prompt: string, duration: number): LocalPlan {
     return { intent: "gain", params: { db }, summary: `Gain ${db > 0 ? "+" : ""}${db.toFixed(1)} dB` };
   }
 
+  // Local voice clarity: clean the mix, lift presence, level it. True vocal
+  // isolation is a server job, and the summary says so.
+  const mentionsVoice = /\b(voice|vocal|vocals|singing|singer)\b/.test(lower);
+  const wantsClarity = /\b(clear|clearer|clarity|audible|clean|unmuffled|muddy)\b/.test(lower);
+  if (mentionsVoice && wantsClarity) {
+    return {
+      intent: "vocal_clarity",
+      params: {},
+      summary:
+        "Voice clarity on the whole mix: denoise + presence + level. True vocal isolation needs the server.",
+    };
+  }
+
   if (/\b(clarity|clearer|muffled|muddy)\b/.test(lower)) {
     return {
       intent: "boost",
