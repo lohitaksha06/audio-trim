@@ -5,6 +5,7 @@ does not block other requests. Job state is kept in memory and pollable via
 ``get_job``. Swappable later for Celery/Redis if the server is scaled out.
 """
 
+import os
 import threading
 import time
 import traceback
@@ -13,7 +14,9 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-_MAX_WORKERS = 2
+# One heavy job at a time by default; raise it only on a host with the RAM for
+# concurrent Demucs runs. Clamped so a typo cannot spawn dozens.
+_MAX_WORKERS = max(1, min(4, int(os.environ.get("AUDIDELLE_MAX_HEAVY_JOBS", "1"))))
 
 
 @dataclass

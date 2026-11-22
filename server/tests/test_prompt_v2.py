@@ -49,6 +49,12 @@ def test_slow_fade_gets_a_longer_default():
     assert plan.params["fade_out_dur"] == 4.0
 
 
+def test_colon_time_becomes_start_seconds():
+    plan = regex_plan_from_prompt("add drums from 0:30")
+    assert plan.intent == Intent.ADD_INSTRUMENT
+    assert plan.params["start_seconds"] == 30.0
+
+
 def test_added_layer_is_silent_before_its_start():
     sr = 22050
     t = np.linspace(0, 4, sr * 4, endpoint=False)

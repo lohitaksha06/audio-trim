@@ -28,3 +28,7 @@ services:
         value: "24"
       - key: AUDIDELLE_CLEANUP_INTERVAL_MIN
         value: "60"
+      - key: AUDIDELLE_MAX_HEAVY_JOBS
+        value: "1"
+      - key: AUDIDELLE_TORCH_THREADS
+        value: "4"

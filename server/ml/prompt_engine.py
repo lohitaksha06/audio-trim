@@ -781,7 +781,7 @@ def classify_intent(prompt: str) -> Intent:
     _noise = bool(re.search(r"\b(noise|noisy|hiss|hum|denoise|de-noise|background\s+(?:noise|sound|hum))\b", lower))
     _reverb = bool(re.search(r"\b(reverb|room|hall|space|ambien|cathedral)\b", lower))
     _level = bool(re.search(r"\b(volume|level|normaliz|normalis|loudness|louder|quieter|quiet)\b", lower))
-    _polish_word = bool(re.search(r"\b(perfect|polish|radio[- ]ready|release[- ]ready|clean\s+up|cleanup|master(?:ing)?)\b", lower))
+    _polish_word = bool(re.search(r"\b(perfect|polish|radio[- ]ready|release[- ]ready|clean\s+up|cleanup|clean\s+(?:the\s+)?(?:audio|voice|vocals?|speech|recording|mix|track|song)|master(?:ing)?)\b", lower))
     _paint_request = bool(re.search(r"\b(paint|inpaint|cough|sneeze|click|pop|thump)\b", lower))
     if not _paint_request and (_polish_word or sum([_noise, _reverb, _level]) >= 2):
         return Intent.POLISH
@@ -1032,7 +1032,7 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
     # "add drums from 30 seconds" is a single timed add, even when the prompt
     # also names the vocal as a level reference ("below the voice").
     if re.search(
-        r"\b(add|play|layer)\b.*\b(?:from|at|starting(?:\s+at)?)\s+\d+(?:\.\d+)?\s*(?:s|sec|secs|seconds?)\b",
+        r"\b(add|play|layer)\b.*\b(?:from|at|starting(?:\s+at)?)\s+(?:\d+:\d{2}(?:\.\d+)?|\d+(?:\.\d+)?\s*(?:s|sec|secs|seconds?))\b",
         normalize_prompt(prompt),
     ):
         intent = Intent.ADD_INSTRUMENT
@@ -1248,6 +1248,11 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
         )
         if m_start:
             params["start_seconds"] = float(m_start.group(1))
+        if "start_seconds" not in params and params.get("start") is not None:
+            try:
+                params["start_seconds"] = float(params["start"])
+            except (TypeError, ValueError):
+                pass
         if chord_names:
             lower = normalize_prompt(prompt)
             if "piano" in lower or "keys" in lower or "keyboard" in lower:

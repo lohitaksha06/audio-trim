@@ -5,6 +5,12 @@ import os
 import time
 from contextlib import asynccontextmanager
 
+# Cap BLAS/torch threads before any ML module loads. One CPU-only job should
+# not peg every core on a small host (or the user's laptop).
+_THREADS = os.environ.get("AUDIDELLE_TORCH_THREADS", "4")
+os.environ.setdefault("OMP_NUM_THREADS", _THREADS)
+os.environ.setdefault("MKL_NUM_THREADS", _THREADS)
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -66,6 +72,12 @@ async def _cleanup_loop() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    try:
+        import torch
+
+        torch.set_num_threads(max(1, int(_THREADS)))
+    except Exception:
+        pass
     task = asyncio.create_task(_cleanup_loop())
     try:
         yield

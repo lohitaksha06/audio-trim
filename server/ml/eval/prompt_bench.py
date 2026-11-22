@@ -229,6 +229,12 @@ REAL_BENCH: list[dict[str, Any]] = [
     {"prompt": "polish the mix", "intent": "polish"},
     {"prompt": "add the entire drum kit, not just the tick tick", "intent": "add_instrument"},
     {"prompt": "reduce background noise and adjust the volume", "intent": "polish"},
+    {"prompt": "add drums from 0:30", "intent": "add_instrument",
+     "params": {"instrument": "drums", "start_seconds": 30.0}},
+    {"prompt": "clean the vocals and add a little reverb", "intent": "polish"},
+    {"prompt": "add a guitar playing C G Am F", "intent": "add_instrument",
+     "params": {"instrument": "guitar", "chords": ["C", "G", "Am", "F"]}},
+    {"prompt": "add reverb and remove the noise", "intent": "polish"},
 ]
 
 
