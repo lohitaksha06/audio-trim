@@ -586,7 +586,7 @@ export function parseLocalPrompt(prompt: string, duration: number): LocalPlan {
       intent: "vocal_clarity",
       params: {},
       summary:
-        "Voice clarity on the whole mix: denoise + presence + level. True vocal isolation needs the server.",
+        "Voice clarity on the whole mix: denoise + presence + level. True vocal isolation needs the server",
     };
   }
 
