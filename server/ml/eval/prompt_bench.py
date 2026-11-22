@@ -157,16 +157,16 @@ BENCH: list[dict[str, Any]] = [
 ]
 
 
-def evaluate_prompt_bench() -> dict[str, Any]:
-    """Run regex engine over BENCH and return accuracy + per-intent breakdown."""
-    total = len(BENCH)
+def _evaluate(items: list[dict[str, Any]]) -> dict[str, Any]:
+    """Run regex engine over a bench and return accuracy + per-intent breakdown."""
+    total = len(items)
     correct = 0
     per_intent: dict[str, dict[str, int]] = defaultdict(lambda: {"correct": 0, "total": 0})
     failures: list[dict[str, Any]] = []
     param_checks = 0
     param_correct = 0
 
-    for item in BENCH:
+    for item in items:
         prompt = item["prompt"]
         expected_intent = item["intent"]
         plan = regex_plan_from_prompt(prompt)
@@ -204,3 +204,47 @@ def evaluate_prompt_bench() -> dict[str, Any]:
         "per_intent": per_intent_plain,
         "failures": failures,
     }
+
+
+# Real requests from user sessions (not written to match the regex engine).
+# This is the honest coverage score; the curated BENCH above is a regression
+# set and will always look better.
+REAL_BENCH: list[dict[str, Any]] = [
+    {"prompt": "clean the noise, amplify my voice slightly", "intent": "enhance_vocals"},
+    {"prompt": "make her voice clearer and louder", "intent": "enhance_vocals"},
+    {"prompt": "make her voice more clear and amplifying", "intent": "enhance_vocals"},
+    {"prompt": "add guitar chords: Am F C G", "intent": "add_instrument",
+     "params": {"instrument": "guitar", "chords": ["Am", "F", "C", "G"]}},
+    {"prompt": "play Cmaj7 then Am7 then Fmaj7 then G7", "intent": "add_instrument",
+     "params": {"instrument": "guitar"}},
+    {"prompt": "use a C/G", "intent": "add_instrument"},
+    {"prompt": "add a C major chord", "intent": "add_instrument"},
+    {"prompt": "fade out slowly at the end", "intent": "fade", "params": {"fade_out_dur": 4.0}},
+    {"prompt": "add drums from 30 seconds", "intent": "add_instrument",
+     "params": {"instrument": "drums", "start_seconds": 30.0}},
+    {"prompt": "remove the cymbal crash", "intent": "remove"},
+    {"prompt": "clean up the recording, add a little reverb, adjust the volume and reduce background noise",
+     "intent": "polish"},
+    {"prompt": "make my music perfect", "intent": "polish"},
+    {"prompt": "polish the mix", "intent": "polish"},
+    {"prompt": "add the entire drum kit, not just the tick tick", "intent": "add_instrument"},
+    {"prompt": "reduce background noise and adjust the volume", "intent": "polish"},
+]
+
+
+def evaluate_prompt_bench() -> dict[str, Any]:
+    return _evaluate(BENCH)
+
+
+def evaluate_real_bench() -> dict[str, Any]:
+    return _evaluate(REAL_BENCH)
+
+
+if __name__ == "__main__":
+    for name, result in (("curated", evaluate_prompt_bench()), ("real", evaluate_real_bench())):
+        print(
+            f"{name}: {result['correct']}/{result['total']} "
+            f"({result['accuracy'] * 100:.1f}%), params {result['param_accuracy']}"
+        )
+        for failure in result["failures"]:
+            print("  -", failure)

@@ -157,9 +157,12 @@ def parse_progression(text: str) -> list[Chord] | None:
 
     has_separator = bool(_SEP_RE.search(text))
     has_quality = any(q for _, q in tokens)
-    if not context and not has_quality and not has_separator:
+    single_special = len(tokens) == 1 and (
+        "/" in tokens[0][0] or "#" in tokens[0][0] or "b" in tokens[0][0]
+    )
+    if not context and not has_quality and not has_separator and not single_special:
         return None
-    if not context and len(tokens) < 2:
+    if not context and len(tokens) < 2 and not (has_quality or single_special):
         return None
 
     chords: list[Chord] = []

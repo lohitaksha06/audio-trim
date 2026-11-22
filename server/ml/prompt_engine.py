@@ -26,6 +26,7 @@ class Intent(str, Enum):
     ENHANCE_VOCALS = "enhance_vocals"
     STYLE = "style"
     MIX_STEM = "mix_stem"
+    POLISH = "polish"
     REVERSE = "reverse"
     REPEAT = "repeat"
     TRANSPOSE = "transpose"
@@ -370,6 +371,30 @@ def extract_chords(prompt: str) -> list[str] | None:
     except Exception:
         return None
     return [chord.name for chord in chords] if chords else None
+
+
+_ADD_VERB_RE = re.compile(r"\b(?:add|play|layer|put|bring|insert|create|generate)\b")
+
+
+def extract_added_instrument(prompt: str) -> str | None:
+    """Instrument that follows the add/play verb, not a later reference.
+
+    "add drums ... below the voice" must add drums, not treat the voice as the
+    target. This mirrors how people actually phrase layered requests.
+    """
+    lower = normalize_prompt(prompt)
+    match = _ADD_VERB_RE.search(lower)
+    if not match:
+        return None
+    tail = lower[match.end(): match.end() + 80]
+    # Stop at the first clause boundary so a later reference ("below the
+    # voice", "with reverb") cannot become the target.
+    tail = re.split(
+        r"\b(?:from|at|in|with|on|under|below|behind|and|but|then)\b|[,;:]",
+        tail,
+        maxsplit=1,
+    )[0]
+    return extract_instrument(tail)
 
 
 def extract_mix_gains(prompt: str) -> dict[str, float]:
@@ -748,6 +773,19 @@ def extract_style(prompt: str) -> str | None:
 def classify_intent(prompt: str) -> Intent:
     lower = normalize_prompt(prompt)
 
+    # --- multi-effect polish -------------------------------------------------
+    # "clean up the recording, add a little reverb, adjust the volume and
+    # reduce background noise" is several jobs, not one. Detect it before the
+    # single-purpose noise/reverb/normalize branches so none of them wins and
+    # silently drops the rest.
+    _noise = bool(re.search(r"\b(noise|noisy|hiss|hum|denoise|de-noise|background\s+(?:noise|sound|hum))\b", lower))
+    _reverb = bool(re.search(r"\b(reverb|room|hall|space|ambien|cathedral)\b", lower))
+    _level = bool(re.search(r"\b(volume|level|normaliz|normalis|loudness|louder|quieter|quiet)\b", lower))
+    _polish_word = bool(re.search(r"\b(perfect|polish|radio[- ]ready|release[- ]ready|clean\s+up|cleanup|master(?:ing)?)\b", lower))
+    _paint_request = bool(re.search(r"\b(paint|inpaint|cough|sneeze|click|pop|thump)\b", lower))
+    if not _paint_request and (_polish_word or sum([_noise, _reverb, _level]) >= 2):
+        return Intent.POLISH
+
     # import-your-own-stem: "mix my uploaded stem", "import a stem", "blend this stem in"
     # (must run before SEPARATE so "stems" doesn't hijack it)
     if "stem" in lower and any(
@@ -991,6 +1029,16 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
             or "chord" in lower_chords
         ):
             intent = Intent.ADD_INSTRUMENT
+    # "add drums from 30 seconds" is a single timed add, even when the prompt
+    # also names the vocal as a level reference ("below the voice").
+    if re.search(
+        r"\b(add|play|layer)\b.*\b(?:from|at|starting(?:\s+at)?)\s+\d+(?:\.\d+)?\s*(?:s|sec|secs|seconds?)\b",
+        normalize_prompt(prompt),
+    ):
+        intent = Intent.ADD_INSTRUMENT
+    # "combine" needs two instruments; "add drums from 30 s" is a single add.
+    if intent == Intent.COMBINE and len(extract_instruments(prompt)) <= 1:
+        intent = Intent.ADD_INSTRUMENT
     start, end = extract_time_range(prompt)
     instrument = extract_instrument(prompt)
     fmt = extract_format(prompt)
@@ -1025,6 +1073,24 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
         elif "calm" in lower or "chill" in lower:
             params["mood"] = "calm"
 
+    if intent == Intent.POLISH:
+        lower = normalize_prompt(prompt)
+        wants_reverb = bool(re.search(r"\b(reverb|room|hall|space|ambien|cathedral)\b", lower))
+        wants_level = bool(re.search(r"\b(volume|level|normaliz|normalis|loudness|louder|quieter|quiet)\b", lower))
+        clean_word = bool(re.search(r"\b(clean\s+up|cleanup|noise|hiss|hum|denoise|de-noise)\b", lower))
+        polish_word = bool(re.search(r"\b(perfect|polish|radio[- ]ready|release[- ]ready|master(?:ing)?)\b", lower))
+        params["denoise"] = bool(clean_word or polish_word or not (wants_reverb or wants_level))
+        params["denoise_strength"] = 1.5 if re.search(r"\b(strong|heavy|aggressive|very noisy)\b", lower) else 1.0
+        if wants_reverb:
+            little = bool(re.search(r"\b(a little|light|subtle|slight|hint)\b", lower))
+            big = bool(re.search(r"\b(lots?|heavy|big|huge|wash|cathedral|hall)\b", lower))
+            params["reverb_mix"] = 0.12 if little else (0.32 if big else 0.2)
+            params["reverb_seconds"] = 1.2 if little else (2.8 if big else 1.8)
+        else:
+            params["reverb_mix"] = 0.0
+            params["reverb_seconds"] = 0.0
+        params["normalize"] = bool(wants_level or polish_word)
+
     if intent == Intent.FADE:
         lower = normalize_prompt(prompt)
         params["fade_in"] = bool(
@@ -1044,6 +1110,11 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
             params["fade_in_dur"] = float(m_in.group(1))
         if m_out:
             params["fade_out_dur"] = float(m_out.group(1))
+        # "fade out slowly" with no number means a longer, gentler fade.
+        if params.get("fade_out") and not params.get("fade_out_dur") and re.search(r"\bslow(?:ly)?\b|\blong\b", lower):
+            params["fade_out_dur"] = 4.0
+        if params.get("fade_in") and not params.get("fade_in_dur") and re.search(r"\bslow(?:ly)?\b|\blong\b", lower):
+            params["fade_in_dur"] = 4.0
 
     if intent == Intent.GAIN:
         import math
@@ -1168,6 +1239,15 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
         params["semitones"] = max(-12.0, min(12.0, semi))
 
     if intent == Intent.ADD_INSTRUMENT:
+        added_instrument = extract_added_instrument(prompt)
+        if added_instrument:
+            params["instrument"] = added_instrument
+        m_start = re.search(
+            r"\b(?:from|at|starting(?:\s+at)?)\s+(\d+(?:\.\d+)?)\s*(?:s|sec|secs|seconds?)\b",
+            normalize_prompt(prompt),
+        )
+        if m_start:
+            params["start_seconds"] = float(m_start.group(1))
         if chord_names:
             lower = normalize_prompt(prompt)
             if "piano" in lower or "keys" in lower or "keyboard" in lower:

@@ -79,6 +79,24 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
     elif plan.intent == Intent.REVERB:
         y = _add_reverb(y, sr)
         output_path = _save_wav(y, sr)
+    elif plan.intent == Intent.POLISH:
+        p = plan.params
+        steps = []
+        if p.get("denoise", True):
+            strength = float(p.get("denoise_strength", 1.0))
+            y = _spectral_subtract(y, sr, strength=strength, floor=0.08)
+            steps.append(f"noise reduction (strength {strength:.1f})")
+        rev_seconds = float(p.get("reverb_seconds", 0.0) or 0.0)
+        rev_mix = float(p.get("reverb_mix", 0.0) or 0.0)
+        if rev_seconds > 0 and rev_mix > 0:
+            y = _polish_reverb(y, sr, rev_seconds, rev_mix)
+            steps.append(f"reverb ({rev_seconds:.1f} s, {int(rev_mix * 100)}% wet)")
+        if p.get("normalize", True):
+            y = _normalize(y)
+            steps.append("peak normalized")
+        output_path = _save_wav(y, sr)
+        metadata["method"] = "deterministic_polish"
+        metadata["polish_steps"] = steps
     elif plan.intent == Intent.MOOD:
         y = _mood_adjust(y, sr, plan.params)
         output_path = _save_wav(y, sr)
@@ -728,6 +746,26 @@ def _add_reverb(y: np.ndarray, sr: int) -> np.ndarray:
     if peak > 0:
         result = result / peak * 0.9
     return result
+
+
+def _polish_reverb(y: np.ndarray, sr: int, seconds: float = 1.2, mix: float = 0.12) -> np.ndarray:
+    """Small multi-tap room. ``seconds`` is the tail, ``mix`` the wet fraction."""
+    if mix <= 0:
+        return y
+    mix = max(0.0, min(0.5, float(mix)))
+    seconds = max(0.1, float(seconds))
+    out = y * (1.0 - mix)
+    taps = [0.031, 0.043, 0.059, 0.073, 0.097]
+    for i, delay_sec in enumerate(taps):
+        delay = max(1, int(delay_sec * sr))
+        if y.shape[1] <= delay:
+            continue
+        out[:, delay:] += y[:, :-delay] * (mix * (0.7 ** i))
+    # Keep the tail length meaningful without ever exceeding the original length.
+    max_delay = int(seconds * sr)
+    if max_delay < out.shape[1]:
+        out[:, max_delay:] *= np.linspace(1.0, 0.0, out.shape[1] - max_delay) ** 0.5
+    return out
 
 
 def _mood_adjust(y: np.ndarray, sr: int, params: dict) -> np.ndarray:
@@ -2046,6 +2084,16 @@ def _add_instrument(
     else:
         t = np.arange(n) / sr
         gen = 0.15 * np.sin(2 * np.pi * 220.0 * t) + 0.08 * np.sin(2 * np.pi * 330.0 * t)
+
+    # "add drums from 30 seconds": silence everything before the requested entry.
+    start_seconds = params.get("start_seconds")
+    if start_seconds:
+        try:
+            cut = max(0, min(n, int(float(start_seconds) * sr)))
+            if cut:
+                gen[:cut] = 0.0
+        except (TypeError, ValueError):
+            pass
 
     peak = float(np.max(np.abs(gen)))
     if peak > 1e-9:
