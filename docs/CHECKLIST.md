@@ -309,6 +309,21 @@ be separate parts. **Polish is a fixed chain** (noise reduction, reverb, peak
 normalization), not a mastering model; “make my music perfect” applies that chain
 and reports each step rather than promising a perfect master.
 
+## Named chords and server hardening
+
+| Item | Behaviour |
+|---|---|
+| named chords | `add guitar chords: Am F C G` → parsed to MIDI and strummed one chord per bar (server, trained timbre); 7 parser/render tests |
+| upload cap | `AUDIDELLE_MAX_UPLOAD_MB` (default 200); oversized uploads return **413** |
+| rate limit | `AUDIDELLE_RATE_LIMIT` (default 120/min per client); heavy POSTs return **429** with `Retry-After` |
+| storage cleanup | `AUDIDELLE_RETENTION_HOURS` (24) + `AUDIDELLE_CLEANUP_INTERVAL_MIN` (60); old uploads/exports are deleted on a timer |
+| health | `/api/health` reports uptime, storage counts and the active rate limit |
+| request timing | `X-Process-Time-Ms` header + one structured log line per request |
+| empty session | Studio disables Render mix / Stems / EDL / FCPXML / MIDI until a track exists |
+
+Named chords play exactly what was written, independent of the detected key.
+Roman-numeral progressions and guitar voicings are still not supported.
+
 Cost on mono 44.1 kHz, measured on this machine:
 
 | Job | Bun/JSC | Chromium worker |

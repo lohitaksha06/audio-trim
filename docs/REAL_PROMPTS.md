@@ -72,6 +72,24 @@ than the song.
 - "add drums from 0:30, same level as the backing, lower than the voice"
 - "reduce the male/backing voice" (→ explain the limit, don't fake it)
 
+## 5. Named guitar / piano chords
+
+> add guitar chords: Am F C G
+> play Cmaj7 then Am7 then Fmaj7 then G7
+> use a C/G
+
+What it means:
+- parse chord names (root + quality + slash bass) into MIDI notes,
+- strum one chord per bar on the detected beat grid,
+- render with the trained guitar timbre (fallback: plucked-string synth).
+
+Supported vocabulary: `C`, `Am`, `F#m`, `Bbmaj7`, `G7`, `Dsus4`, `C/G`,
+`maj7/m7/7/m7b5/dim7/maj9/m9/9/6/m6/add9/sus2/sus4/7sus4`, and so on.
+
+Still not supported: Roman-numeral progressions without a key ("I–V–vi–IV")
+and chord *voicings* (guitar tab shapes). Named chords are in-key-independent —
+they play exactly what was written.
+
 ## Capability notes
 
 - Everything above needs **source separation** (server-side, Demucs). The

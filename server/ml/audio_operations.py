@@ -123,6 +123,8 @@ def execute_plan(audio_path: str, plan: PromptPlan) -> dict[str, Any]:
         y, groove_meta, layer = _add_instrument(y, sr, target, plan.params)
         output_path = _save_wav(y, sr)
         metadata["added_instrument"] = target
+        if plan.params.get("chords"):
+            metadata["chords"] = plan.params["chords"]
         if plan.params.get("drum_parts"):
             metadata["drum_parts"] = plan.params["drum_parts"]
         if plan.params.get("wave"):
@@ -1925,7 +1927,26 @@ def _add_instrument(
     hits = 0
     timbre_meta: dict = {}
 
-    if instrument == "drums":
+    # Explicit named chords ("Am F C G") override the generic in-key triad.
+    chord_names = params.get("chords") if isinstance(params.get("chords"), (list, tuple)) else None
+    chord_objs = []
+    if chord_names and instrument in ("guitar", "piano", "keys"):
+        try:
+            from server.ml.chords import parse_chord_token, render_chord_progression
+
+            chord_objs = [
+                c for c in (parse_chord_token(str(name)) for name in chord_names) if c is not None
+            ]
+        except Exception:
+            chord_objs = []
+    if chord_objs:
+        gen, chord_count = render_chord_progression(chord_objs, tempo, beats, dur, sr, instrument)
+        hits = max(1, chord_count * 3)
+        timbre_meta = {
+            "chords": [c.name for c in chord_objs],
+            "chord_source": "named progression",
+        }
+    elif instrument == "drums":
         gen, hits = _drum_pattern(tempo, beats, dur, groove, sr,
                                   parts=params.get("drum_parts"), swing=swing)
         try:

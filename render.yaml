@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: audelle-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter          # a persistent disk is not available on the free plan
+    healthCheckPath: /api/health
+    disk:
+      name: audelle-data
+      mountPath: /data
+      sizeGB: 10
+    envVars:
+      - key: AUDIO_STORAGE_DIR
+        value: /data/storage
+      - key: TORCH_HOME
+        value: /data/torch
+      - key: HF_HOME
+        value: /data/huggingface
+      - key: XDG_CACHE_HOME
+        value: /data/cache
+      - key: AUDIDELLE_CORS_ORIGINS
+        value: https://audelle.vercel.app
+      - key: AUDIDELLE_RATE_LIMIT
+        value: "120"
+      - key: AUDIDELLE_MAX_UPLOAD_MB
+        value: "200"
+      - key: AUDIDELLE_RETENTION_HOURS
+        value: "24"
+      - key: AUDIDELLE_CLEANUP_INTERVAL_MIN
+        value: "60"

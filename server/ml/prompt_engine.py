@@ -357,6 +357,21 @@ def _mix_stem_of(instrument: str) -> str:
     return "other"
 
 
+def extract_chords(prompt: str) -> list[str] | None:
+    """Named chord progression in a prompt, as display names ("Am", "C/G").
+
+    Returns None when the prompt has no chord progression, so ordinary
+    instrument requests stay on the existing path.
+    """
+    try:
+        from server.ml.chords import parse_progression
+
+        chords = parse_progression(prompt)
+    except Exception:
+        return None
+    return [chord.name for chord in chords] if chords else None
+
+
 def extract_mix_gains(prompt: str) -> dict[str, float]:
     """Parse per-stem level wishes like 'drums louder, vocals quieter' or
     'vocals -3dB drums +6dB' or 'prioritize drums over vocals'.
@@ -968,6 +983,14 @@ def suggest_alternatives(prompt: str, limit: int = 3) -> list[str]:
 
 def regex_plan_from_prompt(prompt: str) -> PromptPlan:
     intent = classify_intent(prompt)
+    chord_names = extract_chords(prompt)
+    if chord_names:
+        lower_chords = normalize_prompt(prompt)
+        if (
+            re.search(r"\b(add|play|strum|layer|put|bring|include|use|with|make)\b", lower_chords)
+            or "chord" in lower_chords
+        ):
+            intent = Intent.ADD_INSTRUMENT
     start, end = extract_time_range(prompt)
     instrument = extract_instrument(prompt)
     fmt = extract_format(prompt)
@@ -1145,6 +1168,20 @@ def regex_plan_from_prompt(prompt: str) -> PromptPlan:
         params["semitones"] = max(-12.0, min(12.0, semi))
 
     if intent == Intent.ADD_INSTRUMENT:
+        if chord_names:
+            lower = normalize_prompt(prompt)
+            if "piano" in lower or "keys" in lower or "keyboard" in lower:
+                params["instrument"] = "piano"
+            elif "guitar" in lower or "strum" in lower or "ukulele" in lower or "banjo" in lower:
+                params["instrument"] = "guitar"
+            else:
+                params["instrument"] = params.get("instrument") or "guitar"
+            params["chords"] = chord_names
+            params["groove"] = extract_groove(prompt)
+            m_bpm = re.search(r"(\d{2,3})\s*bpm", lower)
+            if m_bpm:
+                params["target_bpm"] = float(m_bpm.group(1))
+            return PromptPlan(intent=Intent.ADD_INSTRUMENT, params=params, raw_prompt=prompt)
         # ensure we have an instrument even if keyword was "synth" mapped to keys
         if not params.get("instrument"):
             lower = normalize_prompt(prompt)

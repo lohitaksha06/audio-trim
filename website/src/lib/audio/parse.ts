@@ -632,6 +632,19 @@ export function parseLocalPrompt(prompt: string, duration: number): LocalPlan {
     return { intent: "gain", params: { db: -4 }, summary: "Gain −4.0 dB" };
   }
 
+  // Named chords ("Am F C G") need the server's instrument synthesis. Say so
+  // specifically instead of dropping the request into the generic fallback.
+  const chordLike = prompt.match(/\b[A-G][#b]?(?:maj7|m7|m|7|sus[24]|dim|aug)\b/g) ?? [];
+  if (/\bchords?\b|\bprogression\b/.test(lower) || chordLike.length >= 2) {
+    return {
+      intent: "unknown",
+      params: {},
+      summary: "",
+      unsupported:
+        "Playing named chords (e.g. Am F C G) needs the server's instrument synthesis. Locally I can trim, fade, change level, normalize, denoise, add reverb, or shape tone.",
+    };
+  }
+
   return {
     intent: "unknown",
     params: {},

@@ -9,6 +9,16 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 
+@pytest.fixture(autouse=True)
+def _disable_rate_limit(monkeypatch):
+    """The suite makes many POSTs from one TestClient; keep the limiter off.
+
+    Individual tests opt back in by setting AUDIDELLE_RATE_LIMIT themselves.
+    """
+    monkeypatch.setenv("AUDIDELLE_RATE_LIMIT", "0")
+    yield
+
+
 @pytest.fixture(scope="session")
 def tone_path(tmp_path_factory):
     """Generate a 10s two-tone WAV once for the whole test session."""

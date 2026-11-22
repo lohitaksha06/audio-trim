@@ -530,6 +530,12 @@ describe("wav", () => {
 });
 
 describe("prompt parsing", () => {
+  test("named chords say they need the server", () => {
+    const plan = parseLocalPrompt("add guitar chords: Am F C G", 10);
+    expect(plan.intent).toBe("unknown");
+    expect(plan.unsupported ?? "").toContain("instrument synthesis");
+  });
+
   test("parses time formats", () => {
     expect(parseTime("1:15")).toBe(75);
     expect(parseTime("1:02:03")).toBe(3723);

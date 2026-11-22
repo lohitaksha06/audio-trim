@@ -84,3 +84,52 @@ def delete(key: str) -> bool:
         local.unlink()
         return True
     return False
+
+
+def stats() -> dict:
+    """Small storage summary for the health endpoint."""
+    root = Path(STORAGE_DIR)
+    if not root.exists():
+        return {"files": 0, "bytes": 0, "uploads": 0, "exports": 0}
+    files = [p for p in root.rglob("*") if p.is_file()]
+    total = sum(p.stat().st_size for p in files)
+    return {
+        "files": len(files),
+        "bytes": total,
+        "uploads": sum(1 for p in files if p.relative_to(root).parts[0] == "uploads"),
+        "exports": sum(1 for p in files if p.relative_to(root).parts[0] == "exports"),
+    }
+
+
+def cleanup(max_age_hours: float = 24.0) -> dict:
+    """Delete uploads/exports older than ``max_age_hours``.
+
+    Runs on a timer so a long-lived host does not fill its disk. Returns
+    ``{removed, bytes}``. A non-positive age disables deletion.
+    """
+    import time
+
+    if max_age_hours <= 0:
+        return {"removed": 0, "bytes": 0}
+    root = Path(STORAGE_DIR)
+    if not root.exists():
+        return {"removed": 0, "bytes": 0}
+    cutoff = time.time() - max_age_hours * 3600.0
+    removed = 0
+    freed = 0
+    for sub in ("uploads", "exports"):
+        folder = root / sub
+        if not folder.exists():
+            continue
+        for path in folder.iterdir():
+            if not path.is_file():
+                continue
+            try:
+                if path.stat().st_mtime < cutoff:
+                    freed += path.stat().st_size
+                    path.unlink()
+                    removed += 1
+            except OSError:
+                # A file can disappear between listing and stat/unlink; ignore.
+                continue
+    return {"removed": removed, "bytes": freed}

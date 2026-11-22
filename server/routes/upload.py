@@ -20,6 +20,15 @@ AUDIO_EXTENSIONS = {".mp3", ".wav", ".flac", ".aac", ".m4a", ".ogg"}
 NEEDS_FFMPEG_DECODE = {".m4a", ".aac", ".m4b", ".opus", ".wma"}
 
 
+def _max_upload_bytes() -> int:
+    """Upload cap in bytes. `AUDIDELLE_MAX_UPLOAD_MB=0` disables the cap."""
+    try:
+        mb = float(os.environ.get("AUDIDELLE_MAX_UPLOAD_MB", "200"))
+    except ValueError:
+        mb = 200.0
+    return int(mb * 1024 * 1024) if mb > 0 else 0
+
+
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     ext = Path(file.filename or "file").suffix.lower()
@@ -30,7 +39,22 @@ async def upload_file(file: UploadFile = File(...)):
             detail=f"Unsupported file type: {ext}. Supported: {AUDIO_EXTENSIONS | VIDEO_EXTENSIONS}",
         )
 
+    limit = _max_upload_bytes()
+    declared = getattr(file, "size", None)
+    if limit and declared and declared > limit:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. The limit is {limit // (1024 * 1024)} MB.",
+        )
+
     content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="The uploaded file is empty.")
+    if limit and len(content) > limit:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. The limit is {limit // (1024 * 1024)} MB.",
+        )
     storage_key = storage.save_upload(file.filename or "file", content)
     audio_path = storage.resolve(storage_key)
 

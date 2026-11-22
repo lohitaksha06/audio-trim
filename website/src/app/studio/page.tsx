@@ -539,6 +539,9 @@ export default function StudioPage() {
       return null;
     }
     setStatus("Rendering preview…");
+    // Yield once so the "Rendering preview" state paints before the synchronous
+    // render blocks the main thread.
+    await new Promise((resolve) => window.setTimeout(resolve, 16));
     const start = project.loop.enabled ? project.loop.start : 0;
     const end = project.loop.enabled ? project.loop.end : undefined;
     const result = renderProject(project, assets, { start, end });
@@ -1147,7 +1150,7 @@ export default function StudioPage() {
               <div className="border border-white/10 bg-white/[0.02] p-3">
                 <div className="flex items-center justify-between">
                   <p className="eyebrow">Master</p>
-                  <button onClick={() => void renderQueue("mix")} className="rounded-none border border-white/20 px-2 py-1 text-[0.65rem] text-white/65 hover:border-white/50 hover:text-white">Render mix</button>
+                  <button onClick={() => void renderQueue("mix")} disabled={!project.tracks.length} title={!project.tracks.length ? "Import audio first" : undefined} className="rounded-none border border-white/20 px-2 py-1 text-[0.65rem] text-white/65 hover:border-white/50 hover:text-white disabled:opacity-30">Render mix</button>
                 </div>
                 <label className="mt-3 block text-[0.65rem] text-white/45">Master gain · {project.master.gainDb.toFixed(1)} dB
                   <input type="range" min={-24} max={12} step={0.5} value={project.master.gainDb} onChange={(event) => commit({ ...project, master: { ...project.master, gainDb: Number(event.target.value) } })} className="mt-1 w-full accent-white" />
@@ -1201,17 +1204,19 @@ export default function StudioPage() {
                   </span>
                 </label>
                 <div className="flex flex-wrap gap-1.5">
-                  <button onClick={() => void renderQueue("loop")} disabled={!project.loop.enabled} className="rounded-none border border-white/20 px-2 py-1 text-[0.65rem] text-white/65 hover:border-white/50 hover:text-white disabled:opacity-30">Render loop</button>
-                  <button onClick={() => void renderQueue("stems")} className="rounded-none border border-white/20 px-2 py-1 text-[0.65rem] text-white/65 hover:border-white/50 hover:text-white">Stems ZIP</button>
-                  <button onClick={() => downloadText(buildEdl(project, assets), `${safeName(project.name)}.edl`)} className="rounded-none border border-white/20 px-2 py-1 text-[0.65rem] text-white/65 hover:border-white/50 hover:text-white">EDL</button>
-                  <button onClick={() => downloadText(buildFcpxml(project, assets), `${safeName(project.name)}.fcpxml`, "application/xml")} className="rounded-none border border-white/20 px-2 py-1 text-[0.65rem] text-white/65 hover:border-white/50 hover:text-white">FCPXML</button>
+                  <button onClick={() => void renderQueue("loop")} disabled={!project.loop.enabled || !project.tracks.length} className="rounded-none border border-white/20 px-2 py-1 text-[0.65rem] text-white/65 hover:border-white/50 hover:text-white disabled:opacity-30">Render loop</button>
+                  <button onClick={() => void renderQueue("stems")} disabled={!project.tracks.length} title={!project.tracks.length ? "Import audio first" : undefined} className="rounded-none border border-white/20 px-2 py-1 text-[0.65rem] text-white/65 hover:border-white/50 hover:text-white disabled:opacity-30">Stems ZIP</button>
+                  <button onClick={() => downloadText(buildEdl(project, assets), `${safeName(project.name)}.edl`)} disabled={!project.tracks.length} title={!project.tracks.length ? "Import audio first" : undefined} className="rounded-none border border-white/20 px-2 py-1 text-[0.65rem] text-white/65 hover:border-white/50 hover:text-white disabled:opacity-30">EDL</button>
+                  <button onClick={() => downloadText(buildFcpxml(project, assets), `${safeName(project.name)}.fcpxml`, "application/xml")} disabled={!project.tracks.length} title={!project.tracks.length ? "Import audio first" : undefined} className="rounded-none border border-white/20 px-2 py-1 text-[0.65rem] text-white/65 hover:border-white/50 hover:text-white disabled:opacity-30">FCPXML</button>
                   <button
                     onClick={() => {
                       const midi = buildMidiFile(project);
                       const bytes = new Uint8Array(midi);
                       downloadBlob(new Blob([bytes.buffer as ArrayBuffer], { type: "audio/midi" }), `${safeName(project.name)}.mid`);
                     }}
-                    className="rounded-none border border-white/20 px-2 py-1 text-[0.65rem] text-white/65 hover:border-white/50 hover:text-white"
+                    disabled={!project.tracks.length}
+                    title={!project.tracks.length ? "Import audio first" : undefined}
+                    className="rounded-none border border-white/20 px-2 py-1 text-[0.65rem] text-white/65 hover:border-white/50 hover:text-white disabled:opacity-30"
                   >
                     MIDI
                   </button>
