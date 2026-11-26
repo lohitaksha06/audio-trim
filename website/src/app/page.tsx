@@ -61,10 +61,6 @@ export default function Home() {
           </div>
 
           <div className="animate-fade-in-up animate-delay-2 mt-10">
-            <div className="mb-3 flex items-center justify-between font-mono text-[0.65rem] uppercase tracking-[0.22em] text-white/40">
-              <span>Live signal</span>
-              <span>signal / canvas</span>
-            </div>
             <div className="relative h-[clamp(150px,22vh,260px)] w-full overflow-hidden border-y border-white/10">
               <AudioWave />
             </div>

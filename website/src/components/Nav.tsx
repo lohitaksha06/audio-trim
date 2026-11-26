@@ -19,8 +19,17 @@ export default function Nav() {
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-black/90 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between gap-6 px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex shrink-0 items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-neon-blue to-neon-purple text-base font-bold text-black">
-            A
+          <span
+            className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f2f1ec] text-black"
+            aria-hidden="true"
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
+              <rect x="2.5" y="9" width="2.2" height="6" rx="1.1" />
+              <rect x="6.2" y="5.5" width="2.2" height="13" rx="1.1" />
+              <rect x="9.9" y="2.5" width="2.2" height="19" rx="1.1" />
+              <rect x="13.6" y="6.5" width="2.2" height="11" rx="1.1" />
+              <rect x="17.3" y="9.5" width="2.2" height="5" rx="1.1" />
+            </svg>
           </span>
           <span className="text-lg font-semibold tracking-tight text-white">Audelle</span>
         </Link>
