@@ -9,6 +9,7 @@ export const FEATURE_LINKS: FeatureLink[] = [
   { name: "Home", href: "/prompt" },
   { name: "Studio", href: "/studio" },
   { name: "Combine", href: "/features/combine" },
+  { name: "Clean Audio", href: "/features/clean" },
   { name: "Source Separation", href: "/features/separation" },
   { name: "Smart Editing", href: "/features/editing" },
   { name: "Manual Editor", href: "/features/manual" },

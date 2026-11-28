@@ -2,18 +2,33 @@
 
 | Model | Task | Metric |
 | --- | --- | --- |
-| Demucs `htdemucs` | Separation | SDR / SI-SDR |
-| DeepFilterNet3 | Cleaning | PESQ / STOI |
-| PANNs CNN14 | Classification | Precision / Recall / F1 |
+| Diagnoser | Regression | SNR error (dB), clipped-% error, clipping F1 |
+| Denoiser | Speech enhancement | SI-SDR improvement, STOI, PESQ |
+| Declipper | Restoration | SI-SDR improvement vs cubic-spline baseline |
+| Router | Pipeline choice | Agreement with the oracle |
 
-- **SDR (Signal-to-Distortion Ratio):** how much louder the wanted stem is than
-  the error left behind, in dB — higher is better.
-- **SI-SDR (Scale-Invariant SDR):** the same idea but ignores overall volume, so
-  a quiet or loud output is scored fairly.
-- **PESQ (Perceptual Evaluation of Speech Quality):** an estimate of how good the
-  cleaned speech sounds to a listener, roughly on a 1–4.5 scale — higher is better.
-- **STOI (Short-Time Objective Intelligibility):** how many words a listener
-  would still understand, from 0 to 1 — higher is better.
-- **Precision:** of the instruments we predicted, how many were actually there.
-- **Recall:** of the instruments actually present, how many we found.
-- **F1:** the balance of precision and recall in one number.
+- **SI-SDR (scale-invariant signal-to-distortion ratio):** how much of the
+  output is the wanted signal versus the error, ignoring overall volume. Higher
+  is better. Reported as the *improvement* over the unprocessed input.
+- **STOI (short-time objective intelligibility):** 0–1 estimate of how much
+  speech a listener would still understand. Higher is better.
+- **PESQ:** perceptual quality estimate, roughly 1–4.5. Higher is better. Needs
+  a C build, so it may have to run on Colab rather than Windows.
+- **SNR error:** |predicted SNR − true SNR| in dB. Lower is better. True SNR is
+  exact because we built the mixture.
+- **Clipped-% error:** |predicted − true| percentage of clipped samples.
+  Lower is better.
+- **Clipping F1:** whether the model finds the clipped regions at all. Precision
+  and recall are reported too, since a model that never predicts clipping can
+  look accurate on a mostly-unclipped test set.
+- **Oracle agreement:** fraction of clips where the router picks the pipeline
+  that the exhaustive search found best.
+
+## Baselines that must be reported
+
+1. No repair.
+2. Spectral gating (the shipped `/features/clean` chain).
+3. Cubic-spline declipping.
+4. The trained model.
+
+A metric without its baseline is not a result.

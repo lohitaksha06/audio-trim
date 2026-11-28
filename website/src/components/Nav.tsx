@@ -8,6 +8,7 @@ const LINKS = [
   { name: "Editor", href: "/prompt" },
   { name: "Studio", href: "/studio" },
   { name: "Combine", href: "/features/combine" },
+  { name: "Clean", href: "/features/clean" },
   { name: "Lab", href: "/lab" },
   { name: "Guide", href: "/guide" },
 ];

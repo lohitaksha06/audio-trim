@@ -1,12 +1,16 @@
+import Link from "next/link";
+
 interface FeatureCardProps {
   title: string;
   description: string;
   icon: React.ReactNode;
   note?: string;
+  /** When set, the whole card becomes a link to that workspace. */
+  href?: string;
 }
 
-export default function FeatureCard({ title, description, icon, note }: FeatureCardProps) {
-  return (
+export default function FeatureCard({ title, description, icon, note, href }: FeatureCardProps) {
+  const body = (
     <div className="border-t border-white/15 pt-5">
       <div className="mb-5 flex items-start justify-between gap-4">
         <div className="text-white/50">{icon}</div>
@@ -19,5 +23,16 @@ export default function FeatureCard({ title, description, icon, note }: FeatureC
       <h3 className="font-display text-2xl font-bold leading-tight text-[#f2f1ec] sm:text-3xl">{title}</h3>
       <p className="mt-3 text-sm leading-relaxed text-white/55 sm:text-base">{description}</p>
     </div>
+  );
+
+  if (!href) return body;
+
+  return (
+    <Link href={href} className="group block transition-opacity hover:opacity-85">
+      {body}
+      <span className="mt-3 inline-block font-mono text-[0.58rem] uppercase tracking-[0.16em] text-white/35 transition-colors group-hover:text-white/60">
+        Open →
+      </span>
+    </Link>
   );
 }

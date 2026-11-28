@@ -125,6 +125,14 @@ export default function Home() {
           </p>
           <div className="mt-12 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
             <FeatureCard
+              href="/features/clean"
+              icon={<svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 12h2.5l1.8-4.5L9.6 17l2.4-10 2 6.5 1.5-3H21" /></svg>}
+              title="Fix My Recording"
+              description="Audelle measures the file, names what is wrong — noise, clipping, level — and repairs only that, in one click."
+              note="local"
+            />
+            <FeatureCard
+              href="/features/combine"
               icon={<svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 3.75h7.5M8.25 20.25h7.5M6 6.75h12v10.5H6z" /><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 12h4.5m-2.25-2.25v4.5" /></svg>}
               title="Combine Takes"
               description="Put 2–5 recordings on one timeline. Auto-align the timing, nudge it by hand, and balance the parts with faders or a sentence."
