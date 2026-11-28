@@ -1,0 +1,12 @@
+{
+  "model": "Diagnoser",
+  "task": "SNR (dB) + clipped-fraction regression on 16 kHz log-mel",
+  "sample_rate": 16000,
+  "n_fft": 512,
+  "hop": 160,
+  "n_mels": 64,
+  "snr_scale": 30.0,
+  "n_params": 154978,
+  "feature_norm": "per-clip standardisation (mean/std), as in training",
+  "note": "Load with: Diagnoser(); model.load_state_dict(torch.load(path))"
+}

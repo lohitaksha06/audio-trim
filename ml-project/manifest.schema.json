@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://audelle.local/ml-project/manifest.schema.json",
   "title": "Dataset manifest",
-  "description": "Describes a small audio dataset used for evaluation.",
+  "description": "Describes a small audio dataset used for evaluation. Top-level 'split' is the primary split; each track carries its own 'split', which is authoritative when a manifest holds both train and val.",
   "type": "object",
   "required": [
     "name",
@@ -49,6 +49,70 @@
       "type": "string",
       "description": "SHA-256 of the archive or manifest contents.",
       "pattern": "^[a-fA-F0-9]{64}$"
+    },
+    "sample_rate": {
+      "type": "integer",
+      "description": "Sample rate shared by every track, in Hz.",
+      "minimum": 1
+    },
+    "created_utc": {
+      "type": "string",
+      "description": "When the manifest was generated (ISO 8601, UTC)."
+    },
+    "generator": {
+      "type": "string",
+      "description": "Script that produced the manifest."
+    },
+    "split_counts": {
+      "type": "object",
+      "description": "Track count per split.",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "note": {
+      "type": "string",
+      "description": "Free-text caveat about the contents."
+    },
+    "noise_source_url": {
+      "type": "string",
+      "description": "Where the noise used for the mixtures came from.",
+      "format": "uri"
+    },
+    "tracks": {
+      "type": "array",
+      "description": "Per-track records with exact labels and checksums.",
+      "items": {
+        "type": "object",
+        "required": ["id", "file", "split", "speaker", "snr_db",
+                     "clipped_fraction", "sha256"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "file": { "type": "string", "minLength": 1 },
+          "split": { "type": "string", "enum": ["train", "val", "test"] },
+          "speaker": { "type": "string", "minLength": 1 },
+          "snr_db": {
+            "type": "number",
+            "description": "Mix SNR relative to the speech level, in dB."
+          },
+          "clipped_fraction": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Fraction of samples at or beyond the clip threshold."
+          },
+          "clip_threshold": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Absolute amplitude the mixture was clipped at."
+          },
+          "duration_s": { "type": "number", "minimum": 0 },
+          "noise_file": { "type": "string" },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-fA-F0-9]{64}$"
+          }
+        }
+      }
     }
   }
 }

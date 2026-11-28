@@ -115,3 +115,29 @@ python -m pytest server/tests -q
 cd website && npx next build
 cd website && npx eslint src
 ```
+
+## Final-presentation components (mapped to deliverables)
+
+The rubric asks for six things. Here is exactly what satisfies each, and where it
+lives.
+
+| # | Rubric component | Deliverable |
+|---|---|---|
+| 1 | Problem understanding, background, motivation | Report intro (generated) + `docs/ML_PROJECT_PLAN.md` |
+| 2 | Literature review, objective definition | `docs/LITERATURE_REVIEW.md` + objectives in the report |
+| 3 | Data exploration, analysis, preprocessing | `scripts/preprocess.py` (done) + `scripts/eda.py` → EDA report + charts |
+| 4 | Model training & evaluation, class separability | `scripts/train_diagnoser.py` (done: seen/unseen + clip precision/recall/F1) + `scripts/analysis.py` (t-SNE of embeddings) |
+| 5 | Dimensionality reduction, correlation, plots | `scripts/analysis.py` (PCA, t-SNE, correlation heatmap) |
+| 6 | Explainability (LIME/SHAP) | `scripts/explain.py` (LIME + gradient saliency on the diagnoser) |
+
+**Model saving:** `train_diagnoser.py` writes `outputs/models/diagnoser.pt`
+(state_dict) plus a `.json` config, so the demo loads a real trained checkpoint.
+**Consolidation:** `scripts/report.py` assembles everything into
+`outputs/RESULTS.md` — one page with train/val/test tables, baselines, learning
+curves, the seen/unseen gap, the class-separability view and the explainability
+figures. That single page is the presentation artefact.
+
+Honesty note: the primary task is regression, so "class separability" is
+reported as a *binary classification view* (clipped vs not, noisy vs not),
+with precision/recall/F1 — stated as such rather than pretending the task is
+classification.

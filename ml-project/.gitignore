@@ -1,16 +1,30 @@
-# Datasets, weights and generated audio are not committed
+# Datasets and raw/processed audio are not committed (multi-GB).
 data/*
 models/*
-outputs/*
 __pycache__/
 *.pyc
 *.wav
 *.mp3
-*.pt
 *.ckpt
 .venv/
 
 # Keep the folder placeholders trackable
 !data/.gitkeep
 !models/.gitkeep
+
+# --- outputs/ ---
+# Raw output is ignored, but the small submission-ready artifacts are tracked:
+# the consolidated report, the per-run markdown/summary files, the metric JSONs,
+# the trained checkpoint (+config) for the demo, and the figures.
+outputs/*
 !outputs/.gitkeep
+!outputs/RESULTS.md
+!outputs/*_report.md
+!outputs/*_summary.json
+!outputs/models/
+!outputs/metrics/
+!outputs/figures/
+!outputs/models/*.json
+!outputs/models/*.pt
+!outputs/metrics/*.json
+!outputs/figures/*.png

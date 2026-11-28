@@ -1,0 +1,27 @@
+{
+  "split": "test",
+  "n": 824,
+  "speakers": [
+    "p232",
+    "p257"
+  ],
+  "mae_snr_model_db": 2.095,
+  "mae_snr_dsp_db": 4.912,
+  "corr_snr_model": 0.9453,
+  "corr_snr_dsp": 0.865,
+  "mae_clip_model": 0.01197,
+  "clip_cls_model": {
+    "precision": 0.8702,
+    "recall": 0.9224,
+    "f1": 0.8955,
+    "accuracy": 0.8216,
+    "positive_rate": 0.8289
+  },
+  "clip_cls_dsp": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "accuracy": 0.1711,
+    "positive_rate": 0.8289
+  }
+}
