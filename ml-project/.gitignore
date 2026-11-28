@@ -1,7 +1,7 @@
 # Datasets, weights and generated audio are not committed
-data/
-models/
-outputs/
+data/*
+models/*
+outputs/*
 __pycache__/
 *.pyc
 *.wav
