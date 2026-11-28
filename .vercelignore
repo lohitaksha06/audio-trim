@@ -1,0 +1,5 @@
+# Vercel only builds the Next.js app in `website/`. Exclude the ML project
+# (whose data/ holds tens of thousands of extracted WAVs that would otherwise
+# blow past Vercel's 15,000-file upload limit) and any local media.
+ml-project
+test-audio-files
