@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audelle.local/ml-project/manifest.schema.json",
+  "title": "Dataset manifest",
+  "description": "Describes a small audio dataset used for evaluation.",
+  "type": "object",
+  "required": [
+    "name",
+    "source_url",
+    "license",
+    "num_tracks",
+    "labels",
+    "split",
+    "checksum"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Human-readable dataset name.",
+      "minLength": 1
+    },
+    "source_url": {
+      "type": "string",
+      "description": "Where the data came from.",
+      "format": "uri"
+    },
+    "license": {
+      "type": "string",
+      "description": "License or usage terms, e.g. 'CC BY 4.0'.",
+      "minLength": 1
+    },
+    "num_tracks": {
+      "type": "integer",
+      "description": "Number of audio tracks in this manifest.",
+      "minimum": 0
+    },
+    "labels": {
+      "type": "array",
+      "description": "Labels present in the dataset (instruments, classes, ...).",
+      "items": { "type": "string" }
+    },
+    "split": {
+      "type": "string",
+      "description": "Which split this manifest covers.",
+      "enum": ["train", "val", "test"]
+    },
+    "checksum": {
+      "type": "string",
+      "description": "SHA-256 of the archive or manifest contents.",
+      "pattern": "^[a-fA-F0-9]{64}$"
+    }
+  }
+}

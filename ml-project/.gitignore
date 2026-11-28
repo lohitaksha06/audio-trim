@@ -1,0 +1,16 @@
+# Datasets, weights and generated audio are not committed
+data/
+models/
+outputs/
+__pycache__/
+*.pyc
+*.wav
+*.mp3
+*.pt
+*.ckpt
+.venv/
+
+# Keep the folder placeholders trackable
+!data/.gitkeep
+!models/.gitkeep
+!outputs/.gitkeep
