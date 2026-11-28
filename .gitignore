@@ -43,3 +43,6 @@ test-audio-files/*.mp3
 test-audio-files/*.mp4
 test-audio-files/*.jpg
 test-audio-files/*.jpeg
+
+# Personal / non-project files
+23CSE301_ProjectReport_CoverSheet.docx
